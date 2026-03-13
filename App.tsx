@@ -499,18 +499,32 @@ const App: React.FC = () => {
           const now = new Date();
           
           if (eventDate > now) {
+              // Main Notification (at start time)
               await LocalNotifications.schedule({
                   notifications: [{
-                      id: hashCode(event.id), // Unique numeric ID
+                      id: hashCode(event.id),
                       title: 'Termin Erinnerung 📅',
                       body: `${event.title} um ${event.time} Uhr`,
                       schedule: { at: eventDate },
                       smallIcon: "ic_stat_logo",
-                      sound: undefined,
-                      actionTypeId: "",
                       extra: { route: AppRoute.CALENDAR }
                   }]
               });
+
+              // Secondary Notification (60 minutes before)
+              const sixtyMinBefore = new Date(eventDate.getTime() - 60 * 60 * 1000);
+              if (sixtyMinBefore > now) {
+                  await LocalNotifications.schedule({
+                      notifications: [{
+                          id: hashCode(event.id + "_60m"),
+                          title: 'In 60 Minuten ⏳',
+                          body: `${event.title} beginnt bald (${event.time} Uhr)`,
+                          schedule: { at: sixtyMinBefore },
+                          smallIcon: "ic_stat_logo",
+                          extra: { route: AppRoute.CALENDAR }
+                      }]
+                  });
+              }
           }
       } catch (e) {
           console.error("Failed to schedule notification for event", event.title, e);
@@ -519,7 +533,12 @@ const App: React.FC = () => {
 
   const cancelEventNotification = async (id: string) => {
       try {
-          await LocalNotifications.cancel({ notifications: [{ id: hashCode(id) }] });
+          await LocalNotifications.cancel({ 
+              notifications: [
+                  { id: hashCode(id) },
+                  { id: hashCode(id + "_60m") }
+              ] 
+          });
       } catch (e) {}
   };
 
