@@ -41,14 +41,21 @@ CREATE TABLE IF NOT EXISTS news (
 CREATE TABLE IF NOT EXISTS polls (
     id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
     question TEXT NOT NULL,
-    options JSONB NOT NULL, -- [{id, text, votes: []}]
+    description TEXT,
+    options JSONB NOT NULL, -- [{id, text, description, votes: []}]
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     starts_at TIMESTAMP WITH TIME ZONE,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE,
     author_id TEXT NOT NULL REFERENCES family(id),
     closed BOOLEAN DEFAULT FALSE,
-    allow_multiple_votes BOOLEAN DEFAULT FALSE
+    allow_multiple_selection BOOLEAN DEFAULT FALSE
 );
+
+-- Note: To create buckets via SQL in Supabase:
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('apps', 'apps', true);
+-- Policy setup for public access:
+-- CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'apps');
+-- CREATE POLICY "Admin Upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'apps' AND auth.role() = 'authenticated');
 
 -- Table: shopping
 CREATE TABLE IF NOT EXISTS shopping (

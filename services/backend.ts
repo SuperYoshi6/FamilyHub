@@ -126,9 +126,21 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
     private sanitize(item: Partial<T> | T): any {
         const payload: any = { ...item };
+        
+        // Remove virtual fields not in DB
         if (this.table === 'news' && 'readBy' in payload) {
             delete payload.readBy;
         }
+
+        // Map camelCase to snake_case for specific tables
+        if (this.table === 'polls') {
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+            if ('startsAt' in payload) { payload.starts_at = payload.startsAt; delete payload.startsAt; }
+            if ('expiresAt' in payload) { payload.expires_at = payload.expiresAt; delete payload.expiresAt; }
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if ('allowMultipleSelection' in payload) { payload.allow_multiple_selection = payload.allowMultipleSelection; delete payload.allowMultipleSelection; }
+        }
+        
         return payload;
     }
 

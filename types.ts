@@ -34,19 +34,21 @@ export interface NewsItem {
 export interface PollOption {
   id: string;
   text: string;
+  description?: string;
   votes: string[]; // Array of User IDs who voted for this
 }
 
 export interface Poll {
   id: string;
   question: string;
+  description?: string;
   options: PollOption[];
   createdAt: string;
-  startsAt?: string; // ISO String - Scheduled start
-  expiresAt: string; // ISO String
+  startsAt?: string; // ISO String - Scheduled start (optional)
+  expiresAt?: string; // ISO String (optional)
   authorId: string;
   closed?: boolean;
-  allowMultipleVotes?: boolean;
+  allowMultipleSelection?: boolean;
 }
 
 // --- NOTIFICATIONS ---

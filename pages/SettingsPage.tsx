@@ -7,9 +7,9 @@ import Logo from '../components/Logo';
 import { t, Language } from '../services/translations';
 
 // --- CONFIG & UPDATE ANLEITUNG ---
-const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/updates/FamilienHub.apk";
-const WEBSITE_LINK: string = "https://superyoshi6.github.io/FamilienHub/";
-const APP_VERSION = "1.";
+const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
+const WEBSITE_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
+const APP_VERSION = "2.0.0";
 
 interface SettingsPageProps {
     currentUser: FamilyMember;
@@ -728,7 +728,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-bold text-gray-900 dark:text-white text-base">Webseite</h3>
-                                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io/FamilienHub</p>
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io/FamilyHub</p>
                                     </div>
                                 </div>
                                 <ExternalLink size={20} className="text-gray-400 group-hover:text-purple-500 transition ml-2" />

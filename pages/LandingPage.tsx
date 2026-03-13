@@ -15,6 +15,8 @@ const LandingPage: React.FC = () => {
                     <nav className="hidden md:flex space-x-8 text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                         <a href="#features" className="hover:text-blue-500 transition-colors">Features</a>
                         <a href="#install" className="hover:text-blue-500 transition-colors">Install</a>
+                        <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="hover:text-blue-500 transition-colors">APK</a>
+                        <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="hover:text-blue-500 transition-colors">Swift</a>
                         <a href="/app" className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Öffnen</a>
                     </nav>
                 </div>
@@ -36,9 +38,14 @@ const LandingPage: React.FC = () => {
                         <a href="/app" className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-3xl text-xl font-bold hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/40 active:scale-95">
                             Jetzt starten 🚀
                         </a>
-                        <a href="#install" className="w-full md:w-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-10 py-5 rounded-3xl text-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95">
-                            App installieren
-                        </a>
+                        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                            <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-6 py-5 rounded-3xl text-lg font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                <Download size={20}/> APK
+                            </a>
+                            <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-6 py-5 rounded-3xl text-lg font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                <Download size={20}/> Swift
+                            </a>
+                        </div>
                     </div>
                 </div>
 

@@ -31,6 +31,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     events, news, polls, family, currentUser, 
     onAddEvent, onUpdateEvent, onDeleteEvent, 
     onAddNews, onUpdateNews, onDeleteNews,
+    onAddPoll, onUpdatePoll, onDeletePoll,
     onProfileClick, initialTab = 'calendar', liquidGlass = false
 }) => {
   // Tab State with Persistence
@@ -81,6 +82,19 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
   const [newsImageUrlInput, setNewsImageUrlInput] = useState('');
   const newsFileInputRef = useRef<HTMLInputElement>(null);
   const [processingImage, setProcessingImage] = useState(false);
+  
+  // --- POLL STATE ---
+  const [boardType, setBoardType] = useState<'news' | 'polls'>('news');
+  const [showPollForm, setShowPollForm] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollDesc, setPollDesc] = useState('');
+  const [pollOptions, setPollOptions] = useState<{id: string, text: string, description: string}[]>([
+      { id: '1', text: '', description: '' },
+      { id: '2', text: '', description: '' }
+  ]);
+  const [pollStartTime, setPollStartTime] = useState('');
+  const [pollEndTime, setPollEndTime] = useState('');
+  const [pollAllowMulti, setPollAllowMulti] = useState(false);
 
   // Filter events before grouping
   const filteredEvents = events.filter(e => {
@@ -316,74 +330,284 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
       setNewsImageUrlInput('');
   };
 
+  const submitPoll = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!pollQuestion.trim() || pollOptions.some(o => !o.text.trim()) || !onAddPoll) return;
+      
+      const newPoll: Poll = {
+          id: Date.now().toString(),
+          question: pollQuestion,
+          description: pollDesc,
+          options: pollOptions.map(o => ({ ...o, votes: [] })),
+          authorId: currentUser.id,
+          createdAt: new Date().toISOString(),
+          startsAt: pollStartTime || undefined,
+          expiresAt: pollEndTime || undefined,
+          allowMultipleSelection: pollAllowMulti
+      };
+      
+      onAddPoll(newPoll);
+      setShowPollForm(false);
+      setPollQuestion('');
+      setPollDesc('');
+      setPollOptions([{ id: '1', text: '', description: '' }, { id: '2', text: '', description: '' }]);
+      setPollStartTime('');
+      setPollEndTime('');
+      setPollAllowMulti(false);
+  };
+
+  const handleVote = (pollId: string, optionId: string) => {
+      if (!onUpdatePoll || !polls) return;
+      const poll = polls.find(p => p.id === pollId);
+      if (!poll) return;
+      
+      const newOptions = poll.options.map(opt => {
+          if (opt.id === optionId) {
+              const hasVoted = opt.votes.includes(currentUser.id);
+              if (hasVoted) {
+                  return { ...opt, votes: opt.votes.filter(id => id !== currentUser.id) };
+              } else {
+                  return { ...opt, votes: [...opt.votes, currentUser.id] };
+              }
+          }
+          // If not multiple selection, remove vote from others
+          if (!poll.allowMultipleSelection && opt.id !== optionId) {
+              return { ...opt, votes: opt.votes.filter(id => id !== currentUser.id) };
+          }
+          return opt;
+      });
+      
+      onUpdatePoll(pollId, { options: newOptions });
+  };
+
   const renderNewsBoard = () => {
     return (
         <div className="animate-fade-in space-y-6">
-            {!showNewsForm && (
-                <div className="flex justify-center">
-                    <button onClick={() => setShowNewsForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 hover:bg-indigo-700 transition active:scale-95">
-                        <Plus size={20} /> <span>Neuigkeit erstellen</span>
-                    </button>
-                </div>
-            )}
-
-            {showNewsForm && (
-                <div className={`rounded-xl shadow-lg p-4 animate-slide-in ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className={`font-bold ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>Neue Notiz</h3>
-                        <button onClick={() => setShowNewsForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
-                    </div>
-                    <form onSubmit={submitNews} className="space-y-4">
-                        <input type="text" placeholder="Titel" value={newsTitle} onChange={(e) => setNewsTitle(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} required />
-                        <textarea placeholder="Beschreibung..." value={newsDesc} onChange={(e) => setNewsDesc(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} rows={3} />
-                        <div className="relative"><Hash size={16} className="absolute left-3 top-3.5 text-gray-400" /><input type="text" placeholder="Tag (#Sommer)" value={newsTag} onChange={(e) => setNewsTag(e.target.value)} className={`w-full rounded-xl p-3 pl-9 text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} /></div>
-                        
-                        <div className={`p-3 rounded-xl border border-dashed ${liquidGlass ? 'bg-white/30 border-white/40' : 'bg-gray-50 dark:bg-gray-750 border-gray-300 dark:border-gray-600'}`}>
-                             <div className="flex gap-2 mb-2">
-                                 <button type="button" onClick={() => setImageMode('upload')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'upload' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>Foto</button>
-                                 <button type="button" onClick={() => setImageMode('url')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'url' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>URL</button>
-                             </div>
-                             {imageMode === 'upload' ? (
-                                 <div className="text-center py-2">
-                                     <input type="file" ref={newsFileInputRef} onChange={handleNewsFileChange} accept="image/*" className="hidden" />
-                                     {newsImage ? (<div className="relative inline-block"><img src={newsImage} className="h-32 rounded-lg shadow-sm" /><button type="button" onClick={() => setNewsImage('')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12}/></button></div>) : (<button type="button" onClick={() => newsFileInputRef.current?.click()} className="flex flex-col items-center justify-center w-full py-4 text-gray-400 hover:text-indigo-500 transition">{processingImage ? <Loader2 className="animate-spin mb-1" size={24}/> : <Camera size={24} className="mb-1"/>}<span className="text-xs">Foto wählen</span></button>)}
-                                 </div>
-                             ) : (
-                                 <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
-                             )}
-                        </div>
-                        <button type="submit" disabled={!newsTitle.trim() || processingImage} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50">Veröffentlichen</button>
-                    </form>
-                </div>
-            )}
-
-            <div className="grid gap-4">
-                {news.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
-                {news.map(item => {
-                    const author = family.find(f => f.id === item.authorId);
-                    return (
-                        <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
-                            {item.image && (<div className="h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-900 relative"><img src={item.image} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" alt="News" /></div>)}
-                            <div className="p-4">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        {item.tag && <span className="text-xs font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md mb-2 inline-block">{item.tag}</span>}
-                                        <h3 className={`font-bold text-lg leading-tight ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{item.title}</h3>
-                                    </div>
-                                    <button onClick={() => onDeleteNews(item.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
-                                </div>
-                                {item.description && <p className={`text-sm mb-4 whitespace-pre-line ${liquidGlass ? 'text-slate-700 dark:text-gray-300' : 'text-gray-600 dark:text-gray-300'}`}>{item.description}</p>}
-                                <div className="flex items-center justify-between pt-2 border-t border-gray-100/50 dark:border-gray-700">
-                                    <div className="flex items-center space-x-2">
-                                        {author ? (<><img src={author.avatar} className="w-6 h-6 rounded-full" /><span className="text-xs font-medium opacity-70">{author.name}</span></>) : (<span className="text-xs text-gray-400">Unbekannt</span>)}
-                                    </div>
-                                    <span className="text-[10px] opacity-60">{new Date(item.createdAt).toLocaleDateString()}</span>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
+            <div className="flex justify-center mb-6">
+                 <div className={`${liquidGlass ? 'liquid-shimmer-card border-white/40 p-0.5 rounded-lg relative flex' : 'bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg flex'}`}>
+                    <button onClick={() => setBoardType('news')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(boardType === 'news')}`}><FileText size={12} className="mr-1"/> Notizen</button>
+                    <button onClick={() => setBoardType('polls')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(boardType === 'polls')}`}><Users size={12} className="mr-1"/> Umfragen</button>
+                 </div>
             </div>
+
+            {boardType === 'news' ? (
+                <>
+                    {!showNewsForm && (
+                        <div className="flex justify-center">
+                            <button onClick={() => setShowNewsForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 hover:bg-indigo-700 transition active:scale-95">
+                                <Plus size={20} /> <span>Notiz erstellen</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {showNewsForm && (
+                        <div className={`rounded-xl shadow-lg p-4 animate-slide-in ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className={`font-bold ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>Neue Notiz</h3>
+                                <button onClick={() => setShowNewsForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                            </div>
+                            <form onSubmit={submitNews} className="space-y-4">
+                                <input type="text" placeholder="Titel" value={newsTitle} onChange={(e) => setNewsTitle(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} required />
+                                <textarea placeholder="Beschreibung..." value={newsDesc} onChange={(e) => setNewsDesc(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} rows={3} />
+                                <div className="relative"><Hash size={16} className="absolute left-3 top-3.5 text-gray-400" /><input type="text" placeholder="Tag (#Sommer)" value={newsTag} onChange={(e) => setNewsTag(e.target.value)} className={`w-full rounded-xl p-3 pl-9 text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} /></div>
+                                
+                                <div className={`p-3 rounded-xl border border-dashed ${liquidGlass ? 'bg-white/30 border-white/40' : 'bg-gray-50 dark:bg-gray-750 border-gray-300 dark:border-gray-600'}`}>
+                                     <div className="flex gap-2 mb-2">
+                                         <button type="button" onClick={() => setImageMode('upload')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'upload' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>Foto</button>
+                                         <button type="button" onClick={() => setImageMode('url')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'url' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>URL</button>
+                                     </div>
+                                     {imageMode === 'upload' ? (
+                                         <div className="text-center py-2">
+                                             <input type="file" ref={newsFileInputRef} onChange={handleNewsFileChange} accept="image/*" className="hidden" />
+                                             {newsImage ? (<div className="relative inline-block"><img src={newsImage} className="h-32 rounded-lg shadow-sm" /><button type="button" onClick={() => setNewsImage('')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12}/></button></div>) : (<button type="button" onClick={() => newsFileInputRef.current?.click()} className="flex flex-col items-center justify-center w-full py-4 text-gray-400 hover:text-indigo-500 transition">{processingImage ? <Loader2 className="animate-spin mb-1" size={24}/> : <Camera size={24} className="mb-1"/>}<span className="text-xs">Foto wählen</span></button>)}
+                                         </div>
+                                     ) : (
+                                         <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
+                                     )}
+                                </div>
+                                <button type="submit" disabled={!newsTitle.trim() || processingImage} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50">Veröffentlichen</button>
+                            </form>
+                        </div>
+                    )}
+
+                    <div className="grid gap-4">
+                        {news.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
+                        {news.map(item => {
+                            const author = family.find(f => f.id === item.authorId);
+                            return (
+                                <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
+                                    {item.image && (<div className="h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-900 relative"><img src={item.image} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" alt="News" /></div>)}
+                                    <div className="p-4">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                {item.tag && <span className="text-xs font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md mb-2 inline-block">{item.tag}</span>}
+                                                <h3 className={`font-bold text-lg leading-tight ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{item.title}</h3>
+                                            </div>
+                                            <button onClick={() => onDeleteNews(item.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                                        </div>
+                                        {item.description && <p className={`text-sm mb-4 whitespace-pre-line ${liquidGlass ? 'text-slate-700 dark:text-gray-300' : 'text-gray-600 dark:text-gray-300'}`}>{item.description}</p>}
+                                        <div className="flex items-center justify-between pt-2 border-t border-gray-100/50 dark:border-gray-700">
+                                            <div className="flex items-center space-x-2">
+                                                {author ? (<><img src={author.avatar} className="w-6 h-6 rounded-full" /><span className="text-xs font-medium opacity-70">{author.name}</span></>) : (<span className="text-xs text-gray-400">Unbekannt</span>)}
+                                            </div>
+                                            <span className="text-[10px] opacity-60">{new Date(item.createdAt).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            ) : (
+                <>
+                    {!showPollForm && (
+                        <div className="flex justify-center">
+                            <button onClick={() => setShowPollForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 hover:bg-indigo-700 transition active:scale-95">
+                                <Plus size={20} /> <span>Umfrage erstellen</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {showPollForm && (
+                        <div className={`rounded-xl shadow-lg p-4 animate-slide-in ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className={`font-bold ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>Neue Umfrage</h3>
+                                <button onClick={() => setShowPollForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                            </div>
+                            <form onSubmit={submitPoll} className="space-y-4">
+                                <input type="text" placeholder="Frage" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} required />
+                                <textarea placeholder="Beschreibung (Optional)" value={pollDesc} onChange={(e) => setPollDesc(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} rows={2} />
+                                
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase text-gray-500 ml-1">Antworten</label>
+                                    {pollOptions.map((opt, idx) => (
+                                        <div key={opt.id} className="space-y-1">
+                                            <div className="flex gap-2">
+                                                <input type="text" placeholder={`Option ${idx + 1}`} value={opt.text} onChange={(e) => {
+                                                    const newOpts = [...pollOptions];
+                                                    newOpts[idx].text = e.target.value;
+                                                    setPollOptions(newOpts);
+                                                }} className={`flex-1 rounded-xl p-2.5 text-xs outline-none ${liquidGlass ? 'bg-white/20 border-white/20 text-slate-900 dark:text-white' : 'bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white'}`} />
+                                                {pollOptions.length > 2 && (
+                                                    <button type="button" onClick={() => setPollOptions(pollOptions.filter(o => o.id !== opt.id))} className="text-red-400 p-1"><X size={16}/></button>
+                                                )}
+                                            </div>
+                                            <input type="text" placeholder="Kuze Beschreibung (Optional)" value={opt.description} onChange={(e) => {
+                                                const newOpts = [...pollOptions];
+                                                newOpts[idx].description = e.target.value;
+                                                setPollOptions(newOpts);
+                                            }} className={`w-full rounded-xl p-2 text-[10px] outline-none ${liquidGlass ? 'bg-white/10 border-white/10 text-slate-700 dark:text-gray-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`} />
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => setPollOptions([...pollOptions, { id: Date.now().toString(), text: '', description: '' }])} className="text-blue-500 text-xs font-bold p-1 hover:underline">+ Option hinzufügen</button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                     <div>
+                                         <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Start (Optional)</label>
+                                         <input type="datetime-local" value={pollStartTime} onChange={(e) => setPollStartTime(e.target.value)} className={`w-full rounded-xl p-2 text-xs outline-none ${liquidGlass ? 'bg-white/20 border-white/20' : 'bg-gray-50 dark:bg-gray-700 dark:text-white'}`} />
+                                     </div>
+                                     <div>
+                                         <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Ende (Optional)</label>
+                                         <input type="datetime-local" value={pollEndTime} onChange={(e) => setPollEndTime(e.target.value)} className={`w-full rounded-xl p-2 text-xs outline-none ${liquidGlass ? 'bg-white/20 border-white/20' : 'bg-gray-50 dark:bg-gray-700 dark:text-white'}`} />
+                                     </div>
+                                </div>
+
+                                <div className="flex items-center space-x-3 p-1">
+                                    <input type="checkbox" id="multiVote" checked={pollAllowMulti} onChange={(e) => setPollAllowMulti(e.target.checked)} className="w-4 h-4 rounded text-indigo-600" />
+                                    <label htmlFor="multiVote" className="text-xs font-medium cursor-pointer">Mehrfachauswahl erlauben</label>
+                                </div>
+
+                                <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50">Umfrage starten</button>
+                            </form>
+                        </div>
+                    )}
+
+                    <div className="grid gap-4">
+                        {(polls || []).length === 0 && !showPollForm && <div className="text-center py-10 opacity-50"><Users size={48} className="mx-auto mb-2" /><p>Keine Umfragen aktiv.</p></div>}
+                        {(polls || []).map(poll => {
+                            const totalVotes = poll.options.reduce((acc, opt) => acc + opt.votes.length, 0);
+                            const author = family.find(f => f.id === poll.authorId);
+                            const isTimed = poll.startsAt || poll.expiresAt;
+                            const now = new Date();
+                            const hasStarted = poll.startsAt ? now >= new Date(poll.startsAt) : true;
+                            const hasExpired = poll.expiresAt ? now > new Date(poll.expiresAt) : false;
+                            
+                            return (
+                                <div key={poll.id} className={`rounded-2xl shadow-sm p-4 border transition-all ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                            <h3 className={`font-bold text-lg leading-tight ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{poll.question}</h3>
+                                            {poll.description && <p className="text-xs text-gray-500 mt-1">{poll.description}</p>}
+                                        </div>
+                                        <div className="flex gap-2">
+                                             {poll.allowMultipleSelection && <span className="bg-blue-50 dark:bg-blue-900/30 text-[10px] font-bold text-blue-600 px-2 py-0.5 rounded-full">Multi</span>}
+                                             {onDeletePoll && <button onClick={() => onDeletePoll(poll.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>}
+                                        </div>
+                                    </div>
+
+                                    {isTimed && (
+                                        <div className="flex items-center gap-2 mb-4 text-[10px] font-bold">
+                                            <Clock size={12} className="text-indigo-500" />
+                                            {!hasStarted ? (
+                                                <span className="text-orange-500">Startet am {new Date(poll.startsAt!).toLocaleString()}</span>
+                                            ) : hasExpired ? (
+                                                <span className="text-red-500">Beendet</span>
+                                            ) : (
+                                                <span className="text-emerald-500">Aktiv bis {poll.expiresAt ? new Date(poll.expiresAt).toLocaleString() : 'Open End'}</span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-3 mt-4">
+                                        {poll.options.map(opt => {
+                                            const vPercentage = totalVotes > 0 ? (opt.votes.length / totalVotes) * 100 : 0;
+                                            const hasVoted = opt.votes.includes(currentUser.id);
+                                            
+                                            return (
+                                                <button 
+                                                    key={opt.id} 
+                                                    onClick={() => (hasStarted && !hasExpired) && handleVote(poll.id, opt.id)}
+                                                    disabled={!hasStarted || hasExpired}
+                                                    className={`w-full group relative rounded-xl p-3 text-left transition-all border ${hasVoted ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'cursor-not-allowed' : 'hover:border-indigo-300'}`}
+                                                >
+                                                    <div className="relative z-10 flex flex-col">
+                                                         <div className="flex justify-between items-center">
+                                                            <span className={`text-sm font-bold ${hasVoted ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-200'}`}>{opt.text}</span>
+                                                            <span className="text-xs font-mono opacity-60">{opt.votes.length}</span>
+                                                         </div>
+                                                         {opt.description && <span className="text-[10px] opacity-60 mt-0.5 leading-tight">{opt.description}</span>}
+                                                    </div>
+                                                    <div className="absolute inset-0 bg-gray-50/50 dark:bg-gray-900/20 z-0 rounded-xl overflow-hidden">
+                                                        <div 
+                                                            className={`h-full transition-all duration-1000 ${hasVoted ? 'bg-indigo-500/10' : 'bg-gray-100/50 dark:bg-gray-700/20'}`} 
+                                                            style={{ width: `${vPercentage}%` }}
+                                                        />
+                                                    </div>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100/50 dark:border-gray-700">
+                                        <div className="flex -space-x-1.5 overflow-hidden">
+                                            {poll.options.flatMap(o => o.votes).slice(0, 5).map((id, i) => {
+                                                const voter = family.find(f => f.id === id);
+                                                return voter ? <img key={i} src={voter.avatar} className="inline-block h-4 w-4 rounded-full ring-2 ring-white dark:ring-gray-800" /> : null;
+                                            })}
+                                            {totalVotes > 5 && <span className="text-[8px] font-bold text-gray-400 pl-2 self-center">+{totalVotes - 5}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {author && <span className="text-[10px] font-medium opacity-50">Von {author.name}</span>}
+                                            <span className="text-[10px] opacity-40 font-mono italic">{new Date(poll.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </>
+            )}
         </div>
     );
   };
