@@ -1,0 +1,30 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    Android Notification Icon Source
+    Monochrome House Shape with Heart Cutout 
+    Use this file in Android Studio Image Asset Wizard
+  -->
+  <path 
+    fill="#000000" 
+    fill-rule="evenodd"
+    d="
+      M256 80
+      L80 240
+      V432
+      C80 449.6 94.4 464 112 464
+      H400
+      C417.6 464 432 449.6 432 432
+      V240
+      L256 80
+      Z
+      M256 380
+      C256 380 346 325 346 270
+      C346 240 321 220 291 220
+      C274 220 263 230 256 240
+      C249 230 238 220 221 220
+      C191 220 166 240 166 270
+      C166 325 256 380 256 380
+      Z
+    "
+  />
+</svg>
