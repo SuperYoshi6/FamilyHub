@@ -9,7 +9,7 @@ const INITIAL_FAMILY: FamilyMember[] = [
         avatar: 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff',
         color: 'bg-gray-800 text-white',
         role: 'admin',
-        password: 'admin' 
+        password: 'admin005' 
     }
 ];
 const INITIAL_EVENTS: CalendarEvent[] = [];

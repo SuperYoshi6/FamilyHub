@@ -20,7 +20,7 @@ interface MealsPageProps {
   liquidGlass?: boolean;
 }
 
-type TabType = 'plan' | 'wishes' | 'places';
+type TabType = 'plan' | 'wishes';
 
 const MealsPage: React.FC<MealsPageProps> = ({ 
     plan, requests, family, currentUser, 
@@ -32,7 +32,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
   // Tab State with Persistence
   const [activeTab, setActiveTab] = useState<TabType>(() => {
       const saved = localStorage.getItem('fh_meals_tab');
-      if (saved === 'plan' || saved === 'wishes' || saved === 'places') {
+      if (saved === 'plan' || saved === 'wishes') {
           return saved;
       }
       return isChild ? 'wishes' : 'plan';
@@ -47,22 +47,6 @@ const MealsPage: React.FC<MealsPageProps> = ({
   // Wish State
   const [newWish, setNewWish] = useState('');
 
-  // Places State
-  const [placeQuery, setPlaceQuery] = useState('Restaurants in der Nähe');
-  const [placeResults, setPlaceResults] = useState<{ text: string; places: PlaceRecommendation[] } | null>(null);
-  const [loadingPlaces, setLoadingPlaces] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        (err) => {
-            console.log("GPS Info (Essen): Nutze Standard-Standort.", err.message);
-        }
-      );
-    }
-  }, []);
 
   const getCurrentWeekCycle = () => {
       const days = [];
@@ -97,19 +81,6 @@ const MealsPage: React.FC<MealsPageProps> = ({
       }
   };
 
-  const handlePlaceSearch = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if(!placeQuery.trim()) return;
-      setLoadingPlaces(true);
-      
-      // Use real location if available, otherwise fallback to Berlin
-      const lat = location?.lat || 52.52;
-      const lng = location?.lng || 13.40;
-      
-      const data = await suggestActivities(placeQuery, lat, lng); 
-      setPlaceResults(data);
-      setLoadingPlaces(false);
-  };
 
   const updateMealEntry = (dayName: string, field: string, value: any) => {
       const existingMeal = plan.find(p => p.day === dayName);
@@ -189,7 +160,6 @@ const MealsPage: React.FC<MealsPageProps> = ({
   const tabs = [];
   tabs.push({ id: 'plan', label: 'Planer', icon: Utensils });
   tabs.push({ id: 'wishes', label: 'Wünsche', icon: MessageCircleHeart });
-  tabs.push({ id: 'places', label: 'Orte', icon: Store });
 
   const activeIndex = tabs.findIndex(t => t.id === activeTab);
   const widthPercent = 100 / tabs.length;
@@ -241,30 +211,6 @@ const MealsPage: React.FC<MealsPageProps> = ({
                           </div>
                       ))}
                   </div>
-             </div>
-         )}
-         {activeTab === 'places' && (
-             <div className="space-y-6 animate-fade-in">
-                  <div className="relative">
-                     <Search className="absolute left-3 top-3.5 text-gray-400" size={20} />
-                     <form onSubmit={handlePlaceSearch}>
-                         <input type="text" value={placeQuery} onChange={(e) => setPlaceQuery(e.target.value)} placeholder="Suche Orte..." className={`w-full rounded-xl py-3 pl-10 pr-12 shadow-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-white border-gray-200'}`} />
-                         <button type="submit" className="absolute right-2 top-2 bg-emerald-600 text-white p-1.5 rounded-lg" disabled={loadingPlaces}>{loadingPlaces ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}</button>
-                     </form>
-                  </div>
-                  {placeResults && (
-                      <div className="space-y-4">
-                          <div className={`p-4 rounded-xl text-sm border ${liquidGlass ? 'bg-emerald-100/30 border-emerald-200/50' : 'bg-emerald-50 border-emerald-100'}`}>{placeResults.text}</div>
-                          <div className="grid gap-4">
-                              {placeResults.places.map((place, idx) => (
-                                  <div key={idx} className={`rounded-xl shadow-sm border p-4 ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100'}`}>
-                                     <h4 className="font-bold text-gray-900 dark:text-white text-lg">{place.title}</h4>
-                                     <p className="text-gray-500 text-sm mt-1">{place.address}</p>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                  )}
              </div>
          )}
       </div>

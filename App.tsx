@@ -58,6 +58,12 @@ const POLLING_INTERVAL = 30000;
 const LiquidBackground = React.memo(() => {
     return (
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] transform-gpu">
+            {/* Info */}
+            <div className="absolute top-4 left-4 flex items-center space-x-3 text-xs text-gray-400 font-medium z-10">
+                <span>v{CURRENT_APP_VERSION}</span>
+                <span>•</span>
+                <a href="https://github.com/SuperYoshi6/FamilyHub" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">GitHub</a>
+            </div>
             {/* Blob 1: Purple/Pink */}
             <div className="absolute top-0 left-[-20%] w-[70vw] h-[70vw] bg-purple-400 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[80px] opacity-40 animate-blob will-change-transform"></div>
             
