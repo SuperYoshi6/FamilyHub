@@ -267,52 +267,50 @@
       body.liquid-glass .liquid-shimmer-card {
         position: relative;
         overflow: hidden; 
-        background: rgba(255, 255, 255, 0.4) !important; /* Refined transparency */
-        backdrop-filter: blur(40px) saturate(200%) !important; /* Apple-style deep blur */
-        -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.6) !important; /* Sharper edges */
+        background: rgba(255, 255, 255, 0.25) !important;
+        backdrop-filter: blur(50px) saturate(210%) brightness(105%) !important;
+        -webkit-backdrop-filter: blur(50px) saturate(210%) brightness(105%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.45) !important;
+        border-radius: 20px; /* Base for squircle feel */
         box-shadow: 
-          0 10px 40px -10px rgba(0, 0, 0, 0.08), 
-          inset 0 0 0 1px rgba(255, 255, 255, 0.3),
-          0 1px 1px 0 rgba(255, 255, 255, 0.5) inset; /* Specular highlight */
+          0 8px 32px 0 rgba(31, 38, 135, 0.07),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.2);
         transform: translateZ(0);
         will-change: transform;
       }
 
       html.dark body.liquid-glass .liquid-shimmer-card {
-        background: rgba(15, 23, 42, 0.35) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        background: rgba(15, 23, 42, 0.3) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
         box-shadow: 
-          0 15px 45px -10px rgba(0, 0, 0, 0.6), 
-          inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-          0 1px 1px 0 rgba(255, 255, 255, 0.1) inset;
+          0 20px 50px rgba(0, 0, 0, 0.4),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.05);
       }
 
-      /* Shimmer Animation - Optimized */
+      /* Shimmer Animation - Refined for Specular Highlight */
       @keyframes liquidShimmer {
-        0% { transform: translateX(-150%) skewX(-25deg); }
-        100% { transform: translateX(250%) skewX(-25deg); }
+        0% { transform: translateX(-150%) rotate(25deg); }
+        100% { transform: translateX(250%) rotate(25deg); }
       }
 
       body.liquid-glass .liquid-shimmer-card::before {
         content: '';
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
         background: linear-gradient(
           to right,
           rgba(255, 255, 255, 0) 0%,
-          rgba(255, 255, 255, 0.3) 50%,
+          rgba(255, 255, 255, 0.4) 50%,
           rgba(255, 255, 255, 0) 100%
         );
-        opacity: 0.6; 
-        transform: skewX(-25deg);
-        animation: liquidShimmer 6s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0.15; 
+        transform: rotate(25deg);
+        animation: liquidShimmer 8s infinite ease-in-out;
         pointer-events: none;
         z-index: 10;
-        will-change: transform;
       }
       
       html.dark body.liquid-glass .liquid-shimmer-card::before {
@@ -342,7 +340,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/FamilyHub/assets/index-CcW1PLUD.js"></script>
+  <script type="module" crossorigin src="/FamilyHub/assets/index-ChAhJvgZ.js"></script>
 </head>
   <body class="transition-colors duration-300">
     <div id="root"></div>
