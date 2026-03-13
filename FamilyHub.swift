@@ -14,7 +14,15 @@ struct WebView: UIViewRepresentable {
     let url: URL
     
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
+        let config = WKWebViewConfiguration()
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.allowsBackForwardNavigationGestures = true
+        webView.scrollView.bounces = true // Natural feel
+        webView.backgroundColor = .clear
+        webView.isOpaque = false
         return webView
     }
     

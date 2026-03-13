@@ -64,14 +64,19 @@ const LiquidBackground = React.memo(() => {
                 <span>•</span>
                 <a href="https://github.com/SuperYoshi6/FamilyHub" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">GitHub</a>
             </div>
-            {/* Blob 1: Purple/Pink */}
-            <div className="absolute top-0 left-[-20%] w-[70vw] h-[70vw] bg-purple-400 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[80px] opacity-40 animate-blob will-change-transform"></div>
-            
-            {/* Blob 2: Cyan/Blue (Delayed animation) */}
-            <div className="absolute top-[20%] right-[-20%] w-[70vw] h-[70vw] bg-cyan-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[80px] opacity-40 animate-blob animation-delay-2000 will-change-transform"></div>
-            
-            {/* Blob 3: Pink/Yellow (Long delay) */}
-            <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-pink-300 dark:bg-blue-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[80px] opacity-40 animate-blob animation-delay-4000 will-change-transform"></div>
+
+            {/* Dynamic Moving Blobs (Apple-style backdrop depth) */}
+            <div className="liquid-blob-container text-blue-500 dark:text-blue-900">
+                <div className="liquid-blob w-[600px] h-[600px] bg-blue-400/30 -top-20 -left-20 animate-blob"></div>
+                <div className="liquid-blob w-[500px] h-[500px] bg-purple-400/20 top-1/4 -right-20 animate-blob animation-delay-2000"></div>
+                <div className="liquid-blob w-[700px] h-[700px] bg-pink-300/20 -bottom-40 left-1/4 animate-blob animation-delay-4000"></div>
+                <div className="liquid-blob w-[400px] h-[400px] bg-emerald-300/20 top-1/2 left-1/2 animate-blob"></div>
+            </div>
+
+            {/* Standard Blobs for non-blob supporting CSS or fallback depth */}
+            <div className="absolute top-0 left-[-20%] w-[70vw] h-[70vw] bg-purple-400 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-30 animate-blob will-change-transform"></div>
+            <div className="absolute top-[20%] right-[-20%] w-[70vw] h-[70vw] bg-cyan-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-30 animate-blob animation-delay-2000 will-change-transform"></div>
+            <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-pink-300 dark:bg-blue-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-30 animate-blob animation-delay-4000 will-change-transform"></div>
         </div>
     );
 });
@@ -110,7 +115,9 @@ const App: React.FC = () => {
     const path = window.location.pathname.toLowerCase();
     if (path.includes('/install')) return AppRoute.LANDING;
     if (path.includes('/app')) return AppRoute.APP;
-    return AppRoute.DASHBOARD;
+    // Root redirect
+    if (path === '/familyhub' || path === '/familyhub/') return AppRoute.LANDING;
+    return 'INVALID' as AppRoute;
   });
   const [lastRoute, setLastRoute] = useState<AppRoute>(AppRoute.DASHBOARD);
 
@@ -1183,6 +1190,8 @@ const App: React.FC = () => {
         switch (currentRoute) {
             case AppRoute.LANDING:
               return <LandingPage />;
+            case 'INVALID' as AppRoute:
+              return null; // Don't load anything for invalid routes
             case AppRoute.APP:
               // For /app, we show the dashboard or whatever the current state is
               // But if we are on /app specifically, dashboard is the base

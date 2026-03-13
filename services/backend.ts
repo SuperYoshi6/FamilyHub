@@ -120,7 +120,7 @@ class LocalStorageCollection<T extends { id: string }> implements ICollection<T>
 class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
     private localFallback: LocalStorageCollection<T>;
 
-    constructor(private table: string, key: string, defaultVal: T[]) {
+    constructor(private table: string, private key: string, private defaultVal: T[]) {
         this.localFallback = new LocalStorageCollection<T>(key, defaultVal);
     }
 
@@ -139,6 +139,16 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('expiresAt' in payload) { payload.expires_at = payload.expiresAt; delete payload.expiresAt; }
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if ('allowMultipleSelection' in payload) { payload.allow_multiple_selection = payload.allowMultipleSelection; delete payload.allowMultipleSelection; }
+        }
+
+        if (this.table === 'events') {
+            if ('endDate' in payload) { payload.end_date = payload.endDate; delete payload.endDate; }
+            if ('endTime' in payload) { payload.end_time = payload.endTime; delete payload.endTime; }
+            if ('assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
+        }
+
+        if (this.table === 'shopping') {
+            // Already correct or no special mapping needed currently
         }
         
         return payload;

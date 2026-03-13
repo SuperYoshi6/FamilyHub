@@ -165,16 +165,46 @@
       /* --- LIQUID GLASS EFFECT CORE --- */
       body.liquid-glass {
         /* Brighter, more vibrant background mesh */
-        background: linear-gradient(-45deg, #eef2ff, #e0e7ff, #fae8ff, #f3e8ff);
+        background: linear-gradient(-45deg, #eef2ff, #e0e7ff, #fae8ff, #f3e8ff, #ecfdf5);
         background-size: 400% 400%;
         animation: gradientX 15s ease infinite;
         background-attachment: fixed;
+        overflow-x: hidden;
       }
       
       html.dark body.liquid-glass {
-        background: linear-gradient(-45deg, #020617, #1e1b4b, #172554, #0f172a);
+        background: linear-gradient(-45deg, #020617, #1e1b4b, #172554, #1e1b4b, #020617);
         background-size: 400% 400%;
         animation: gradientX 20s ease infinite;
+      }
+
+      /* --- DYNAMIC BACKGROUND BLOBS --- */
+      .liquid-blob-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        overflow: hidden;
+        pointer-events: none;
+        filter: blur(80px);
+        opacity: 0.6;
+      }
+
+      .liquid-blob {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(40px);
+        animation: blobFloat 25s infinite alternate ease-in-out;
+        will-change: transform, left, top;
+      }
+
+      @keyframes blobFloat {
+        0% { transform: translate(0, 0) scale(1); }
+        33% { transform: translate(30vw, -20vh) scale(1.2); }
+        66% { transform: translate(-20vw, 40vh) scale(0.8); }
+        100% { transform: translate(10vw, 10vh) scale(1.1); }
       }
 
       /* --- CONTINUOUS GLASS LENS EFFECT --- */
@@ -237,19 +267,25 @@
       body.liquid-glass .liquid-shimmer-card {
         position: relative;
         overflow: hidden; 
-        background: rgba(255, 255, 255, 0.45) !important; /* Slightly more transparent */
-        backdrop-filter: blur(30px) saturate(180%) !important;
-        -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.5) !important;
-        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.4) !important; /* Refined transparency */
+        backdrop-filter: blur(40px) saturate(200%) !important; /* Apple-style deep blur */
+        -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.6) !important; /* Sharper edges */
+        box-shadow: 
+          0 10px 40px -10px rgba(0, 0, 0, 0.08), 
+          inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+          0 1px 1px 0 rgba(255, 255, 255, 0.5) inset; /* Specular highlight */
         transform: translateZ(0);
         will-change: transform;
       }
 
       html.dark body.liquid-glass .liquid-shimmer-card {
-        background: rgba(30, 41, 59, 0.4) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        background: rgba(15, 23, 42, 0.35) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        box-shadow: 
+          0 15px 45px -10px rgba(0, 0, 0, 0.6), 
+          inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+          0 1px 1px 0 rgba(255, 255, 255, 0.1) inset;
       }
 
       /* Shimmer Animation - Optimized */

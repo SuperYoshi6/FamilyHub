@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS events (
     title TEXT NOT NULL,
     date DATE NOT NULL,
     time TIME NOT NULL,
+    end_date DATE,
     end_time TIME,
     location TEXT,
     description TEXT,

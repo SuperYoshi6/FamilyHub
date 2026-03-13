@@ -15,9 +15,7 @@ const LandingPage: React.FC = () => {
                     <nav className="hidden md:flex space-x-8 text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                         <a href="#features" className="hover:text-blue-500 transition-colors">Features</a>
                         <a href="#install" className="hover:text-blue-500 transition-colors">Install</a>
-                        <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="hover:text-blue-500 transition-colors">APK</a>
-                        <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="hover:text-blue-500 transition-colors">Swift</a>
-                        <a href="/app" className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Öffnen</a>
+                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Öffnen</a>
                     </nav>
                 </div>
             </header>
@@ -35,16 +33,29 @@ const LandingPage: React.FC = () => {
                         Einkaufslisten, Kalender, Essenspläne und Aufgaben – alles an einem Ort, synchronisiert für die ganze Familie.
                     </p>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-4 animate-slide-up animation-delay-500">
-                        <a href="/app" className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-3xl text-xl font-bold hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/40 active:scale-95">
+                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-3xl text-xl font-bold hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/40 active:scale-95">
                             Jetzt starten 🚀
                         </a>
-                        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-                            <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-6 py-5 rounded-3xl text-lg font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                <Download size={20}/> APK
-                            </a>
-                            <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-6 py-5 rounded-3xl text-lg font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center justify-center gap-2">
-                                <Download size={20}/> Swift
-                            </a>
+                        <div className="relative group">
+                            <button className="w-full md:w-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-10 py-5 rounded-3xl text-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center gap-2">
+                                <Download size={24} /> App laden
+                            </button>
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all z-20">
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 text-left">
+                                    <Smartphone className="text-blue-500" />
+                                    <div>
+                                        <div className="font-bold">Android (APK)</div>
+                                        <div className="text-xs opacity-50">Direkte Installation</div>
+                                    </div>
+                                </a>
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
+                                    <Globe className="text-orange-500" />
+                                    <div>
+                                        <div className="font-bold">iOS (Swift)</div>
+                                        <div className="text-xs opacity-50">Swift Playground</div>
+                                    </div>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

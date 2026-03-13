@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import { ShoppingItem, Task, FamilyMember, Recipe, TaskPriority } from '../types';
-import { ShoppingCart, Home, User, BookOpen, ChevronUp, ChevronDown, Plus, X, Tag, CheckCircle2, Circle, Trash2, Camera, Loader2, Flag, AlignLeft, Lock } from 'lucide-react';
+import { ShoppingCart, Home, User, BookOpen, ChevronUp, ChevronDown, Plus, Tag, CheckCircle2, Circle, Trash2, Flag, AlignLeft, Lock, Loader2 } from 'lucide-react';
 
 interface ListsPageProps {
   shoppingItems: ShoppingItem[];
@@ -31,6 +31,7 @@ type TabType = 'shopping' | 'household' | 'personal' | 'recipes';
 const ListsPage: React.FC<ListsPageProps> = ({ 
   shoppingItems, householdTasks, personalTasks, recipes, family, currentUser,
   onToggleShopping, onAddShopping, onDeleteShopping, onAddHousehold, onToggleTask, onAddPersonal, onDeleteTask, onAddRecipe, onDeleteRecipe,
+  onAddIngredientsToShopping,
   onProfileClick, liquidGlass = false
 }) => {
   // Tab State with Persistence
@@ -48,12 +49,17 @@ const ListsPage: React.FC<ListsPageProps> = ({
 
   const [newItem, setNewItem] = useState('');
   const [newNote, setNewNote] = useState('');
+  const [newCategory, setNewCategory] = useState('Sonstiges');
   const [newPriority, setNewPriority] = useState<TaskPriority>('medium');
   const [selectedAssignee, setSelectedAssignee] = useState<string>(family.length > 0 ? family[0].id : (currentUser?.id || ''));
   const [showExtendedForm, setShowExtendedForm] = useState(false);
+  const [recipeLink, setRecipeLink] = useState('');
+  const [isScraping, setIsScraping] = useState(false);
   
-  // Recipe State
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const SHOPPING_CATEGORIES = [
+      "Obst & Gemüse", "Fleisch & Fisch", "Molkereiprodukte", 
+      "Backwaren", "Vorratsschrank", "Getränke", "Haushalt", "Sonstiges"
+  ];
   
   const getTabContainerClass = () => liquidGlass ? "liquid-shimmer-card border-white/40 p-1 rounded-xl w-full shadow-inner relative flex" : "bg-gray-100 dark:bg-gray-800 p-1 rounded-xl w-full shadow-inner flex";
   const getSliderClass = () => "absolute top-1 bottom-1 rounded-lg z-0 transition-all duration-300 ease-in-out";
@@ -80,10 +86,11 @@ const ListsPage: React.FC<ListsPageProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItem.trim()) return;
-    if (activeTab === 'shopping') onAddShopping(newItem.trim(), newNote.trim());
+    if (activeTab === 'shopping') onAddShopping(newItem.trim(), newNote.trim(), newCategory);
     else if (activeTab === 'household') onAddHousehold(newItem.trim(), selectedAssignee, newPriority, newNote.trim());
     else if (activeTab === 'personal') onAddPersonal(newItem.trim(), newPriority, newNote.trim());
     setNewItem(''); setNewNote('');
+    setNewCategory('Sonstiges');
     setNewPriority('medium');
     setShowExtendedForm(false);
   };
@@ -94,23 +101,67 @@ const ListsPage: React.FC<ListsPageProps> = ({
       return null;
   };
 
-  const renderShoppingList = () => (
-      <div className="space-y-3">
-          {shoppingItems.map(item => (
-              <div key={item.id} className={`flex items-start justify-between p-3 rounded-xl border ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700'} ${item.checked ? 'opacity-60' : ''}`} onClick={() => onToggleShopping(item.id)}>
-                  <div className="flex items-start space-x-3 overflow-hidden w-full">
-                      <div className="mt-0.5">{item.checked ? <CheckCircle2 className="text-gray-400" size={20}/> : <Circle className="text-orange-500" size={20}/>}</div>
-                      <div className="flex-1">
-                          <span className={`block text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{item.name}</span>
-                          {item.note && <p className="text-[10px] text-gray-500 dark:text-gray-400 italic">{item.note}</p>}
-                      </div>
+  const handleAddRecipeByLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recipeLink.trim()) return;
+    
+    setIsScraping(true);
+    // Simulate scraping
+    setTimeout(() => {
+        const mockRecipe: Recipe = {
+            id: Math.random().toString(36).substr(2, 9),
+            name: "Vorschlag aus Link: Mediterraner Salat",
+            ingredients: ["Tomaten", "Gurken", "Feta", "Olivenöl"],
+            description: "Alle Zutaten klein schneiden und vermischen.",
+            image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400"
+        };
+        onAddRecipe(mockRecipe);
+        setRecipeLink('');
+        setIsScraping(false);
+    }, 1500);
+  };
+
+  const renderShoppingList = () => {
+    const grouped: Record<string, ShoppingItem[]> = {};
+    shoppingItems.forEach(item => {
+        const cat = item.category || 'Sonstiges';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+    });
+
+    const categories = Object.keys(grouped).sort((a,b) => {
+        if (a === 'Sonstiges') return 1;
+        if (b === 'Sonstiges') return -1;
+        return a.localeCompare(b);
+    });
+
+    return (
+      <div className="space-y-6">
+          {categories.map(cat => (
+              <div key={cat} className="space-y-2">
+                  <h4 className="text-[10px] font-extrabold uppercase text-gray-400 ml-2 tracking-wider flex items-center">
+                      <Tag size={10} className="mr-1" /> {cat}
+                  </h4>
+                  <div className="space-y-2">
+                      {grouped[cat].map(item => (
+                          <div key={item.id} className={`flex items-start justify-between p-3 rounded-xl border transition-all ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700'} ${item.checked ? 'opacity-60' : ''}`} onClick={() => onToggleShopping(item.id)}>
+                              <div className="flex items-start space-x-3 overflow-hidden w-full">
+                                  <div className="mt-0.5">{item.checked ? <CheckCircle2 className="text-gray-400" size={20}/> : <Circle className="text-orange-500" size={20}/>}</div>
+                                  <div className="flex-1">
+                                      <span className={`block text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{item.name}</span>
+                                      {item.note && <p className="text-[10px] text-gray-500 dark:text-gray-400 italic">{item.note}</p>}
+                                  </div>
+                              </div>
+                              <button onClick={(e) => {e.stopPropagation(); onDeleteShopping(item.id)}} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                          </div>
+                      ))}
                   </div>
-                  <button onClick={(e) => {e.stopPropagation(); onDeleteShopping(item.id)}} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
               </div>
           ))}
           {shoppingItems.length === 0 && <p className="text-center text-gray-400 mt-8">Liste ist leer</p>}
       </div>
-  );
+    );
+  };
 
   const renderTaskList = (tasks: Task[], type: 'household'|'personal') => {
       let visibleTasks = tasks;
@@ -163,18 +214,46 @@ const ListsPage: React.FC<ListsPageProps> = ({
   };
 
   const renderRecipes = () => (
-      <div className="grid grid-cols-2 gap-3">
-          {recipes.map(recipe => (
-              <div key={recipe.id} className={`rounded-xl overflow-hidden border ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700'}`}>
-                  {recipe.image && <img src={recipe.image} className="w-full h-24 object-cover" />}
-                  <div className="p-3">
-                      <h4 className="font-bold text-sm mb-1 text-gray-800 dark:text-white line-clamp-1">{recipe.name}</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{recipe.ingredients.length} Zutaten</p>
-                      <button onClick={() => onDeleteRecipe(recipe.id)} className="text-xs text-red-400 hover:text-red-500">Löschen</button>
+      <div className="space-y-4">
+          <form onSubmit={handleAddRecipeByLink} className={`p-4 rounded-xl border flex gap-2 ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700'}`}>
+              <input 
+                type="url" 
+                value={recipeLink} 
+                onChange={(e) => setRecipeLink(e.target.value)} 
+                placeholder="Rezept-Link einfügen (Chefkoch, etc.)"
+                className="flex-1 bg-transparent border-none outline-none text-sm"
+              />
+              <button 
+                type="submit" 
+                disabled={!recipeLink.trim() || isScraping}
+                className="bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+              >
+                  {isScraping ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  Hinzufügen
+              </button>
+          </form>
+
+          <div className="grid grid-cols-2 gap-3">
+              {recipes.map(recipe => (
+                  <div key={recipe.id} className={`rounded-xl overflow-hidden border flex flex-col ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700'}`}>
+                      {recipe.image && <img src={recipe.image} className="w-full h-24 object-cover" />}
+                      <div className="p-3 flex-1 flex flex-col">
+                          <h4 className="font-bold text-sm mb-1 text-gray-800 dark:text-white line-clamp-1">{recipe.name}</h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{recipe.ingredients.length} Zutaten</p>
+                          <div className="mt-auto flex justify-between items-center">
+                              <button 
+                                onClick={() => onAddIngredientsToShopping(recipe.ingredients)}
+                                className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-1 rounded-md font-bold flex items-center gap-1 hover:bg-orange-200 transition-colors"
+                              >
+                                  <ShoppingCart size={10} /> +Liste
+                              </button>
+                              <button onClick={() => onDeleteRecipe(recipe.id)} className="text-[10px] text-red-400 hover:text-red-500">Löschen</button>
+                          </div>
+                      </div>
                   </div>
-              </div>
-          ))}
-          {recipes.length === 0 && <div className="text-center text-gray-400 col-span-full py-8">Keine Rezepte.</div>}
+              ))}
+              {recipes.length === 0 && <div className="text-center text-gray-400 col-span-full py-8">Keine Rezepte.</div>}
+          </div>
       </div>
   );
 
@@ -212,6 +291,25 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                 <AlignLeft size={16} className="text-gray-400" />
                                 <input type="text" value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Notiz..." className="flex-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-white outline-none" />
                             </div>
+
+                            {activeTab === 'shopping' && (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Kategorie</label>
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {SHOPPING_CATEGORIES.map(cat => (
+                                            <button 
+                                                key={cat}
+                                                type="button"
+                                                onClick={() => setNewCategory(cat)}
+                                                className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition ${newCategory === cat ? 'bg-orange-500 text-white border-orange-500' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {activeTab !== 'shopping' && (
                                 <div className="flex items-center space-x-2">
                                     <Flag size={16} className="text-gray-400" />
@@ -222,6 +320,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                     </div>
                                 </div>
                             )}
+
                             {activeTab === 'household' && (
                                 <div className="flex space-x-2 pt-1 overflow-x-auto px-1">
                                     {family.length > 0 ? family.map(member => (

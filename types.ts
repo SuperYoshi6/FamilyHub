@@ -13,6 +13,7 @@ export interface CalendarEvent {
   title: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
+  endDate?: string; // YYYY-MM-DD
   endTime?: string; // HH:MM
   location?: string;
   description?: string;
