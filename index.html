@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>FamilienHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              dark: {
+                bg: '#111827',
+                card: '#1f2937',
+                text: '#f3f4f6',
+                muted: '#9ca3af'
+              }
+            },
+            animation: {
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'slide-in': 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'slide-up': 'slideUp 0.3s ease-out forwards',
+              'fade-in': 'fadeIn 0.4s ease-out forwards',
+              'gradient-x': 'gradientX 20s ease infinite',
+              'blob': 'blob 7s infinite',
+              'rain': 'fall linear infinite',
+              'cloud': 'drift ease-in-out infinite alternate',
+              'thunder': 'flash 5s infinite',
+              'wobble': 'liquidWobble 0.25s ease-in-out infinite'
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              slideIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+                '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+              },
+              slideUp: {
+                '0%': { opacity: '0', transform: 'translateY(20px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              gradientX: {
+                '0%': { 'background-position': '0% 50%' },
+                '50%': { 'background-position': '100% 50%' },
+                '100%': { 'background-position': '0% 50%' },
+              },
+              blob: {
+                '0%': { transform: 'translate3d(0px, 0px, 0) scale(1)' },
+                '33%': { transform: 'translate3d(30px, -50px, 0) scale(1.1)' },
+                '66%': { transform: 'translate3d(-20px, 20px, 0) scale(0.9)' },
+                '100%': { transform: 'translate3d(0px, 0px, 0) scale(1)' },
+              },
+              fall: {
+                '0%': { transform: 'translate3d(0, -10vh, 0) translateX(0)', opacity: '0' },
+                '10%': { opacity: '1' },
+                '90%': { opacity: '1' },
+                '100%': { transform: 'translate3d(10px, 110vh, 0)', opacity: '0' }
+              },
+              drift: {
+                '0%': { transform: 'translate3d(-5%, 0, 0)' },
+                '50%': { transform: 'translate3d(5%, 0, 0)' },
+                '100%': { transform: 'translate3d(-5%, 0, 0)' }
+              },
+              flash: {
+                '0%, 90%, 100%': { opacity: '0' },
+                '92%, 96%': { opacity: '0.6' },
+                '94%': { opacity: '0' }
+              },
+              liquidWobble: {
+                '0%, 100%': { transform: 'rotate(0deg)' },
+                '25%': { transform: 'rotate(-1.5deg)' },
+                '75%': { transform: 'rotate(1.5deg)' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      /* Disable selection globally for app-like feel */
+      html, body {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        overscroll-behavior-y: none;
+      }
+
+      /* Re-enable selection for inputs */
+      input, textarea, [contenteditable="true"] {
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f3f4f6;
+        transition: background-color 0.5s ease, color 0.5s ease;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        /* Hardware Acceleration Hint */
+        transform: translateZ(0); 
+        will-change: background-color;
+      }
+      
+      header.sticky {
+        top: env(safe-area-inset-top);
+      }
+      
+      nav.fixed.bottom-0 {
+        padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+      }
+
+      .dark body {
+        background-color: #111827;
+        color: #f3f4f6;
+      }
+      
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+      }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #475569;
+      }
+
+      .page-transition-wrapper {
+        animation: slideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+        width: 100%;
+        will-change: transform, opacity;
+      }
+
+      /* --- LIQUID GLASS EFFECT CORE --- */
+      body.liquid-glass {
+        /* Brighter, more vibrant background mesh */
+        background: linear-gradient(-45deg, #eef2ff, #e0e7ff, #fae8ff, #f3e8ff);
+        background-size: 400% 400%;
+        animation: gradientX 15s ease infinite;
+        background-attachment: fixed;
+      }
+      
+      html.dark body.liquid-glass {
+        background: linear-gradient(-45deg, #020617, #1e1b4b, #172554, #0f172a);
+        background-size: 400% 400%;
+        animation: gradientX 20s ease infinite;
+      }
+
+      /* --- CONTINUOUS GLASS LENS EFFECT --- */
+      .liquid-lens-scanner {
+        position: fixed;
+        left: 0;
+        right: 0;
+        height: 120px; /* Height of the lens strip */
+        z-index: 9999; /* Always on top */
+        pointer-events: none; /* Allows clicking through */
+        
+        /* The Lens Physics Illusion */
+        backdrop-filter: blur(8px) saturate(180%) brightness(110%) contrast(105%);
+        -webkit-backdrop-filter: blur(8px) saturate(180%) brightness(110%) contrast(105%);
+        
+        /* Refraction Gradient */
+        background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.1) 0%,
+          rgba(255, 255, 255, 0.3) 20%,
+          rgba(255, 255, 255, 0.0) 50%,
+          rgba(255, 255, 255, 0.3) 80%,
+          rgba(255, 255, 255, 0.1) 100%
+        );
+        
+        border-top: 1px solid rgba(255, 255, 255, 0.4);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+        box-shadow: 
+          0 15px 35px rgba(0, 0, 0, 0.1),
+          inset 0 0 20px rgba(255, 255, 255, 0.2);
+          
+        animation: lensScan 10s ease-in-out infinite alternate;
+        will-change: transform, top;
+      }
+
+      html.dark .liquid-lens-scanner {
+        background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.05) 0%,
+          rgba(255, 255, 255, 0.1) 20%,
+          rgba(255, 255, 255, 0.0) 50%,
+          rgba(255, 255, 255, 0.1) 80%,
+          rgba(255, 255, 255, 0.05) 100%
+        );
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 
+          0 15px 35px rgba(0, 0, 0, 0.3),
+          inset 0 0 20px rgba(255, 255, 255, 0.05);
+      }
+
+      @keyframes lensScan {
+        0% { top: 10%; transform: scaleY(1) skewX(0deg); }
+        25% { transform: scaleY(1.05) skewX(1deg); }
+        75% { transform: scaleY(1.05) skewX(-1deg); }
+        100% { top: 70%; transform: scaleY(1) skewX(0deg); }
+      }
+
+      /* --- UNIFIED PREMIUM GLASS UTILITY CLASS --- */
+      body.liquid-glass .liquid-shimmer-card {
+        position: relative;
+        overflow: hidden; 
+        background: rgba(255, 255, 255, 0.45) !important; /* Slightly more transparent */
+        backdrop-filter: blur(30px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+        transform: translateZ(0);
+        will-change: transform;
+      }
+
+      html.dark body.liquid-glass .liquid-shimmer-card {
+        background: rgba(30, 41, 59, 0.4) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+      }
+
+      /* Shimmer Animation - Optimized */
+      @keyframes liquidShimmer {
+        0% { transform: translateX(-150%) skewX(-25deg); }
+        100% { transform: translateX(250%) skewX(-25deg); }
+      }
+
+      body.liquid-glass .liquid-shimmer-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          to right,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.3) 50%,
+          rgba(255, 255, 255, 0) 100%
+        );
+        opacity: 0.6; 
+        transform: skewX(-25deg);
+        animation: liquidShimmer 6s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+        z-index: 10;
+        will-change: transform;
+      }
+      
+      html.dark body.liquid-glass .liquid-shimmer-card::before {
+         background: linear-gradient(
+          to right,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.08) 50%,
+          rgba(255, 255, 255, 0) 100%
+        );
+      }
+
+      body.liquid-glass .liquid-shimmer-card > * {
+        position: relative;
+        z-index: 20; 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm"
+  }
+}
+</script>
+</head>
+  <body class="transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
