@@ -14,7 +14,6 @@ import { NotificationContext } from './NotificationContext';
 import { Lock, X, Loader2, ArrowRight, UserPlus, Eye, EyeOff, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { t, Language } from './services/translations';
 import { Backend } from './services/backend';
-import { LocalNotifications } from '@capacitor/local-notifications';
 import { Geolocation } from '@capacitor/geolocation';
 import { fetchWeather, getWeatherDescription } from './services/weather';
 import { Capacitor } from '@capacitor/core';
@@ -50,41 +49,9 @@ const hashCode = (str: string): number => {
 };
 
 // --- APP VERSION CONFIGURATION ---
-const CURRENT_APP_VERSION = "1.1.4"; 
+const CURRENT_APP_VERSION = "2.0.6"; 
 const POLLING_INTERVAL = 30000; 
 
-
-// --- LIQUID BACKGROUND COMPONENT ---
-const LiquidBackground = React.memo(() => {
-    return (
-        <div className="fixed inset-0 overflow-hidden pointer-events-none z-[-1] transform-gpu">
-            {/* Info */}
-            <div className="absolute top-4 left-4 flex items-center space-x-3 text-xs text-gray-400 font-medium z-10">
-                <span>v{CURRENT_APP_VERSION}</span>
-                <span>•</span>
-                <a href="https://github.com/SuperYoshi6/FamilyHub" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">GitHub</a>
-            </div>
-
-            {/* Dynamic Moving Blobs (Apple-style backdrop depth) */}
-            <div className="liquid-blob-container text-blue-500 dark:text-blue-900">
-                <div className="liquid-blob w-[600px] h-[600px] bg-blue-400/30 -top-20 -left-20 animate-blob"></div>
-                <div className="liquid-blob w-[500px] h-[500px] bg-purple-400/20 top-1/4 -right-20 animate-blob animation-delay-2000"></div>
-                <div className="liquid-blob w-[700px] h-[700px] bg-pink-300/20 -bottom-40 left-1/4 animate-blob animation-delay-4000"></div>
-                <div className="liquid-blob w-[400px] h-[400px] bg-emerald-300/20 top-1/2 left-1/2 animate-blob"></div>
-            </div>
-
-            {/* Standard Blobs for non-blob supporting CSS or fallback depth */}
-            <div className="absolute top-0 left-[-20%] w-[70vw] h-[70vw] bg-purple-400 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-30 animate-blob will-change-transform"></div>
-            <div className="absolute top-[20%] right-[-20%] w-[70vw] h-[70vw] bg-cyan-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-30 animate-blob animation-delay-2000 will-change-transform"></div>
-            <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-pink-300 dark:bg-blue-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-30 animate-blob animation-delay-4000 will-change-transform"></div>
-        </div>
-    );
-});
-
-// --- GLASS LENS OVERLAY ---
-const LiquidLensOverlay = React.memo(() => {
-    return <div className="liquid-lens-scanner will-change-transform"></div>;
-});
 
 const App: React.FC = () => {
   // --- Data State ---
@@ -106,7 +73,7 @@ const App: React.FC = () => {
   
   // --- Local Settings ---
   const [darkMode, setDarkMode] = useLocalSetting<boolean>('fh_darkmode', false);
-  const [liquidGlass, setLiquidGlass] = useLocalSetting<boolean>('fh_liquidglass', false);
+  const [enableSwipe, setEnableSwipe] = useLocalSetting<boolean>('fh_enableswipe', false);
   const language: Language = 'de'; 
 
   // --- Session State ---
@@ -115,11 +82,33 @@ const App: React.FC = () => {
     const path = window.location.pathname.toLowerCase();
     if (path.includes('/install')) return AppRoute.LANDING;
     if (path.includes('/app')) return AppRoute.APP;
-    // Root redirect
-    if (path === '/familyhub' || path === '/familyhub/') return AppRoute.LANDING;
-    return 'INVALID' as AppRoute;
+    // Navigation Persistence
+    const savedRoute = localStorage.getItem('fh_last_route');
+    const hasBooted = localStorage.getItem('fh_has_booted');
+    if (hasBooted && savedRoute && Object.values(AppRoute).includes(savedRoute as AppRoute)) {
+      // Don't restore if it was Settings or Landing (to avoid frustration)
+      if (savedRoute !== AppRoute.SETTINGS && savedRoute !== AppRoute.LANDING) {
+        return savedRoute as AppRoute;
+      }
+    }
+    return AppRoute.DASHBOARD;
   });
+
   const [lastRoute, setLastRoute] = useState<AppRoute>(AppRoute.DASHBOARD);
+
+  // Mark that the app has booted at least once
+  useEffect(() => {
+    if (currentRoute !== AppRoute.LANDING) {
+      localStorage.setItem('fh_has_booted', 'true');
+    }
+  }, [currentRoute]);
+
+  // Save current route for persistence (exclude Settings and Landing)
+  useEffect(() => {
+    if (currentRoute !== AppRoute.SETTINGS && currentRoute !== AppRoute.LANDING) {
+      localStorage.setItem('fh_last_route', currentRoute);
+    }
+  }, [currentRoute]);
 
   // --- Global Weather State ---
   const [currentWeatherLocation, setCurrentWeatherLocation] = useState<{lat: number, lng: number, name: string} | null>(null);
@@ -168,7 +157,7 @@ const App: React.FC = () => {
   }, []);
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
-      if (!touchStartRef.current) return;
+      if (!touchStartRef.current || !enableSwipe) return;
       
       const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
       const distanceX = touchStartRef.current.x - touchEnd.x;
@@ -199,7 +188,7 @@ const App: React.FC = () => {
               }
           }
       }
-  }, [currentRoute]);
+  }, [currentRoute, enableSwipe]);
 
   // --- HARDWARE BACK BUTTON HANDLING ---
   useEffect(() => {
@@ -222,16 +211,10 @@ const App: React.FC = () => {
       };
   }, [currentRoute, currentUser, loginStep]);
 
-  const requestAppPermissions = async () => {
-      // 1. Native Permissions (Notifications & Geo)
+      const requestAppPermissions = async () => {
+      // 1. Native Permissions (Geo)
       try {
           if (Capacitor.isNativePlatform()) {
-              try {
-                const notifPerm = await LocalNotifications.checkPermissions();
-                if (notifPerm.display !== 'granted') {
-                    await LocalNotifications.requestPermissions();
-                }
-              } catch (e) {}
               
               try {
                   const geoPerm = await Geolocation.checkPermissions();
@@ -350,92 +333,12 @@ const App: React.FC = () => {
                updateNotifiedRef.current = true;
           }
 
-          const now = Date.now();
-          if (now - lastWeatherNotifyRef.current > 3600000) { 
-              await checkAndScheduleWeather();
-              lastWeatherNotifyRef.current = now;
-          }
-
           lastPollTime.current = Date.now();
 
       }, POLLING_INTERVAL);
 
-      checkAndScheduleWeather();
-
       return () => clearInterval(interval);
   }, [currentUser, family]);
-
-  const checkAndScheduleWeather = async () => {
-      let lat = currentWeatherLocation?.lat;
-      let lng = currentWeatherLocation?.lng;
-      let name = currentWeatherLocation?.name || 'Dein Standort';
-
-      if (!lat && weatherFavorites.length > 0) {
-          lat = weatherFavorites[0].lat;
-          lng = weatherFavorites[0].lng;
-          name = weatherFavorites[0].name;
-      }
-
-      if (lat && lng) {
-          try {
-              const data = await fetchWeather(lat, lng);
-              if (data) {
-                  const pending = await LocalNotifications.getPending();
-                  const weatherIds = pending.notifications
-                      .filter(n => n.id >= 100 && n.id < 125)
-                      .map(n => ({ id: n.id }));
-                  
-                  if (weatherIds.length > 0) {
-                      await LocalNotifications.cancel({ notifications: weatherIds });
-                  }
-
-                  const notificationsToSchedule = [];
-                  const now = new Date();
-                  const currentHour = now.getHours();
-
-                  for (let i = 1; i <= 12; i++) {
-                      const targetHourIndex = currentHour + i;
-                      const forecastTemp = data.hourly.temperature_2m[targetHourIndex];
-                      const forecastCode = data.hourly.weather_code[targetHourIndex];
-                      const forecastTimeStr = data.hourly.time[targetHourIndex]; 
-
-                      if (forecastTemp !== undefined && forecastCode !== undefined && forecastTimeStr) {
-                          const desc = getWeatherDescription(forecastCode);
-                          const temp = Math.round(forecastTemp);
-                          
-                          let emoji = '☁️';
-                          if (forecastCode === 0) emoji = '☀️';
-                          else if (forecastCode <= 3) emoji = '⛅';
-                          else if (forecastCode >= 45 && forecastCode <= 48) emoji = '🌫️';
-                          else if (forecastCode >= 51 && forecastCode <= 67) emoji = '🌧️';
-                          else if (forecastCode >= 71) emoji = '❄️';
-                          else if (forecastCode >= 95) emoji = '⚡';
-
-                          const scheduleDate = new Date(forecastTimeStr);
-                          
-                          if (scheduleDate > now) {
-                              notificationsToSchedule.push({
-                                  id: 100 + i, 
-                                  title: `${emoji} Wetter in ${name}`,
-                                  body: `${temp}°C und ${desc}.`,
-                                  schedule: { at: scheduleDate },
-                                  smallIcon: "ic_stat_logo", 
-                                  sound: undefined
-                              });
-                          }
-                      }
-                  }
-
-                  if (notificationsToSchedule.length > 0) {
-                      await LocalNotifications.schedule({ notifications: notificationsToSchedule });
-                  }
-              }
-          } catch (e) {
-          }
-      }
-  };
-
-  // ... (Rest of useEffects and methods remain the same) ...
 
   useEffect(() => {
       if (!loadingData && family.length > 0 && !currentUser) {
@@ -455,12 +358,7 @@ const App: React.FC = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    if (liquidGlass) {
-        document.body.classList.add('liquid-glass');
-    } else {
-        document.body.classList.remove('liquid-glass');
-    }
-  }, [darkMode, liquidGlass]);
+  }, [darkMode]);
 
   const addNotification = async (title: string, message: string) => {
       const notif: AppNotification = {
@@ -473,73 +371,6 @@ const App: React.FC = () => {
       };
       setNotifications(prev => [notif, ...prev]);
       await Backend.notifications.add(notif);
-
-      try {
-          await LocalNotifications.schedule({
-              notifications: [{
-                  title: title,
-                  body: message,
-                  id: Math.floor(Math.random() * 1000000),
-                  schedule: { at: new Date(Date.now() + 100) }, 
-                  sound: undefined,
-                  attachments: [],
-                  actionTypeId: "",
-                  extra: null,
-                  smallIcon: "ic_stat_logo" 
-              }]
-          });
-      } catch (e) {
-      }
-  };
-
-  // --- HELPER FOR SCHEDULING CALENDAR NOTIFICATIONS ---
-  const scheduleEventNotification = async (event: CalendarEvent) => {
-      try {
-          const eventDate = new Date(`${event.date}T${event.time}`);
-          const now = new Date();
-          
-          if (eventDate > now) {
-              // Main Notification (at start time)
-              await LocalNotifications.schedule({
-                  notifications: [{
-                      id: hashCode(event.id),
-                      title: 'Termin Erinnerung 📅',
-                      body: `${event.title} um ${event.time} Uhr`,
-                      schedule: { at: eventDate },
-                      smallIcon: "ic_stat_logo",
-                      extra: { route: AppRoute.CALENDAR }
-                  }]
-              });
-
-              // Secondary Notification (60 minutes before)
-              const sixtyMinBefore = new Date(eventDate.getTime() - 60 * 60 * 1000);
-              if (sixtyMinBefore > now) {
-                  await LocalNotifications.schedule({
-                      notifications: [{
-                          id: hashCode(event.id + "_60m"),
-                          title: 'In 60 Minuten ⏳',
-                          body: `${event.title} beginnt bald (${event.time} Uhr)`,
-                          schedule: { at: sixtyMinBefore },
-                          smallIcon: "ic_stat_logo",
-                          extra: { route: AppRoute.CALENDAR }
-                      }]
-                  });
-              }
-          }
-      } catch (e) {
-          console.error("Failed to schedule notification for event", event.title, e);
-      }
-  };
-
-  const cancelEventNotification = async (id: string) => {
-      try {
-          await LocalNotifications.cancel({ 
-              notifications: [
-                  { id: hashCode(id) },
-                  { id: hashCode(id + "_60m") }
-              ] 
-          });
-      } catch (e) {}
   };
 
   const clearAllNotifications = async () => {
@@ -553,9 +384,6 @@ const App: React.FC = () => {
   const addEvent = async (event: CalendarEvent) => {
       setEvents(prev => [...prev, event]);
       await Backend.events.add(event);
-      
-      // Schedule background notification
-      await scheduleEventNotification(event);
 
       const creatorName = currentUser?.name || 'Jemand';
       await addNotification('Neuer Termin 📅', `${creatorName} hat "${event.title}" am ${new Date(event.date).toLocaleDateString()} erstellt.`);
@@ -564,21 +392,11 @@ const App: React.FC = () => {
   const updateEvent = async (id: string, updates: Partial<CalendarEvent>) => {
       setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
       await Backend.events.update(id, updates);
-      
-      // Reschedule: Cancel old, add new if needed
-      await cancelEventNotification(id);
-      
-      const updatedEvent = events.find(e => e.id === id);
-      if (updatedEvent) {
-          const finalEvent = { ...updatedEvent, ...updates };
-          await scheduleEventNotification(finalEvent);
-      }
   };
   
   const deleteEvent = async (id: string) => {
       setEvents(prev => prev.filter(e => e.id !== id));
       await Backend.events.delete(id);
-      await cancelEventNotification(id);
   };
 
   const addNews = async (item: NewsItem) => {
@@ -795,13 +613,15 @@ const App: React.FC = () => {
   };
 
   const toggleWeatherFavorite = async (location: SavedLocation) => {
-      const exists = weatherFavorites.find(f => f.name === location.name);
+      if (!currentUser) return;
+      const exists = weatherFavorites.find(f => f.name === location.name && f.userId === currentUser.id);
       if (exists) {
-          setWeatherFavorites(prev => prev.filter(f => f.name !== location.name));
+          setWeatherFavorites(prev => prev.filter(f => f.id !== exists.id));
           await Backend.weatherFavorites.delete(exists.id);
       } else {
-          setWeatherFavorites(prev => [...prev, location]);
-          await Backend.weatherFavorites.add(location);
+          const newFav: SavedLocation = { ...location, id: Date.now().toString(), userId: currentUser.id };
+          setWeatherFavorites(prev => [...prev, newFav]);
+          await Backend.weatherFavorites.add(newFav);
       }
   };
 
@@ -948,9 +768,6 @@ const App: React.FC = () => {
   }
 
   const getAppBackgroundClass = () => {
-      if (liquidGlass) {
-          return 'bg-transparent';
-      }
       return 'bg-gray-50 dark:bg-gray-900';
   };
 
@@ -958,7 +775,6 @@ const App: React.FC = () => {
   if (currentRoute === AppRoute.LANDING) {
       return (
           <div className={`min-h-screen ${getAppBackgroundClass()} transition-colors duration-500`}>
-              {liquidGlass && <LiquidBackground />}
               <LandingPage />
           </div>
       );
@@ -1014,15 +830,6 @@ const App: React.FC = () => {
                       <span className="font-bold text-base text-gray-800 dark:text-gray-200">{member.name}</span>
                     </button>
                   ))}
-                  <button 
-                    onClick={() => setShowNewUserForm(true)}
-                    className="bg-gray-100 dark:bg-gray-800/50 p-4 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-95 group"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center mb-3 text-gray-400 group-hover:text-blue-500 transition-colors">
-                        <UserPlus size={32} />
-                    </div>
-                    <span className="font-bold text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200">Mitglied hinzufügen</span>
-                  </button>
                 </div>
             </div>
         ) : (
@@ -1193,6 +1000,10 @@ const App: React.FC = () => {
       </div>
     );
   };
+  
+  const userWeatherFavorites = (currentUser && weatherFavorites) 
+    ? weatherFavorites.filter(f => f.userId === currentUser.id) 
+    : [];
 
   const myOpenTaskCount = householdTasks.filter(t => t.assignedTo === currentUser.id && !t.done).length + personalTasks.filter(t => !t.done).length;
   const regularFamily = family.filter(f => f.role !== 'admin');
@@ -1224,11 +1035,10 @@ const App: React.FC = () => {
                         onNavigate={setCurrentRoute} 
                         onProfileClick={handleOpenSettings}
                         lang={language} 
-                        weatherFavorites={weatherFavorites}
+                        weatherFavorites={userWeatherFavorites}
                         currentWeatherLocation={currentWeatherLocation}
                         onUpdateWeatherLocation={setCurrentWeatherLocation}
                         news={news}
-                        liquidGlass={liquidGlass}
                      />;
             case AppRoute.DASHBOARD:
               return <Dashboard 
@@ -1241,11 +1051,10 @@ const App: React.FC = () => {
                         onNavigate={setCurrentRoute} 
                         onProfileClick={handleOpenSettings}
                         lang={language} 
-                        weatherFavorites={weatherFavorites}
+                        weatherFavorites={userWeatherFavorites}
                         currentWeatherLocation={currentWeatherLocation}
                         onUpdateWeatherLocation={setCurrentWeatherLocation}
                         news={news}
-                        liquidGlass={liquidGlass}
                      />;
             case AppRoute.CALENDAR:
               return <CalendarPage 
@@ -1266,7 +1075,6 @@ const App: React.FC = () => {
                         onProfileClick={handleOpenSettings}
                         initialTab="calendar"
                         onMarkNewsRead={markNewsRead}
-                        liquidGlass={liquidGlass}
                      />;
             case AppRoute.NEWS: // Added Route for direct Pinnwand access
               return <CalendarPage 
@@ -1287,7 +1095,6 @@ const App: React.FC = () => {
                         onProfileClick={handleOpenSettings}
                         initialTab="news"
                         onMarkNewsRead={markNewsRead}
-                        liquidGlass={liquidGlass}
                      />;
             case AppRoute.LISTS:
               return <ListsPage 
@@ -1310,7 +1117,6 @@ const App: React.FC = () => {
                         onAddIngredientsToShopping={addIngredientsToShopping} 
                         onAddMealToPlan={addMealToPlan} 
                         onProfileClick={handleOpenSettings}
-                        liquidGlass={liquidGlass}
                      />;
             case AppRoute.MEALS:
               return <MealsPage 
@@ -1326,7 +1132,6 @@ const App: React.FC = () => {
                         recipes={recipes}
                         onAddRecipe={addRecipe}
                         onPlanGenerated={handlePlanGenerated}
-                        liquidGlass={liquidGlass}
                      />;
             case AppRoute.ACTIVITIES:
               return <ActivitiesPage 
@@ -1336,10 +1141,9 @@ const App: React.FC = () => {
             case AppRoute.WEATHER:
               return <WeatherPage 
                         onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} 
-                        favorites={weatherFavorites} 
+                        favorites={userWeatherFavorites} 
                         onToggleFavorite={toggleWeatherFavorite} 
                         initialLocation={currentWeatherLocation} 
-                        liquidGlass={liquidGlass}
                      />;
             case AppRoute.SETTINGS:
               return <SettingsPage 
@@ -1350,8 +1154,8 @@ const App: React.FC = () => {
                         onClose={() => setCurrentRoute(lastRoute)}
                         darkMode={darkMode} 
                         onToggleDarkMode={() => setDarkMode(!darkMode)} 
-                        liquidGlass={liquidGlass}
-                        onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)}
+                        enableSwipe={enableSwipe}
+                        onToggleSwipe={() => setEnableSwipe(!enableSwipe)}
                         lang={language} 
                         setLang={() => {}} 
                         family={family} 
@@ -1380,12 +1184,6 @@ const App: React.FC = () => {
 
   return (
     <NotificationContext.Provider value={contextValue}>
-      {/* Global Liquid Background Blobs (Only visible when class present on body) */}
-      {liquidGlass && <LiquidBackground />}
-
-      {/* Global Liquid Lens Effect Overlay (Scanner) */}
-      {liquidGlass && <LiquidLensOverlay />}
-
       {/* 
           Main App Container
           Added extra bottom padding to account for navigation bar 
@@ -1403,7 +1201,6 @@ const App: React.FC = () => {
               currentRoute={currentRoute} 
               onNavigate={setCurrentRoute} 
               lang={language} 
-              liquidGlass={liquidGlass}
           />
         )}
       </div>

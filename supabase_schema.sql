@@ -67,13 +67,23 @@ CREATE TABLE IF NOT EXISTS shopping (
     note TEXT
 );
 
--- Table: tasks (household and personal)
-CREATE TABLE IF NOT EXISTS tasks (
+-- Table: household_tasks
+CREATE TABLE IF NOT EXISTS household_tasks (
     id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
     title TEXT NOT NULL,
     done BOOLEAN DEFAULT FALSE,
     assigned_to TEXT REFERENCES family(id),
-    type TEXT CHECK (type IN ('household', 'personal')),
+    type TEXT CHECK (type = 'household'),
+    priority TEXT CHECK (priority IN ('high', 'medium', 'low')),
+    note TEXT
+);
+
+-- Table: personal_tasks
+CREATE TABLE IF NOT EXISTS personal_tasks (
+    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    title TEXT NOT NULL,
+    done BOOLEAN DEFAULT FALSE,
+    type TEXT CHECK (type = 'personal'),
     priority TEXT CHECK (priority IN ('high', 'medium', 'low')),
     note TEXT
 );

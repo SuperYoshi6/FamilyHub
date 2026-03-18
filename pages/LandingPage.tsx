@@ -14,8 +14,8 @@ const LandingPage: React.FC = () => {
                     </div>
                     <nav className="hidden md:flex space-x-8 text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                         <a href="#features" className="hover:text-blue-500 transition-colors">Features</a>
-                        <a href="#install" className="hover:text-blue-500 transition-colors">Install</a>
-                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Öffnen</a>
+                        <a href="#install" className="hover:text-blue-500 transition-colors">Installieren</a>
+                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Im Web starten</a>
                     </nav>
                 </div>
             </header>
@@ -24,7 +24,7 @@ const LandingPage: React.FC = () => {
             <main className="pt-32 pb-20 px-6">
                 <div className="max-w-6xl mx-auto text-center">
                     <div className="inline-block px-4 py-1.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-300 text-xs font-black uppercase tracking-widest mb-8 animate-fade-in">
-                        Neu: FamilyHub 2.0
+                        Neu: FamilyHub 2.0.6
                     </div>
                     <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter leading-[0.9] animate-slide-up">
                         Eure Familie.<br/><span className="text-blue-600">Perfekt organisiert.</span>
@@ -34,25 +34,35 @@ const LandingPage: React.FC = () => {
                     </p>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-4 animate-slide-up animation-delay-500">
                         <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-3xl text-xl font-bold hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/40 active:scale-95">
-                            Jetzt starten 🚀
+                            Im Web starten 🌐
                         </a>
                         <div className="relative group">
-                            <button className="w-full md:w-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-10 py-5 rounded-3xl text-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center gap-2">
-                                <Download size={24} /> App laden
+                            <button className="w-full md:w-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-10 py-5 rounded-3xl text-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                <Download size={24} /> Installieren
                             </button>
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all z-20">
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all z-20 w-64 md:left-1/2 md:-translate-x-1/2">
+                                <a href="#install" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 text-left">
+                                    <Globe className="text-blue-500" />
+                                    <div>
+                                        <div className="font-bold">PWA (Web-App)</div>
+                                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-tight">Google Chrome</div>
+                                        <div className="text-xs opacity-50">Browser-Installation</div>
+                                    </div>
+                                </a>
                                 <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 text-left">
-                                    <Smartphone className="text-blue-500" />
+                                    <Smartphone className="text-orange-500" />
                                     <div>
                                         <div className="font-bold">Android (APK)</div>
+                                        <div className="text-[10px] text-orange-500 font-bold uppercase tracking-tight">Chrome benötigt</div>
                                         <div className="text-xs opacity-50">Direkte Installation</div>
                                     </div>
                                 </a>
                                 <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
-                                    <Globe className="text-orange-500" />
+                                    <Smartphone className="text-pink-500" />
                                     <div>
-                                        <div className="font-bold">iOS (Swift)</div>
-                                        <div className="text-xs opacity-50">Swift Playground</div>
+                                        <div className="font-bold">iOS / iPadOS</div>
+                                        <div className="text-[10px] text-pink-500 font-bold uppercase tracking-tight">Swift Playground</div>
+                                        <div className="text-xs opacity-50">App-Projekt öffnen</div>
                                     </div>
                                 </a>
                             </div>
@@ -111,17 +121,79 @@ const LandingPage: React.FC = () => {
                         <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
                             <div className="flex-1">
                                 <h2 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight italic">FamilyHub am Handy</h2>
-                                <p className="text-blue-100 text-lg mb-8">Installiere FamilyHub als Web-App (PWA) direkt auf deinem Home-Bildschirm für das beste Erlebnis.</p>
-                                <div className="space-y-6">
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl font-bold">1</div>
-                                        <p className="flex-1 pt-1 font-medium italic">Klicke im Browser auf "Teilen" (iPhone) oder auf die "Drei Punkte" (Android).</p>
+                                <p className="text-blue-100 text-lg mb-8">Installiere FamilyHub als Web-App (PWA) direkt auf deinem Home-Bildschirm für das beste App-Erlebnis.</p>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm"><Globe size={16} /></div>
+                                            <h4 className="font-black uppercase tracking-widest text-xs">PWA (Web-App)</h4>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
+                                                <p className="flex-1 text-xs font-medium italic">Nutze <span className="underline decoration-blue-400">Chrome</span> oder Safari.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
+                                                <p className="flex-1 text-xs font-medium italic">Tippe auf Teilen / Menü.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
+                                                <p className="flex-1 text-xs font-medium italic">"App installieren".</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl font-bold">2</div>
-                                        <p className="flex-1 pt-1 font-medium italic">Wähle "Zum Home-Bildschirm hinzufügen".</p>
+
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="bg-orange-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
+                                            <h4 className="font-black uppercase tracking-widest text-xs">Android (APK)</h4>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
+                                                <p className="flex-1 text-xs font-medium italic">Lade die <span className="underline decoration-orange-400">APK</span> Datei.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
+                                                <p className="flex-1 text-xs font-medium italic">Erlaube Chrome Downloads.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
+                                                <p className="flex-1 text-xs font-medium italic">Installiere die Datei.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="bg-pink-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
+                                            <h4 className="font-black uppercase tracking-widest text-xs">iOS (Swift)</h4>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
+                                                <p className="flex-1 text-xs font-medium italic">Lade <span className="underline decoration-pink-400">Swift Playground</span>.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
+                                                <p className="flex-1 text-xs font-medium italic">Lade die .swift Datei.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
+                                                <p className="flex-1 text-xs font-medium italic">Öffne sie in Playgrounds.</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+
+                                <a 
+                                    href="https://SuperYoshi6.github.io/FamilyHub/app" 
+                                    className="inline-flex items-center gap-2 bg-white text-blue-600 px-8 py-4 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform"
+                                >
+                                    <Globe size={20} /> App im Browser öffnen
+                                </a>
                             </div>
                             <div className="w-64 h-96 bg-gray-900 rounded-[3rem] border-[8px] border-gray-800 shadow-2xl flex items-center justify-center relative transform rotate-6 hover:rotate-0 transition-transform hidden md:flex">
                                 <Logo size={80} />

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FamilyMember, FeedbackItem, NewsItem } from '../types';
-import { ArrowLeft, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, Edit, Bell, Lock, Database, Download, Activity, Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Home, Eye, Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, Edit, Bell, Lock, Database, Download, Activity, Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Home, Eye, Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
 import Logo from '../components/Logo';
@@ -9,7 +9,7 @@ import { t, Language } from '../services/translations';
 // --- CONFIG & UPDATE ANLEITUNG ---
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
 const WEBSITE_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.0.6";
 
 interface SettingsPageProps {
     currentUser: FamilyMember;
@@ -19,8 +19,8 @@ interface SettingsPageProps {
     onClose?: () => void;
     darkMode: boolean;
     onToggleDarkMode: () => void;
-    liquidGlass?: boolean;
-    onToggleLiquidGlass?: () => void;
+    enableSwipe: boolean;
+    onToggleSwipe: () => void;
     christmasMode?: boolean;
     onToggleChristmasMode?: () => void;
     lang: Language;
@@ -62,7 +62,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, liquidGlass, onToggleLiquidGlass, christmasMode, onToggleChristmasMode, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddUser, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddUser, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
@@ -84,6 +84,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     // Message States
     const [selectedRecipientId, setSelectedRecipientId] = useState<string>('');
     const [messageText, setMessageText] = useState('');
+    const [messageSent, setMessageSent] = useState(false);
 
     // Admin Action States
     const [targetUser, setTargetUser] = useState<FamilyMember | null>(null);
@@ -109,21 +110,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const myMessages = news?.filter(n => n.tag === `PRIVATE:${currentUser.id}`).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
 
     // --- STYLES HELPER ---
-    const modalBgClass = liquidGlass
-        ? 'bg-white/60 dark:bg-black/40 backdrop-blur-3xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)]'
-        : 'bg-white dark:bg-[#111827] border border-gray-200 dark:border-gray-800 shadow-2xl';
+    const modalBgClass = 'bg-white dark:bg-[#111827] border border-gray-200 dark:border-gray-800 shadow-2xl';
 
-    const modalBorderClass = liquidGlass ? '' : '';
+    const modalBorderClass = '';
 
-    const closeBtnClass = liquidGlass
-        ? 'text-slate-800 dark:text-white bg-white/20 dark:bg-white/10 hover:bg-white/40 dark:hover:bg-white/20 p-1.5 rounded-full backdrop-blur-md shadow-sm'
-        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800';
+    const closeBtnClass = 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800';
 
-    const titleClass = liquidGlass ? 'text-slate-900 dark:text-white drop-shadow-sm' : 'text-gray-900 dark:text-white';
+    const titleClass = 'text-gray-900 dark:text-white';
 
-    const sectionBgClass = liquidGlass
-        ? 'liquid-shimmer-card border-white/40'
-        : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700';
+    const sectionBgClass = 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700';
 
     const handleSave = () => {
         const updates: Partial<FamilyMember> = { name, avatar: avatarUrl, color: selectedColor };
@@ -263,9 +258,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             readBy: []
         };
         onAddNews(newItem);
-        setActiveModal('none');
-        setMessageText('');
-        alert("Nachricht gesendet!");
+        setMessageSent(true);
+        setTimeout(() => {
+            setMessageSent(false);
+            setMessageText('');
+            setActiveModal('none');
+        }, 2000);
     };
 
     const confirmReset = () => {
@@ -342,11 +340,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     return (
         <div className="flex flex-col min-h-full">
-            <div className={`px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b ${liquidGlass ? 'bg-white/30 dark:bg-black/20 backdrop-blur-md border-white/20' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800'}`}>
+            <div className={`px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800`}>
                 <button onClick={onClose} className="mr-4 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-full transition">
                     <ArrowLeft size={24} />
                 </button>
-                <span className={`font-bold text-xl ${liquidGlass ? 'text-slate-800 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{t('settings.title', lang)}</span>
+                <span className={`font-bold text-xl text-gray-800 dark:text-white`}>{t('settings.title', lang)}</span>
             </div>
 
             <div className="flex-1 p-6 pb-32 space-y-6 max-w-md mx-auto w-full">
@@ -435,23 +433,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             </button>
                         </div>
 
-                        {/* 3. Liquid Glass (Optional) */}
-                        {onToggleLiquidGlass && (
-                            <>
-                                <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                                <div className="flex items-center justify-between py-2">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="bg-cyan-100 dark:bg-cyan-900/30 p-2 rounded-full text-cyan-600 dark:text-cyan-400">
-                                            <Droplets size={20} />
-                                        </div>
-                                        <span className="font-bold text-gray-800 dark:text-white">Liquid Glass Effekt</span>
-                                    </div>
-                                    <button onClick={onToggleLiquidGlass} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${liquidGlass ? 'bg-cyan-500' : 'bg-gray-300'}`}>
-                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${liquidGlass ? 'translate-x-6' : 'translate-x-0'}`} />
-                                    </button>
+                        {/* 3. Swipe Navigation */}
+                        <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                        <div className="flex items-center justify-between py-2">
+                            <div className="flex items-center space-x-3">
+                                <div className="bg-cyan-100 dark:bg-cyan-900/30 p-2 rounded-full text-cyan-600 dark:text-cyan-400">
+                                    <ArrowRight size={20} />
                                 </div>
-                            </>
-                        )}
+                                <span className="font-bold text-gray-800 dark:text-white">Wischen zum Wechseln</span>
+                            </div>
+                            <button onClick={onToggleSwipe} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${enableSwipe ? 'bg-cyan-500' : 'bg-gray-300'}`}>
+                                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${enableSwipe ? 'translate-x-6' : 'translate-x-0'}`} />
+                            </button>
+                        </div>
 
                         {/* 4. Christmas Mode (Global) */}
                         {onToggleChristmasMode && (
@@ -480,7 +474,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('settings.family_management', lang)}</h2>
                             <span className="text-[10px] text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full font-bold">Admin Bereich</span>
                         </div>
-                        <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 ${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800'}`}>
+                        <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800`}>
                             {/* Add User Button Row */}
                             <button
                                 onClick={() => setActiveModal('add-user')}
@@ -521,39 +515,45 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 )}
 
                 {/* Support & Info */}
-                <section className="space-y-4">
-                    <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">{t('settings.info_help', lang)}</h2>
-                    <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden ${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800'}`}>
-                        <button onClick={() => setActiveModal('about')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
-                            <div className="flex items-center space-x-3">
-                                <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 p-2 rounded-full"><Info size={18} /></div>
-                                <span className="font-medium text-gray-800 dark:text-white">App Info & Updates</span>
-                            </div>
-                            <ChevronRight size={18} className="text-gray-400" />
-                        </button>
+                {/* Support & Info + App Info Section */}
+                <div className="space-y-6">
+                    <section className="space-y-4">
+                        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">{t('settings.info_help', lang)}</h2>
+                        <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden bg-white dark:bg-gray-800`}>
+                            {isAdmin ? (
+                                <button onClick={openAdminFeedback} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-yellow-900/20 transition bg-yellow-50/50 dark:bg-yellow-900/10">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 p-2 rounded-full"><Inbox size={18} /></div>
+                                        <span className="font-bold text-gray-800 dark:text-white">Admin Posteingang</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {unreadCount > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>}
+                                        <ChevronRight size={18} className="text-gray-400" />
+                                    </div>
+                                </button>
+                            ) : (
+                                <button onClick={() => setActiveModal('feedback')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 p-2 rounded-full"><MessageSquare size={18} /></div>
+                                        <span className="font-medium text-gray-800 dark:text-white">Feedback</span>
+                                    </div>
+                                    <ChevronRight size={18} className="text-gray-400" />
+                                </button>
+                            )}
 
-                        {isAdmin ? (
-                            <button onClick={openAdminFeedback} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-yellow-900/20 transition bg-yellow-50/50 dark:bg-yellow-900/10">
+                            <button onClick={() => setActiveModal('about')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
                                 <div className="flex items-center space-x-3">
-                                    <div className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 p-2 rounded-full"><Inbox size={18} /></div>
-                                    <span className="font-bold text-gray-800 dark:text-white">Admin Posteingang</span>
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 p-2 rounded-full"><Info size={18} /></div>
+                                    <span className="text-sm font-medium text-gray-800 dark:text-white">App Info & Updates</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {unreadCount > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>}
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">v{APP_VERSION}</span>
                                     <ChevronRight size={18} className="text-gray-400" />
                                 </div>
                             </button>
-                        ) : (
-                            <button onClick={() => setActiveModal('feedback')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
-                                <div className="flex items-center space-x-3">
-                                    <div className="bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 p-2 rounded-full"><MessageSquare size={18} /></div>
-                                    <span className="font-medium text-gray-800 dark:text-white">Feedback</span>
-                                </div>
-                                <ChevronRight size={18} className="text-gray-400" />
-                            </button>
-                        )}
-                    </div>
-                </section>
+                        </div>
+                    </section>
+                </div>
 
                 {/* Actions */}
                 <div className="space-y-3 pt-4">
@@ -570,7 +570,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
             {/* Inbox Modal */}
             {activeModal === 'inbox' && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fade-in">
                     <div className={`${modalBgClass} w-full max-w-sm rounded-3xl p-6 relative max-h-[80vh] flex flex-col ${modalBorderClass}`}>
                         <div className="flex justify-between items-center mb-6">
                             <h3 className={`text-2xl font-bold ${titleClass}`}>Nachrichten</h3>
@@ -579,7 +579,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 mb-6 min-h-[200px]">
                             {myMessages.length === 0 ? (
-                                <div className={`flex flex-col items-center justify-center h-full space-y-2 ${liquidGlass ? 'text-slate-800 dark:text-white opacity-100 drop-shadow-sm' : 'text-gray-400 opacity-60'}`}>
+                                <div className={`flex flex-col items-center justify-center h-full space-y-2 text-gray-400 opacity-60`}>
                                     <Inbox size={48} strokeWidth={1} />
                                     <p className="text-sm font-medium">Keine Nachrichten</p>
                                 </div>
@@ -588,22 +588,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     const sender = family?.find(f => f.id === msg.authorId);
                                     const isRead = msg.readBy?.includes(currentUser.id);
 
-                                    const cardBg = liquidGlass
-                                        ? 'liquid-shimmer-card border-white/20'
-                                        : `bg-gray-50 dark:bg-gray-800 border ${!isRead ? 'border-indigo-200 dark:border-indigo-800 ring-1 ring-indigo-100 dark:ring-indigo-900' : 'border-gray-100 dark:border-gray-700'}`;
+                                    const cardBg = `bg-gray-50 dark:bg-gray-800 border ${!isRead ? 'border-indigo-200 dark:border-indigo-800 ring-1 ring-indigo-100 dark:ring-indigo-900' : 'border-gray-100 dark:border-gray-700'}`;
 
-                                    const textColor = liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-gray-200';
-                                    const subTextColor = liquidGlass ? 'text-slate-700 dark:text-slate-300' : 'text-gray-700 dark:text-gray-300';
+                                    const textColor = 'text-gray-800 dark:text-gray-200';
+                                    const subTextColor = 'text-gray-700 dark:text-gray-300';
 
                                     return (
                                         <div key={msg.id} className={`${cardBg} p-4 rounded-2xl relative border transition-all`}>
-                                            {sender && (
-                                                <div className="flex items-center space-x-2 mb-2">
-                                                    <img src={sender.avatar} className="w-6 h-6 rounded-full border border-gray-200 dark:border-gray-600" />
-                                                    <span className={`text-xs font-bold ${subTextColor}`}>{sender.name}</span>
-                                                    <span className={`text-[10px] ml-auto opacity-70 ${subTextColor}`}>{new Date(msg.createdAt).toLocaleDateString()}</span>
-                                                </div>
-                                            )}
+                                            <div className="flex items-center space-x-2 mb-2">
+                                                {sender ? (
+                                                    <>
+                                                        <img src={sender.avatar} className="w-6 h-6 rounded-full border border-gray-200 dark:border-gray-600" />
+                                                        <span className={`text-xs font-bold ${subTextColor}`}>{sender.name}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className={`text-xs font-bold ${subTextColor}`}>{msg.title?.replace('Nachricht von ', '') || 'Unbekannt'}</span>
+                                                )}
+                                                <span className={`text-[10px] ml-auto opacity-70 ${subTextColor}`}>{new Date(msg.createdAt).toLocaleDateString()}</span>
+                                            </div>
                                             <p className={`text-sm ${textColor}`}>{msg.description}</p>
 
                                             <div className="flex justify-end gap-2 mt-2">
@@ -631,48 +633,65 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
             {/* Compose Message Modal */}
             {activeModal === 'compose' && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fade-in">
                     <div className={`${modalBgClass} w-full max-w-sm rounded-3xl p-6 relative ${modalBorderClass}`}>
                         <div className="flex items-center mb-6">
-                            <button onClick={() => setActiveModal('inbox')} className="text-blue-600 dark:text-blue-400 text-sm font-bold flex items-center mr-auto hover:underline">
-                                <ArrowLeft size={16} className="mr-1" /> Zurück
-                            </button>
-                            <h3 className={`text-lg font-bold ${titleClass} absolute left-1/2 transform -translate-x-1/2`}>Neue Nachricht</h3>
+                            {!messageSent && (
+                                <button onClick={() => setActiveModal('inbox')} className="text-blue-600 dark:text-blue-400 text-sm font-bold flex items-center mr-auto hover:underline">
+                                    <ArrowLeft size={16} className="mr-1" /> Zurück
+                                </button>
+                            )}
+                            <h3 className={`text-lg font-bold ${titleClass} ${messageSent ? 'w-full text-center' : 'absolute left-1/2 transform -translate-x-1/2'}`}>
+                                {messageSent ? 'Gesendet' : 'Neue Nachricht'}
+                            </h3>
+                            {!messageSent && (
+                                <button onClick={() => setActiveModal('none')} className={`ml-auto ${closeBtnClass}`}><X size={24} /></button>
+                            )}
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className={`block text-xs font-bold ${liquidGlass ? 'text-slate-600 dark:text-slate-400' : 'text-gray-500 dark:text-gray-400'} uppercase mb-2`}>Empfänger</label>
-                                <select
-                                    value={selectedRecipientId}
-                                    onChange={(e) => setSelectedRecipientId(e.target.value)}
-                                    className={`w-full rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 appearance-none ${liquidGlass ? 'bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white border-white/20' : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700'}`}
+                        {!messageSent ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className={`block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2`}>Empfänger</label>
+                                    <select
+                                        value={selectedRecipientId}
+                                        onChange={(e) => setSelectedRecipientId(e.target.value)}
+                                        className={`w-full rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700`}
+                                    >
+                                        <option value="" disabled>Wähle jemanden...</option>
+                                        {family?.filter(f => f.id !== currentUser.id).map(f => (
+                                            <option key={f.id} value={f.id}>{f.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <textarea
+                                        value={messageText}
+                                        onChange={(e) => setMessageText(e.target.value)}
+                                        placeholder="Deine Nachricht..."
+                                        className={`w-full rounded-xl p-4 text-sm outline-none resize-none h-32 focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700`}
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={handleSendMessage}
+                                    disabled={!messageText.trim() || !selectedRecipientId}
+                                    className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:shadow-none active:scale-95 transition"
                                 >
-                                    <option value="" disabled>Wähle jemanden...</option>
-                                    {family?.filter(f => f.id !== currentUser.id).map(f => (
-                                        <option key={f.id} value={f.id}>{f.name}</option>
-                                    ))}
-                                </select>
+                                    <Send size={18} />
+                                    <span>Senden</span>
+                                </button>
                             </div>
-
-                            <div>
-                                <textarea
-                                    value={messageText}
-                                    onChange={(e) => setMessageText(e.target.value)}
-                                    placeholder="Deine Nachricht..."
-                                    className={`w-full rounded-xl p-4 text-sm outline-none resize-none h-32 focus:ring-2 focus:ring-blue-500 ${liquidGlass ? 'bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white placeholder-slate-500 border-white/20' : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-white border-gray-200 dark:border-gray-700'}`}
-                                />
+                        ) : (
+                            <div className="py-8 flex flex-col items-center text-center animate-fade-in">
+                                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center mb-4 text-green-600 dark:text-green-400">
+                                    <Check size={32} />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Danke!</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Deine Nachricht wurde verschickt.</p>
                             </div>
-
-                            <button
-                                onClick={handleSendMessage}
-                                disabled={!messageText.trim() || !selectedRecipientId}
-                                className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:shadow-none active:scale-95 transition"
-                            >
-                                <Send size={18} />
-                                <span>Senden</span>
-                            </button>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -696,22 +715,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                             {/* What's New Section - RESTORED HERE */}
                             <section>
-                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 ${liquidGlass ? 'text-slate-600 dark:text-slate-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                                <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 text-gray-400 dark:text-gray-500`}>
                                     <Zap size={14} className="text-yellow-500" /> Neu in {APP_VERSION}
                                 </h3>
                                 <div className="space-y-3">
-                                    <div className={`${liquidGlass ? 'bg-cyan-100/50 dark:bg-cyan-900/30 border-cyan-200/50' : 'bg-cyan-50 dark:bg-cyan-900/10 border-cyan-100'} p-3 rounded-xl border dark:border-cyan-800 flex gap-3 items-start`}>
-                                        <div className={`${liquidGlass ? 'bg-cyan-200 dark:bg-cyan-800 text-cyan-700' : 'bg-cyan-100 dark:bg-cyan-800 text-cyan-600'} p-2 rounded-full dark:text-cyan-300 shrink-0`}><RotateCcw size={16} /></div>
+                                    <div className={`bg-cyan-50 dark:bg-cyan-900/10 border-cyan-100 p-3 rounded-xl border dark:border-cyan-800 flex gap-3 items-start`}>
+                                        <div className={`bg-cyan-100 dark:bg-cyan-800 text-cyan-600 p-2 rounded-full dark:text-cyan-300 shrink-0`}><RotateCcw size={16} /></div>
                                         <div>
-                                            <h4 className={`font-bold text-sm ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>Wiederherstellung</h4>
-                                            <p className={`text-xs mt-0.5 ${liquidGlass ? 'text-slate-700 dark:text-cyan-100/70' : 'text-gray-600 dark:text-gray-400'}`}>Dashboard, Kalender und Listen zeigen wieder alle Inhalte an.</p>
+                                            <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Wiederherstellung</h4>
+                                            <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Dashboard, Kalender und Listen zeigen wieder alle Inhalte an.</p>
                                         </div>
                                     </div>
-                                    <div className={`${liquidGlass ? 'bg-indigo-100/50 dark:bg-indigo-900/30 border-indigo-200/50' : 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100'} p-3 rounded-xl border dark:border-indigo-800 flex gap-3 items-start`}>
-                                        <div className={`${liquidGlass ? 'bg-indigo-200 dark:bg-indigo-800 text-indigo-700' : 'bg-indigo-100 dark:bg-indigo-800 text-indigo-600'} p-2 rounded-full dark:text-indigo-300 shrink-0`}><Droplets size={16} /></div>
+                                    <div className={`bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 p-3 rounded-xl border dark:border-indigo-800 flex gap-3 items-start`}>
+                                        <div className={`bg-indigo-100 dark:bg-indigo-800 text-indigo-600 p-2 rounded-full dark:text-indigo-300 shrink-0`}><Droplets size={16} /></div>
                                         <div>
-                                            <h4 className={`font-bold text-sm ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>Liquid Exklusiv</h4>
-                                            <p className={`text-xs mt-0.5 ${liquidGlass ? 'text-slate-700 dark:text-indigo-100/70' : 'text-gray-600 dark:text-gray-400'}`}>Slider-Animationen und Gestensteuerung sind nur noch im Liquid-Modus aktiv.</p>
+                                            <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Liquid Exklusiv</h4>
+                                            <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Slider-Animationen und Gestensteuerung sind nur noch im Liquid-Modus aktiv.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -719,7 +738,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                             {/* Website Card */}
                             <div
-                                className={`p-4 rounded-3xl border flex items-center justify-between cursor-pointer transition active:scale-[0.98] group ${liquidGlass ? 'bg-white/60 border-white/40 shadow-sm' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md'}`}
+                                className={`p-4 rounded-3xl border flex items-center justify-between cursor-pointer transition active:scale-[0.98] group bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md`}
                                 onClick={() => window.open(WEBSITE_LINK, '_blank')}
                             >
                                 <div className="flex items-center gap-4">
@@ -736,7 +755,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                             {/* Update Card */}
                             <div
-                                className={`p-6 rounded-3xl cursor-pointer transition active:scale-[0.98] flex items-center justify-between group ${liquidGlass ? 'bg-slate-900/90 text-white shadow-lg backdrop-blur-xl' : 'bg-[#0f172a] text-white shadow-xl'}`}
+                                className={`p-6 rounded-3xl cursor-pointer transition active:scale-[0.98] flex items-center justify-between group bg-[#0f172a] text-white shadow-xl`}
                                 onClick={handleDownloadUpdate}
                             >
                                 <div>
@@ -752,7 +771,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             </div>
 
                             <div className="text-center pt-8 space-y-1">
-                                <p className={`text-[10px] font-medium ${liquidGlass ? 'text-slate-500 dark:text-slate-400' : 'text-gray-400'}`}>&copy; 2025 FamilienHub Inc. Alle Rechte vorbehalten.</p>
+                                <p className={`text-[10px] font-medium text-gray-400`}>&copy; 2026 FamilyHub. Alle Rechte vorbehalten.</p>
                             </div>
                         </div>
                     </div>
@@ -761,19 +780,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
             {/* Reset Confirmation Modal */}
             {activeModal === 'reset-confirm' && targetUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
                     <div className={`${modalBgClass} w-full max-w-sm rounded-2xl shadow-2xl p-6 relative ${modalBorderClass}`}>
                         <h3 className={`text-lg font-bold ${titleClass} mb-2`}>{t('settings.reset_passwords', lang)}?</h3>
-                        <p className={`${liquidGlass ? 'text-slate-700 dark:text-gray-300' : 'text-gray-600 dark:text-gray-300'} mb-6`}>{t('settings.reset_confirm', lang).replace('{name}', targetUser.name)}</p>
+                        <p className={`text-gray-600 dark:text-gray-300 mb-6`}>{t('settings.reset_confirm', lang).replace('{name}', targetUser.name)}</p>
                         <input
                             type="password"
                             value={tempPassword}
                             onChange={(e) => setTempPassword(e.target.value)}
                             placeholder="Neues Passwort"
-                            className={`w-full rounded-xl p-3 mb-4 text-sm outline-none ${liquidGlass ? 'bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white placeholder-slate-500 border-white/20' : 'bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600'}`}
+                            className={`w-full rounded-xl p-3 mb-4 text-sm outline-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
                         />
                         <div className="flex space-x-3">
-                            <button onClick={() => setActiveModal('none')} className={`flex-1 py-3 rounded-xl font-bold ${liquidGlass ? 'bg-white/30 dark:bg-white/10 text-slate-700 dark:text-gray-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>Abbrechen</button>
+                            <button onClick={() => setActiveModal('none')} className={`flex-1 py-3 rounded-xl font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300`}>Abbrechen</button>
                             <button onClick={confirmReset} disabled={!tempPassword.trim()} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold shadow-lg disabled:opacity-50">Zurücksetzen</button>
                         </div>
                     </div>
@@ -782,7 +801,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
             {/* Edit User Modal (ADMIN) */}
             {activeModal === 'edit-user' && editTargetUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
                     <div className={`${modalBgClass} w-full max-w-sm rounded-2xl shadow-2xl p-6 relative ${modalBorderClass}`}>
                         <button onClick={() => setActiveModal('none')} className={`absolute top-4 right-4 ${closeBtnClass}`}><X size={24} /></button>
                         <h3 className={`text-lg font-bold ${titleClass} mb-6`}>Benutzer bearbeiten</h3>
@@ -811,7 +830,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         placeholder="Bild URL einfügen..."
                                         value={editUrlInput}
                                         onChange={(e) => setEditUrlInput(e.target.value)}
-                                        className={`flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${liquidGlass ? 'bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white border-white/20' : 'bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600'}`}
+                                        className={`flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
                                     />
                                     <button onClick={handleAdminUrlSubmit} className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-bold">OK</button>
                                 </div>
@@ -823,7 +842,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
                             placeholder="Name"
-                            className={`w-full rounded-xl p-3 mb-6 text-sm outline-none font-bold text-center ${liquidGlass ? 'bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white border-white/20' : 'bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600'}`}
+                            className={`w-full rounded-xl p-3 mb-6 text-sm outline-none font-bold text-center bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
                         />
 
                         <button onClick={saveUserEdit} disabled={!editName.trim()} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-50">Speichern</button>
@@ -844,10 +863,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 value={newUserName}
                                 onChange={(e) => setNewUserName(e.target.value)}
                                 placeholder="Name"
-                                className={`w-full rounded-xl p-3 text-sm outline-none font-bold ${liquidGlass ? 'bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white border-white/20' : 'bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600'}`}
+                                className={`w-full rounded-xl p-3 text-sm outline-none font-bold bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
                                 autoFocus
                             />
-                            <div className={`flex gap-2 p-1 rounded-xl ${liquidGlass ? 'bg-white/20 dark:bg-black/20' : 'bg-gray-100 dark:bg-gray-700/50'}`}>
+                            <div className={`flex gap-2 p-1 rounded-xl bg-gray-100 dark:bg-gray-700/50`}>
                                 <button
                                     type="button"
                                     onClick={() => setNewUserRole('parent')}
@@ -877,7 +896,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
             {/* Feedback Modal */}
             {activeModal === 'feedback' && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
                     <div className={`${modalBgClass} w-full max-w-sm rounded-2xl shadow-2xl p-6 relative ${modalBorderClass}`}>
                         <button onClick={() => setActiveModal('none')} className={`absolute top-4 right-4 ${closeBtnClass}`}><X size={24} /></button>
                         {!feedbackSent ? (
@@ -896,7 +915,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     placeholder="Wie findest du die App?"
                                     rows={4}
                                     required
-                                    className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-pink-500 outline-none resize-none ${liquidGlass ? 'bg-white/20 dark:bg-black/20 text-slate-900 dark:text-white placeholder-slate-500 border-white/20' : 'bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600'}`}
+                                    className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-pink-500 outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
                                 />
                                 <button type="submit" className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition">Absenden</button>
                             </form>
@@ -922,14 +941,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
                             {allFeedbacks && allFeedbacks.length > 0 ? (
                                 allFeedbacks.map(fb => (
-                                    <div key={fb.id} className={`p-3 rounded-xl border ${liquidGlass ? 'bg-white/40 dark:bg-black/20 border-white/20' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700'}`}>
+                                    <div key={fb.id} className={`p-3 rounded-xl border bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700`}>
                                         <div className="flex justify-between items-start mb-1">
-                                            <span className={`font-bold text-sm ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{fb.userName}</span>
+                                            <span className={`font-bold text-sm text-gray-800 dark:text-white`}>{fb.userName}</span>
                                             <div className="flex">
                                                 {Array.from({ length: fb.rating }).map((_, i) => <Star key={i} size={10} className="fill-yellow-400 text-yellow-400" />)}
                                             </div>
                                         </div>
-                                        <p className={`text-sm mb-2 ${liquidGlass ? 'text-slate-700 dark:text-gray-300' : 'text-gray-600 dark:text-gray-300'}`}>{fb.text}</p>
+                                        <p className={`text-sm mb-2 text-gray-600 dark:text-gray-300`}>{fb.text}</p>
                                         <div className="text-[10px] text-gray-400 text-right">{new Date(fb.createdAt).toLocaleString()}</div>
                                     </div>
                                 ))

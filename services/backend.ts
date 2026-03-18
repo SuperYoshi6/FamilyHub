@@ -133,6 +133,11 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         }
 
         // Map camelCase to snake_case for specific tables
+        if (this.table === 'news') {
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+        }
+
         if (this.table === 'polls') {
             if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
             if ('startsAt' in payload) { payload.starts_at = payload.startsAt; delete payload.startsAt; }
@@ -145,6 +150,16 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('endDate' in payload) { payload.end_date = payload.endDate; delete payload.endDate; }
             if ('endTime' in payload) { payload.end_time = payload.endTime; delete payload.endTime; }
             if ('assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
+        }
+
+        if (this.table === 'feedback') {
+            if ('userId' in payload) { payload.user_id = payload.userId; delete payload.userId; }
+            if ('userName' in payload) { payload.user_name = payload.userName; delete payload.userName; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+        }
+
+        if (this.table === 'weather_favs') {
+            if ('userId' in payload) { payload.user_id = payload.userId; delete payload.userId; }
         }
 
         if (this.table === 'shopping') {

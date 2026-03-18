@@ -125,7 +125,20 @@ const MealsPage: React.FC<MealsPageProps> = ({
                             </div>
                         ) : (
                             <div className="space-y-3 animate-fade-in">
-                                <input type="text" className={`w-full rounded-lg p-2 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200'}`} value={meal?.mealName || ''} onChange={(e) => updateMealEntry(dayObj.dayName, 'mealName', e.target.value)} placeholder="Abendessen" />
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Coffee size={14} className="text-orange-400" />
+                                        <input type="text" className={`flex-1 rounded-lg p-2 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200'}`} value={meal?.breakfast || ''} onChange={(e) => updateMealEntry(dayObj.dayName, 'breakfast', e.target.value)} placeholder="Frühstück" />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Sun size={14} className="text-yellow-500" />
+                                        <input type="text" className={`flex-1 rounded-lg p-2 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200'}`} value={meal?.lunch || ''} onChange={(e) => updateMealEntry(dayObj.dayName, 'lunch', e.target.value)} placeholder="Mittagessen" />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Moon size={14} className="text-indigo-500" />
+                                        <input type="text" className={`flex-1 rounded-lg p-2 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200'}`} value={meal?.mealName || ''} onChange={(e) => updateMealEntry(dayObj.dayName, 'mealName', e.target.value)} placeholder="Abendessen" />
+                                    </div>
+                                </div>
                                 <div className="flex justify-end pt-2"><button onClick={() => setEditingDay(null)} className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center hover:bg-emerald-600 transition"><Save size={12} className="mr-1"/> Fertig</button></div>
                             </div>
                         )}

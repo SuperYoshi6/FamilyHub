@@ -3,9 +3,13 @@ import React from 'react';
 interface LogoProps {
   className?: string;
   size?: number;
+  src?: string;
 }
 
-const Logo: React.FC<LogoProps> = ({ className = "", size = 40 }) => {
+const Logo: React.FC<LogoProps> = ({ className = "", size = 40, src }) => {
+  if (src) {
+    return <img src={src} width={size} height={size} className={`${className} object-contain`} alt="Logo" />;
+  }
   return (
     <svg 
       width={size} 
