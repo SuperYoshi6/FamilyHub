@@ -9,7 +9,7 @@ import { t, Language } from '../services/translations';
 // --- CONFIG & UPDATE ANLEITUNG ---
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
 const WEBSITE_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
-const APP_VERSION = "2.0.6";
+const APP_VERSION = "1.0.0";
 
 interface SettingsPageProps {
     currentUser: FamilyMember;
@@ -30,13 +30,13 @@ interface SettingsPageProps {
     allFeedbacks?: FeedbackItem[];
     onMarkFeedbackRead?: (ids: string[]) => void;
     onAddNews?: (item: NewsItem) => void;
-    onAddUser?: (name: string, role: 'parent' | 'child') => Promise<FamilyMember | null>;
-    onDeleteUser?: (id: string) => void;
+    onAddFamilyMember?: (name: string, role: 'parent' | 'child', mustChangePassword?: boolean) => Promise<FamilyMember | null>;
+    onDeleteUser: (id: string) => void;
     news?: NewsItem[];
     onDeleteNews?: (id: string) => void;
     systemStats?: any;
     backupData?: any;
-    onResetPassword?: (id: string) => void;
+    onResetPassword?: (member: FamilyMember) => void;
     onMarkNewsRead?: (id: string) => void;
 }
 
@@ -62,7 +62,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddUser, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
@@ -94,6 +94,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [editTargetUser, setEditTargetUser] = useState<FamilyMember | null>(null);
     const [editName, setEditName] = useState('');
     const [editAvatarUrl, setEditAvatarUrl] = useState('');
+    const [isTempPassword, setIsTempPassword] = useState(false);
     const [editGenerating, setEditGenerating] = useState(false);
     const [showEditUrlInput, setShowEditUrlInput] = useState(false);
     const [editUrlInput, setEditUrlInput] = useState('');
@@ -177,13 +178,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         setActiveModal('reset-confirm');
     };
 
-    const handleEditUserClick = (member: FamilyMember) => {
-        setEditTargetUser(member);
-        setEditName(member.name);
-        setEditAvatarUrl(member.avatar);
-        // Reset edit URL states
-        setShowEditUrlInput(false);
-        setEditUrlInput('');
+    const openEditModal = (user: FamilyMember) => {
+        setEditTargetUser(user);
+        setEditName(user.name);
+        setEditAvatarUrl(user.avatar || '');
+        setIsTempPassword(user.mustChangePassword || false);
+        setShowEditUrlInput(false); // Reset URL input visibility
+        setEditUrlInput(''); // Clear URL input
         setActiveModal('edit-user');
     };
 
@@ -225,14 +226,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     }
 
     const saveUserEdit = () => {
-        if (editTargetUser && onUpdateFamilyMember) {
-            onUpdateFamilyMember(editTargetUser.id, {
-                name: editName,
-                avatar: editAvatarUrl
-            });
-            setActiveModal('none');
-            setEditTargetUser(null);
-        }
+        if (!editTargetUser || !onUpdateFamilyMember) return;
+        onUpdateFamilyMember(editTargetUser.id, { 
+            name: editName, 
+            avatar: editAvatarUrl,
+            mustChangePassword: isTempPassword
+        });
+        setActiveModal('none');
+        setEditTargetUser(null);
     };
 
     const openCompose = () => {
@@ -280,21 +281,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         }
     };
 
-    const handleAddUserSubmit = async (e: React.FormEvent) => {
+    const handleAddUserSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newUserName.trim() || !onAddUser) return;
-
-        setIsAddingUser(true);
-        try {
-            await onAddUser(newUserName, newUserRole);
+        if (newUserName.trim() && onAddFamilyMember) {
+            onAddFamilyMember(newUserName, newUserRole, isTempPassword);
             setNewUserName('');
             setNewUserRole('parent');
             setActiveModal('none');
-        } catch (err) {
-            console.error("Add user error", err);
-            alert("Fehler beim Erstellen des Nutzers.");
-        } finally {
-            setIsAddingUser(false);
+            setIsTempPassword(false);
         }
     };
 
@@ -491,7 +485,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     </div>
                                     <div className="flex space-x-2">
                                         <button
-                                            onClick={() => handleEditUserClick(member)}
+                                            onClick={() => openEditModal(member)}
                                             className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
                                             title="Bearbeiten"
                                         >
@@ -842,10 +836,33 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
                             placeholder="Name"
-                            className={`w-full rounded-xl p-3 mb-6 text-sm outline-none font-bold text-center bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
+                            className={`w-full rounded-xl p-3 mb-4 text-sm outline-none font-bold text-center bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
                         />
 
-                        <button onClick={saveUserEdit} disabled={!editName.trim()} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-50">Speichern</button>
+                        <div className="flex items-center justify-between mb-6 px-2">
+                            <span className="text-sm font-medium">Temporäres Passwort</span>
+                            <button 
+                                onClick={() => setIsTempPassword(!isTempPassword)}
+                                className={`w-12 h-6 rounded-full transition-colors relative ${isTempPassword ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isTempPassword ? 'right-1' : 'left-1'}`}></div>
+                            </button>
+                        </div>
+
+                        <div className="flex space-x-2">
+                            <button 
+                                onClick={() => {
+                                    if(confirm(`Benutzer ${editTargetUser.name} wirklich löschen?`)) {
+                                        onDeleteUser(editTargetUser.id);
+                                        setActiveModal('none');
+                                    }
+                                }}
+                                className="flex-1 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 font-bold py-3 rounded-xl hover:bg-red-100 transition"
+                            >
+                                Löschen
+                            </button>
+                            <button onClick={saveUserEdit} disabled={!editName.trim()} className="flex-[2] bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition disabled:opacity-50">Speichern</button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -880,6 +897,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${newUserRole === 'child' ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-300 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'}`}
                                 >
                                     Kind
+                                </button>
+                            </div>
+
+                            <div className="flex items-center justify-between mb-2 px-2">
+                                <span className="text-sm font-medium">Temporäres Passwort</span>
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsTempPassword(!isTempPassword)}
+                                    className={`w-12 h-6 rounded-full transition-colors relative ${isTempPassword ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isTempPassword ? 'right-1' : 'left-1'}`}></div>
                                 </button>
                             </div>
                             <button

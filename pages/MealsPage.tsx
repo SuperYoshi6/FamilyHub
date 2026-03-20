@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
-import { MealPlan, MealRequest, FamilyMember, Recipe, PlaceRecommendation } from '../types';
-import { suggestActivities } from '../services/gemini';
-import { Sparkles, ChefHat, RefreshCcw, Utensils, MessageCircleHeart, Trash2, Plus, Store, Search, ExternalLink, Loader2, ShoppingCart, Edit3, Coffee, Sun, Moon, Save, X, Lock, BookOpen, Heart, CheckSquare, ListPlus, FileText } from 'lucide-react';
+import { MealPlan, MealRequest, FamilyMember, Recipe } from '../types';
+import { Coffee, Sun, Moon, Plus, Trash2, Edit3, Save, X, ChefHat } from 'lucide-react';
 
 interface MealsPageProps {
   plan: MealPlan[];
@@ -29,13 +28,9 @@ const MealsPage: React.FC<MealsPageProps> = ({
 }) => {
   const isChild = currentUser.role === 'child';
   
-  // Tab State with Persistence
   const [activeTab, setActiveTab] = useState<TabType>(() => {
       const saved = localStorage.getItem('fh_meals_tab');
-      if (saved === 'plan' || saved === 'wishes') {
-          return saved;
-      }
-      return isChild ? 'wishes' : 'plan';
+      return (saved === 'plan' || saved === 'wishes') ? saved : (isChild ? 'wishes' : 'plan');
   });
 
   useEffect(() => {
@@ -43,17 +38,13 @@ const MealsPage: React.FC<MealsPageProps> = ({
   }, [activeTab]);
   
   const [editingDay, setEditingDay] = useState<string | null>(null);
-  
-  // Wish State
   const [newWish, setNewWish] = useState('');
-
 
   const getCurrentWeekCycle = () => {
       const days = [];
       const today = new Date();
       const currentDay = today.getDay();
       const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1; 
-      
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - distanceToMonday);
 
@@ -72,7 +63,6 @@ const MealsPage: React.FC<MealsPageProps> = ({
 
   const displayDays = getCurrentWeekCycle();
 
-
   const handleWishSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       if(newWish.trim()) {
@@ -80,7 +70,6 @@ const MealsPage: React.FC<MealsPageProps> = ({
           setNewWish('');
       }
   };
-
 
   const updateMealEntry = (dayName: string, field: string, value: any) => {
       const existingMeal = plan.find(p => p.day === dayName);
@@ -96,134 +85,124 @@ const MealsPage: React.FC<MealsPageProps> = ({
       onUpdatePlan(newPlan);
   };
 
-  // --- Renderers ---
-  const renderPlan = () => (
-    <div className="space-y-6 animate-fade-in">
+  const renderPlan = () => {
+      const currentHour = new Date().getHours();
+      return (
+          <div className="space-y-6 animate-fade-in">
+              {displayDays.map((day) => {
+                  const dayPlan = plan.find(p => p.day === day.dayName);
+                  const isBreakfastTime = day.isToday && currentHour >= 5 && currentHour < 11;
+                  const isLunchTime = day.isToday && currentHour >= 11 && currentHour < 15;
+                  const isDinnerTime = day.isToday && (currentHour >= 18 || currentHour < 5); // Dinner is the main focus in evening
 
-        <div className="space-y-4">
-          {displayDays.map((dayObj, index) => {
-            const meal = plan.find(p => p.day === dayObj.dayName);
-            const isEditing = editingDay === dayObj.dayName;
-            
-            return (
-                <div key={index} className={`rounded-xl shadow-sm border overflow-hidden relative transition-all ${dayObj.isToday ? 'ring-1 ring-emerald-400' : ''} ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
-                    <div className={`px-4 py-2 border-b flex justify-between items-center ${liquidGlass ? 'bg-emerald-100/30 border-white/20' : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800'}`}>
-                        <div className="flex items-center gap-2"><span className="font-bold text-emerald-800 dark:text-emerald-300">{dayObj.dayName}</span></div>
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400">{dayObj.dateStr}</span>
-                    </div>
-                    <div className="p-4 relative">
-                        {!isChild && (<button onClick={() => setEditingDay(isEditing ? null : dayObj.dayName)} className="absolute top-2 right-2 p-2 text-gray-400 hover:text-blue-500 rounded-lg">{isEditing ? <X size={18}/> : <Edit3 size={18} />}</button>)}
-                        {!isEditing ? (
-                            <div>
-                                {meal && (meal.breakfast || meal.lunch || meal.mealName) ? (
-                                    <div className="space-y-3">
-                                        {meal.mealName && (<div><div className="flex items-start text-sm font-medium"><Moon size={14} className="mt-0.5 mr-2 text-indigo-500" /><span className={liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}>{meal.mealName}</span></div></div>)}
-                                        {meal.breakfast && (<div className="flex items-start text-sm"><Coffee size={14} className="mt-0.5 mr-2 text-orange-400" /><span className="text-gray-700 dark:text-gray-200">{meal.breakfast}</span></div>)}
-                                        {meal.lunch && (<div className="flex items-start text-sm"><Sun size={14} className="mt-0.5 mr-2 text-yellow-500" /><span className="text-gray-700 dark:text-gray-200">{meal.lunch}</span></div>)}
-                                    </div>
-                                ) : (<div className="text-center py-2"><p className="text-sm text-gray-400 italic">Nichts geplant</p></div>)}
-                            </div>
-                        ) : (
-                            <div className="space-y-3 animate-fade-in">
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <Coffee size={14} className="text-orange-400" />
-                                        <input type="text" className={`flex-1 rounded-lg p-2 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200'}`} value={meal?.breakfast || ''} onChange={(e) => updateMealEntry(dayObj.dayName, 'breakfast', e.target.value)} placeholder="Frühstück" />
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Sun size={14} className="text-yellow-500" />
-                                        <input type="text" className={`flex-1 rounded-lg p-2 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200'}`} value={meal?.lunch || ''} onChange={(e) => updateMealEntry(dayObj.dayName, 'lunch', e.target.value)} placeholder="Mittagessen" />
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Moon size={14} className="text-indigo-500" />
-                                        <input type="text" className={`flex-1 rounded-lg p-2 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200'}`} value={meal?.mealName || ''} onChange={(e) => updateMealEntry(dayObj.dayName, 'mealName', e.target.value)} placeholder="Abendessen" />
-                                    </div>
-                                </div>
-                                <div className="flex justify-end pt-2"><button onClick={() => setEditingDay(null)} className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center hover:bg-emerald-600 transition"><Save size={12} className="mr-1"/> Fertig</button></div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-          })}
-        </div>
-    </div>
-  );
+                  return (
+                      <div key={day.dayName} className={`rounded-2xl border ${day.isToday ? 'border-blue-200 dark:border-blue-800 ring-2 ring-blue-500/10' : 'border-gray-100 dark:border-gray-700'} ${day.isToday ? 'bg-blue-50/30 dark:bg-blue-900/10' : 'bg-white dark:bg-gray-800'} overflow-hidden shadow-sm`}>
+                          <div className={`p-3 flex justify-between items-center ${day.isToday ? 'bg-blue-500 text-white' : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300'}`}>
+                              <span className="font-bold flex items-center gap-2">{day.dayName} <span className="text-[10px] opacity-60 font-normal">{day.dateStr}</span></span>
+                              {day.isToday && <span className="text-[10px] font-black uppercase bg-white/20 px-2 py-0.5 rounded-full">Heute</span>}
+                          </div>
+                          
+                          <div className="p-4 space-y-4">
+                              {/* Breakfast Slot */}
+                              <div className={`flex items-start space-x-3 p-2 rounded-xl border border-transparent transition-all ${isBreakfastTime ? 'bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : ''}`}>
+                                  <div className={`p-2 rounded-lg ${isBreakfastTime ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}><Coffee size={16}/></div>
+                                  <div className="flex-1 min-w-0">
+                                      <div className="flex justify-between items-start">
+                                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isBreakfastTime ? 'text-orange-600' : 'text-gray-400'}`}>Frühstück</span>
+                                          {!isChild && <button onClick={() => setEditingDay(isEditing('breakfast', day.dayName) ? null : day.dayName + '-breakfast')} className="text-gray-300 hover:text-blue-500 p-1"><Edit3 size={12} /></button>}
+                                      </div>
+                                      {isEditing('breakfast', day.dayName) ? (
+                                          <input autoFocus defaultValue={dayPlan?.breakfast} onBlur={(e) => { updateMealEntry(day.dayName, 'breakfast', e.target.value); setEditingDay(null); }} className="w-full bg-transparent border-b border-blue-500 outline-none text-sm font-medium" />
+                                      ) : (
+                                          <p className={`text-sm truncate ${dayPlan?.breakfast ? 'text-gray-800 dark:text-gray-200 font-medium' : 'text-gray-400 italic'}`}>{dayPlan?.breakfast || 'Nicht geplant'}</p>
+                                      )}
+                                  </div>
+                              </div>
 
-  // --- Dynamic Slider Helpers ---
-  const getTabContainerClass = () => {
-      if (liquidGlass) {
-          return "liquid-shimmer-card border-white/40 p-1 rounded-xl relative flex";
-      }
-      return "bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex";
+                              {/* Lunch Slot */}
+                              <div className={`flex items-start space-x-3 p-2 rounded-xl border border-transparent transition-all ${isLunchTime ? 'bg-yellow-50/50 dark:bg-yellow-900/10 border-yellow-100 dark:border-yellow-800' : ''}`}>
+                                  <div className={`p-2 rounded-lg ${isLunchTime ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}><Sun size={16}/></div>
+                                  <div className="flex-1 min-w-0">
+                                      <div className="flex justify-between items-start">
+                                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isLunchTime ? 'text-yellow-600' : 'text-gray-400'}`}>Mittagessen</span>
+                                          {!isChild && <button onClick={() => setEditingDay(isEditing('lunch', day.dayName) ? null : day.dayName + '-lunch')} className="text-gray-300 hover:text-blue-500 p-1"><Edit3 size={12} /></button>}
+                                      </div>
+                                      {isEditing('lunch', day.dayName) ? (
+                                          <input autoFocus defaultValue={dayPlan?.lunch} onBlur={(e) => { updateMealEntry(day.dayName, 'lunch', e.target.value); setEditingDay(null); }} className="w-full bg-transparent border-b border-blue-500 outline-none text-sm font-medium" />
+                                      ) : (
+                                          <p className={`text-sm truncate ${dayPlan?.lunch ? 'text-gray-800 dark:text-gray-200 font-medium' : 'text-gray-400 italic'}`}>{dayPlan?.lunch || 'Nicht geplant'}</p>
+                                      )}
+                                  </div>
+                              </div>
+
+                              {/* Dinner Slot (Main) */}
+                              <div className={`flex items-start space-x-3 p-2 rounded-xl border border-transparent transition-all ${isDinnerTime ? 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800' : ''}`}>
+                                  <div className={`p-2 rounded-lg ${isDinnerTime ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}><Moon size={16}/></div>
+                                  <div className="flex-1 min-w-0">
+                                      <div className="flex justify-between items-start">
+                                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isDinnerTime ? 'text-indigo-600' : 'text-gray-400'}`}>Hauptspeise</span>
+                                          {!isChild && <button onClick={() => setEditingDay(isEditing('main', day.dayName) ? null : day.dayName)} className="text-gray-300 hover:text-blue-500 p-1"><Edit3 size={12} /></button>}
+                                      </div>
+                                      {isEditing('main', day.dayName) ? (
+                                          <input autoFocus defaultValue={dayPlan?.mealName} onBlur={(e) => { updateMealEntry(day.dayName, 'mealName', e.target.value); setEditingDay(null); }} className="w-full bg-transparent border-b border-blue-500 outline-none text-sm font-bold" />
+                                      ) : (
+                                          <p className={`text-sm truncate ${dayPlan?.mealName ? 'text-gray-800 dark:text-white font-bold' : 'text-gray-400 italic'}`}>{dayPlan?.mealName || 'Nicht geplant'}</p>
+                                      )}
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  );
+              })}
+          </div>
+      );
   };
 
-  const getSliderClass = () => {
-      return "absolute top-1 bottom-1 rounded-lg z-0 transition-all duration-300 ease-in-out";
+  const isEditing = (slot: string, d: string) => {
+      if (slot === 'main') return editingDay === d;
+      return editingDay === `${d}-${slot}`;
   };
-
-  const getSliderInnerClass = () => {
-      if (liquidGlass) {
-          return "w-full h-full rounded-lg bg-white/40 dark:bg-white/20 backdrop-blur-md border border-white/40 shadow-sm";
-      }
-      return ""; 
-  };
-
-  // Re-enable plan tab for everyone (ReadOnly for child)
-  const tabs = [];
-  tabs.push({ id: 'plan', label: 'Planer', icon: Utensils });
-  tabs.push({ id: 'wishes', label: 'Wünsche', icon: MessageCircleHeart });
-
-  const activeIndex = tabs.findIndex(t => t.id === activeTab);
-  const widthPercent = 100 / tabs.length;
 
   return (
     <>
       <Header title="Essen" currentUser={currentUser} onProfileClick={onProfileClick} liquidGlass={liquidGlass} />
       
       <div className="px-4 mt-2 mb-4">
-        <div className={getTabContainerClass()}>
-          {liquidGlass && (
-              <div className={getSliderClass()} style={{ left: `${activeIndex * widthPercent}%`, width: `${widthPercent}%` }}>
-                  <div className={getSliderInnerClass()} />
-              </div>
-          )}
-          {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              let btnClass = "";
-              if (liquidGlass) {
-                  btnClass = isActive ? "text-slate-900 dark:text-white font-extrabold" : "text-slate-500 dark:text-slate-400";
-              } else {
-                  btnClass = isActive ? "bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200";
-              }
-              return (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id as TabType)} className={`flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center space-x-1 transition-all z-10 ${btnClass}`}>
-                    <tab.icon size={16} /> <span className="hidden sm:inline">{tab.label}</span> <span className="sm:hidden">{tab.label}</span>
-                  </button>
-              );
-          })}
+        <div className={`p-1 rounded-xl flex ${liquidGlass ? 'bg-white/20 border border-white/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
+            <button onClick={() => setActiveTab('plan')} className={`flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${activeTab === 'plan' ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}><Sun size={16}/> Planer</button>
+            <button onClick={() => setActiveTab('wishes')} className={`flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${activeTab === 'wishes' ? 'bg-white dark:bg-gray-700 shadow-sm text-orange-600 dark:text-orange-400' : 'text-gray-500'}`}><ChefHat size={16}/> Wünsche</button>
         </div>
       </div>
 
       <div className="p-4 pb-24">
-         {activeTab === 'plan' && renderPlan()}
-         {activeTab === 'wishes' && (
-             <div className="animate-fade-in">
-                 <div className={`p-6 rounded-2xl border mb-6 ${liquidGlass ? 'liquid-shimmer-card border-orange-200/50' : 'bg-orange-50 dark:bg-orange-900/20 border-orange-100'}`}>
-                      <h3 className="text-lg font-bold text-orange-900 dark:text-orange-300 mb-2">Worauf hast du Hunger?</h3>
-                      <form onSubmit={handleWishSubmit} className="flex gap-2">
-                          <input type="text" value={newWish} onChange={(e) => setNewWish(e.target.value)} placeholder="z.B. Pfannkuchen" className={`flex-1 rounded-xl p-3 text-sm outline-none ${liquidGlass ? 'bg-white/50 border border-white/40' : 'bg-white border-orange-200'}`} />
-                          <button type="submit" className="bg-orange-500 text-white p-3 rounded-xl hover:bg-orange-600 shadow-md"><Plus size={20} /></button>
-                      </form>
-                  </div>
-                  <div className="space-y-3">
-                      {requests.map(req => (
-                          <div key={req.id} className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100'}`}>
-                              <div><p className="font-bold text-gray-800 dark:text-white">{req.dishName}</p></div>
-                              <button onClick={() => onDeleteRequest(req.id)} className="text-gray-300 hover:text-red-400 p-2"><Trash2 size={18} /></button>
-                          </div>
-                      ))}
-                  </div>
+         {activeTab === 'plan' ? renderPlan() : (
+             <div className="animate-fade-in space-y-4 text-gray-800 dark:text-white">
+                 <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-3xl">
+                    <h3 className="text-lg font-bold text-orange-600 mb-4">Worauf hast du Hunger?</h3>
+                    <form onSubmit={handleWishSubmit} className="flex gap-2">
+                        <input type="text" value={newWish} onChange={(e) => setNewWish(e.target.value)} placeholder="Gericht eingeben..." className="flex-1 rounded-2xl p-3 text-sm outline-none bg-white dark:bg-gray-800 border-none shadow-inner" />
+                        <button type="submit" className="bg-orange-500 text-white p-3 rounded-2xl hover:bg-orange-600 shadow-lg"><Plus size={20} /></button>
+                    </form>
+                 </div>
+                 
+                 <div className="space-y-3">
+                     {requests.length === 0 && <p className="text-center text-gray-400 italic py-8">Noch keine Wünsche...</p>}
+                     {requests.map(req => {
+                         const requester = family.find(f => f.id === req.requestedBy);
+                         return (
+                            <div key={req.id} className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <img src={requester?.avatar || ''} className="w-8 h-8 rounded-full border-2 border-orange-100" />
+                                    <div>
+                                        <p className="font-bold text-sm">{req.dishName}</p>
+                                        <p className="text-[10px] text-gray-400">Von {requester?.name || 'Unbekannt'}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => onDeleteRequest(req.id)} className="p-2 text-gray-300 hover:text-red-500 transition"><Trash2 size={18}/></button>
+                            </div>
+                         );
+                     })}
+                 </div>
              </div>
          )}
       </div>

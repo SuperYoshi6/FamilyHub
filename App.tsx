@@ -18,6 +18,9 @@ import { Geolocation } from '@capacitor/geolocation';
 import { fetchWeather, getWeatherDescription } from './services/weather';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { supabase } from './services/backend';
 
 // Helper for local settings
 const useLocalSetting = <T,>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
@@ -49,7 +52,7 @@ const hashCode = (str: string): number => {
 };
 
 // --- APP VERSION CONFIGURATION ---
-const CURRENT_APP_VERSION = "2.0.6"; 
+const CURRENT_APP_VERSION = "1.0.0"; 
 const POLLING_INTERVAL = 30000; 
 
 
@@ -71,10 +74,21 @@ const App: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   
-  // --- Local Settings ---
-  const [darkMode, setDarkMode] = useLocalSetting<boolean>('fh_darkmode', false);
+  // --- Settings state ---
+  const [darkMode, setDarkMode] = useState(false);
   const [enableSwipe, setEnableSwipe] = useLocalSetting<boolean>('fh_enableswipe', false);
   const language: Language = 'de'; 
+
+  // --- Native UI (v2.0.8/2.0.9) ---
+  useEffect(() => {
+    const initNativeUI = async () => {
+      try {
+        await StatusBar.setOverlaysWebView({ overlay: true });
+        await LocalNotifications.requestPermissions();
+      } catch (e) { console.warn('Native UI setup failed:', e); }
+    };
+    initNativeUI();
+  }, []);
 
   // --- Session State ---
   const [currentUser, setCurrentUser] = useState<FamilyMember | null>(null);
@@ -353,10 +367,75 @@ const App: React.FC = () => {
   }, [loadingData, family, currentUser]);
 
   useEffect(() => {
+    if (currentUser) {
+       setDarkMode(currentUser.darkMode || false);
+    }
+  }, [currentUser]);
+
+  // --- Realtime Native Notifications (v2.0.9) ---
+  useEffect(() => {
+    if (!supabase || !currentUser) return;
+
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+        },
+        async (payload) => {
+          const newNotif = payload.new;
+          // Filter out self-notifications using author_id
+          if (newNotif.author_id !== currentUser.id) {
+            try {
+              await LocalNotifications.schedule({
+                notifications: [
+                  {
+                    title: newNotif.title,
+                    body: newNotif.message,
+                    id: hashCode(newNotif.id || Date.now().toString()),
+                    schedule: { at: new Date(Date.now() + 1000) },
+                    sound: 'default'
+                  }
+                ]
+              });
+            } catch (e) {
+              console.warn('Native notification failed:', e);
+            }
+            
+            // Update local state to show the red dot immediately without polling
+            setNotifications(prev => {
+                const mapped: AppNotification = {
+                    id: newNotif.id,
+                    title: newNotif.title,
+                    message: newNotif.message,
+                    type: (newNotif.type as any) || 'info',
+                    timestamp: newNotif.created_at || new Date().toISOString(),
+                    read: false,
+                    authorId: newNotif.author_id
+                };
+                if (prev.some(n => n.id === mapped.id)) return prev;
+                return [mapped, ...prev];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
+      try { StatusBar.setStyle({ style: Style.Dark }); } catch(e) {}
     } else {
       document.documentElement.classList.remove('dark');
+      try { StatusBar.setStyle({ style: Style.Light }); } catch(e) {}
     }
   }, [darkMode]);
 
@@ -367,7 +446,8 @@ const App: React.FC = () => {
           message,
           type: 'info',
           timestamp: new Date().toISOString(),
-          read: false
+          read: false,
+          authorId: currentUser?.id
       };
       setNotifications(prev => [notif, ...prev]);
       await Backend.notifications.add(notif);
@@ -382,8 +462,9 @@ const App: React.FC = () => {
   };
 
   const addEvent = async (event: CalendarEvent) => {
-      setEvents(prev => [...prev, event]);
-      await Backend.events.add(event);
+      const newEvent = { ...event, authorId: currentUser?.id };
+      setEvents(prev => [...prev, newEvent]);
+      await Backend.events.add(newEvent);
 
       const creatorName = currentUser?.name || 'Jemand';
       await addNotification('Neuer Termin 📅', `${creatorName} hat "${event.title}" am ${new Date(event.date).toLocaleDateString()} erstellt.`);
@@ -394,10 +475,19 @@ const App: React.FC = () => {
       await Backend.events.update(id, updates);
   };
   
-  const deleteEvent = async (id: string) => {
-      setEvents(prev => prev.filter(e => e.id !== id));
-      await Backend.events.delete(id);
-  };
+    const deleteEvent = async (id: string) => {
+       if (!currentUser) return;
+       const event = events.find(e => e.id === id);
+       if (!event) return;
+       
+       if (currentUser.role !== 'admin' && event.authorId && event.authorId !== currentUser.id) {
+           alert("Nur der Autor oder Admin kann Termine löschen.");
+           return;
+       }
+       
+       setEvents(prev => prev.filter(e => e.id !== id));
+       await Backend.events.delete(id);
+   };
 
   const addNews = async (item: NewsItem) => {
       setNews(prev => [item, ...prev]);
@@ -412,10 +502,19 @@ const App: React.FC = () => {
       setNews(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
       await Backend.news.update(id, updates);
   };
-  const deleteNews = async (id: string) => {
-      setNews(prev => prev.filter(n => n.id !== id));
-      await Backend.news.delete(id);
-  };
+   const deleteNews = async (id: string) => {
+       if (!currentUser) return;
+       const item = news.find(n => n.id === id);
+       if (!item) return;
+
+       if (currentUser.role !== 'admin' && item.authorId !== currentUser.id) {
+           alert("Nur der Autor oder Admin kann News löschen.");
+           return;
+       }
+
+       setNews(prev => prev.filter(n => n.id !== id));
+       await Backend.news.delete(id);
+   };
   const markNewsRead = async (id: string) => {
       if (!currentUser) return;
       const item = news.find(n => n.id === id);
@@ -436,10 +535,19 @@ const App: React.FC = () => {
       setPolls(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
       await Backend.polls.update(id, updates);
   }
-  const deletePoll = async (id: string) => {
-      setPolls(prev => prev.filter(p => p.id !== id));
-      await Backend.polls.delete(id);
-  }
+   const deletePoll = async (id: string) => {
+       if (!currentUser) return;
+       const poll = polls.find(p => p.id === id);
+       if (!poll) return;
+
+       if (currentUser.role !== 'admin' && poll.authorId !== currentUser.id) {
+           alert("Nur der Autor oder Admin kann Umfragen löschen.");
+           return;
+       }
+
+       setPolls(prev => prev.filter(p => p.id !== id));
+       await Backend.polls.delete(id);
+   };
 
   const toggleShoppingItem = async (id: string) => {
       const item = shoppingList.find(i => i.id === id);
@@ -471,11 +579,15 @@ const App: React.FC = () => {
       const task: Task = { id: Date.now().toString(), title, done: false, assignedTo, type: 'household', priority, note };
       setHouseholdTasks(prev => [...prev, task]);
       await Backend.householdTasks.add(task);
+      
+      const member = family.find(f => f.id === assignedTo);
+      await addNotification('Neue Aufgabe 🏠', `"${title}" wurde ${member?.name || 'jemandem'} zugewiesen.`);
   };
   const addPersonalTask = async (title: string, priority: TaskPriority = 'medium', note?: string) => {
       const task: Task = { id: Date.now().toString(), title, done: false, type: 'personal', priority, note };
       setPersonalTasks(prev => [...prev, task]);
       await Backend.personalTasks.add(task);
+      await addNotification('Neue Aufgabe 👤', `"${title}" wurde zu deinen persönlichen Aufgaben hinzugefügt.`);
   };
   const toggleTask = async (id: string, type: 'household' | 'personal') => {
       if (type === 'household') {
@@ -528,6 +640,7 @@ const App: React.FC = () => {
       const newPlan = [...filtered, newMeal];
       setMealPlan(newPlan);
       await Backend.mealPlan.setAll(newPlan);
+      await addNotification('Essensplan-Update 🍴', `Für ${day} wurde "${mealName}" eingetragen.`);
   };
   const addMealRequest = async (dishName: string) => {
       if (currentUser) {
@@ -561,33 +674,34 @@ const App: React.FC = () => {
     await Backend.family.update(id, updates);
   };
 
-  const addUser = async (name: string, role: 'parent' | 'child') => {
-      const randomId = Math.floor(Math.random() * 1000);
+  const addFamilyMember = async (name: string, role: 'parent' | 'child', mustChangePassword?: boolean) => {
       const newMember: FamilyMember = {
           id: Date.now().toString(),
-          name: name.trim(),
-          avatar: `https://picsum.photos/200/200?random=${randomId}`,
-          color: role === 'parent' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700',
-          role: role
+          name,
+          role,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+          color: role === 'parent' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white',
+          password: '123', // Standardpasswort
+          mustChangePassword: mustChangePassword || false
       };
-      await Backend.family.add(newMember);
       setFamily(prev => [...prev, newMember]);
+      await Backend.family.add(newMember);
       return newMember;
   };
 
   const deleteUser = async (id: string) => {
-      if (family.length <= 1) {
-          alert("Der letzte Benutzer kann nicht gelöscht werden.");
+      if (id === currentUser?.id) {
+          alert("Du kannst dich nicht selbst löschen!");
           return;
       }
       setFamily(prev => prev.filter(f => f.id !== id));
       await Backend.family.delete(id);
-  }
+  };
 
-  const resetMemberPassword = async (id: string) => {
-      const updates = { password: undefined };
-      setFamily(prev => prev.map(member => member.id === id ? { ...member, ...updates } : member));
-      await Backend.family.update(id, updates);
+  const resetMemberPassword = async (member: FamilyMember) => {
+      const updates = { password: '123' }; // standard reset
+      setFamily(prev => prev.map(m => m.id === member.id ? { ...m, ...updates } : m));
+      await Backend.family.update(member.id, updates);
   };
   
   const addFeedback = async (item: FeedbackItem) => {
@@ -671,13 +785,23 @@ const App: React.FC = () => {
       }
   };
 
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+
+  useEffect(() => {
+    if (currentUser?.mustChangePassword) {
+      setShowPasswordChange(true);
+    } else {
+      setShowPasswordChange(false);
+    }
+  }, [currentUser]);
+
   const handleCreateMember = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!newMemberName.trim()) return;
       setCreatingUser(true);
 
       try {
-          const newMember = await addUser(newMemberName, newMemberRole);
+          const newMember = await addFamilyMember(newMemberName, newMemberRole);
           if (newMember) {
               if (!currentUser) {
                   setCurrentUser(newMember);
@@ -1001,6 +1125,11 @@ const App: React.FC = () => {
     );
   };
   
+  const getTodayMeal = () => {
+    const today = new Date().toLocaleDateString('de-DE', { weekday: 'long' });
+    return mealPlan.find(m => m.day === today);
+  };
+
   const userWeatherFavorites = (currentUser && weatherFavorites) 
     ? weatherFavorites.filter(f => f.userId === currentUser.id) 
     : [];
@@ -1031,7 +1160,7 @@ const App: React.FC = () => {
                         events={events} 
                         shoppingCount={shoppingList.filter(i => !i.checked).length} 
                         openTaskCount={myOpenTaskCount} 
-                        todayMeal={mealPlan[0]} 
+                        todayMeal={getTodayMeal()} 
                         onNavigate={setCurrentRoute} 
                         onProfileClick={handleOpenSettings}
                         lang={language} 
@@ -1047,7 +1176,7 @@ const App: React.FC = () => {
                         events={events} 
                         shoppingCount={shoppingList.filter(i => !i.checked).length} 
                         openTaskCount={myOpenTaskCount} 
-                        todayMeal={mealPlan[0]} 
+                        todayMeal={getTodayMeal()} 
                         onNavigate={setCurrentRoute} 
                         onProfileClick={handleOpenSettings}
                         lang={language} 
@@ -1153,7 +1282,13 @@ const App: React.FC = () => {
                         onLogout={handleLogout} 
                         onClose={() => setCurrentRoute(lastRoute)}
                         darkMode={darkMode} 
-                        onToggleDarkMode={() => setDarkMode(!darkMode)} 
+                        onToggleDarkMode={() => {
+                            const newMode = !darkMode;
+                            setDarkMode(newMode);
+                            if (currentUser) {
+                                updateFamilyMember(currentUser.id, { darkMode: newMode });
+                            }
+                        }} 
                         enableSwipe={enableSwipe}
                         onToggleSwipe={() => setEnableSwipe(!enableSwipe)}
                         lang={language} 
@@ -1166,7 +1301,7 @@ const App: React.FC = () => {
                         onAddNews={addNews}
                         news={news}
                         onDeleteNews={deleteNews}
-                        onAddUser={addUser}
+                        onAddFamilyMember={addFamilyMember}
                         onDeleteUser={deleteUser}
                         onMarkNewsRead={markNewsRead}
                      />;
@@ -1196,6 +1331,41 @@ const App: React.FC = () => {
       >
         {/* Hide Navigation on Landing Page */}
         {renderPage()}
+        {showPasswordChange && currentUser && (
+          <div className="fixed inset-0 z-[9999] bg-white dark:bg-gray-900 flex items-center justify-center p-6 animate-fade-in">
+              <div className="w-full max-w-sm space-y-8 text-center">
+                  <div className="mx-auto w-20 h-20 bg-blue-500 text-white rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/20">
+                      <Lock size={40} />
+                  </div>
+                  <div className="space-y-2">
+                      <h2 className="text-3xl font-black text-gray-900 dark:text-white">Sicherheit geht vor!</h2>
+                      <p className="text-gray-500 dark:text-gray-400">Dein Administrator erfordert eine Passwortänderung.</p>
+                  </div>
+                  
+                  <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const p1 = (form.elements.namedItem('p1') as HTMLInputElement).value;
+                      const p2 = (form.elements.namedItem('p2') as HTMLInputElement).value;
+                      if (p1.length < 3) { alert("Zu kurz!"); return; }
+                      if (p1 !== p2) { alert("Passwörter ungleich!"); return; }
+                      await updateFamilyMember(currentUser.id, { password: p1, mustChangePassword: false });
+                      setShowPasswordChange(false);
+                      await addNotification('Willkommen! 👋', `Schön, dass du da bist, ${currentUser.name}! Deine Reise mit FamilienHub beginnt jetzt.`);
+                  }} className="space-y-4 text-left">
+                      <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Neues Passwort</label>
+                          <input name="p1" type="password" required className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="••••" />
+                      </div>
+                      <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Bestätigen</label>
+                          <input name="p2" type="password" required className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="••••" />
+                      </div>
+                      <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-700 transition-all active:scale-95">Passwort speichern & starten</button>
+                  </form>
+              </div>
+          </div>
+        )}
         {currentRoute !== AppRoute.LANDING && (
           <Navigation 
               currentRoute={currentRoute} 

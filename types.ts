@@ -6,6 +6,8 @@ export interface FamilyMember {
   color: string;
   role: 'parent' | 'child' | 'admin';
   password?: string;
+  darkMode?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface CalendarEvent {
@@ -18,6 +20,7 @@ export interface CalendarEvent {
   location?: string;
   description?: string;
   assignedTo: string[]; // IDs of family members
+  authorId?: string; // New: Track who created the event
 }
 
 export interface NewsItem {
@@ -60,6 +63,7 @@ export interface AppNotification {
   type: 'info' | 'success' | 'warning' | 'alert';
   timestamp: string;
   read: boolean;
+  authorId?: string;
 }
 
 export interface ShoppingItem {

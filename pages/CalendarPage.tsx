@@ -683,9 +683,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
                 {/* Calendar Detail Modal */}
                 {selectedDate && activeTab === 'calendar' && (
-                    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none p-4">
                         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity" onClick={closeModal}></div>
-                        <div className={`w-full max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl pointer-events-auto transform transition-transform duration-300 max-h-[85vh] flex flex-col animate-slide-up ${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800'}`}>
+                        <div className={`w-full max-w-md rounded-2xl shadow-2xl pointer-events-auto transform transition-transform duration-300 max-h-[85vh] flex flex-col animate-slide-up ${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800'}`}>
                             <div className={`flex justify-between items-center p-4 border-b rounded-t-2xl flex-shrink-0 ${liquidGlass ? 'border-white/20 bg-white/10' : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50'}`}>
                                 <div>
                                     {isFormOpen ? (

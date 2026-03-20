@@ -24,7 +24,7 @@ const LandingPage: React.FC = () => {
             <main className="pt-32 pb-20 px-6">
                 <div className="max-w-6xl mx-auto text-center">
                     <div className="inline-block px-4 py-1.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-300 text-xs font-black uppercase tracking-widest mb-8 animate-fade-in">
-                        Neu: FamilyHub 2.0.6
+                        Neu: FamilyHub 1.0.0
                     </div>
                     <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter leading-[0.9] animate-slide-up">
                         Eure Familie.<br/><span className="text-blue-600">Perfekt organisiert.</span>

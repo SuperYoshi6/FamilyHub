@@ -9,7 +9,7 @@ const INITIAL_FAMILY: FamilyMember[] = [
         avatar: 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff',
         color: 'bg-gray-800 text-white',
         role: 'admin',
-        password: 'admin005' 
+        password: 'admin006'
     }
 ];
 const INITIAL_EVENTS: CalendarEvent[] = [];
@@ -20,15 +20,15 @@ const INITIAL_TASKS: Task[] = [];
 export const INITIAL_NEWS: NewsItem[] = [];
 
 // --- SUPABASE CONFIGURATION ---
-const SUPABASE_URL = 'https://hjkmfodzhradtkeiyele.supabase.co'; 
+const SUPABASE_URL = 'https://hjkmfodzhradtkeiyele.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8';
 
-let supabase: SupabaseClient | null = null;
+export let supabase: SupabaseClient | null = null;
 
 if (SUPABASE_URL && SUPABASE_KEY) {
     try {
         supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-            auth: { persistSession: false }, 
+            auth: { persistSession: false },
             global: {
                 headers: { 'x-my-custom-header': 'familienhub' },
             },
@@ -52,7 +52,7 @@ interface ICollection<T> {
 
 // --- LOCAL STORAGE IMPLEMENTATION ---
 class LocalStorageCollection<T extends { id: string }> implements ICollection<T> {
-    constructor(private key: string, private defaultVal: T[]) {}
+    constructor(private key: string, private defaultVal: T[]) { }
 
     private async delay(ms: number = 50) {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -126,7 +126,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
     private sanitize(item: Partial<T> | T): any {
         const payload: any = { ...item };
-        
+
         // Remove virtual fields not in DB
         if (this.table === 'news' && 'readBy' in payload) {
             delete payload.readBy;
@@ -150,6 +150,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('endDate' in payload) { payload.end_date = payload.endDate; delete payload.endDate; }
             if ('endTime' in payload) { payload.end_time = payload.endTime; delete payload.endTime; }
             if ('assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
         }
 
         if (this.table === 'feedback') {
@@ -158,15 +159,81 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
         }
 
+        if (this.table === 'notifications') {
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+        }
+
         if (this.table === 'weather_favs') {
             if ('userId' in payload) { payload.user_id = payload.userId; delete payload.userId; }
         }
 
-        if (this.table === 'shopping') {
-            // Already correct or no special mapping needed currently
+        if (this.table === 'meal_requests') {
+            if ('dishName' in payload) { payload.dish_name = payload.dishName; delete payload.dishName; }
+            if ('requestedBy' in payload) { payload.requested_by = payload.requestedBy; delete payload.requestedBy; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
         }
-        
+
+        if (this.table === 'meal_plan') {
+            if ('mealName' in payload) { payload.meal_name = payload.mealName; delete payload.mealName; }
+            if ('recipeHint' in payload) { payload.recipe_hint = payload.recipeHint; delete payload.recipeHint; }
+        }
+
+        if (this.table === 'family') {
+            if ('darkMode' in payload) { payload.dark_mode = payload.darkMode; delete payload.darkMode; }
+            if ('mustChangePassword' in payload) { payload.must_change_password = payload.mustChangePassword; delete payload.mustChangePassword; }
+        }
+
         return payload;
+    }
+
+    private desanitize(dbItem: any): T {
+        const item: any = { ...dbItem };
+
+        if (this.table === 'news') {
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+        }
+        if (this.table === 'polls') {
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+            if ('starts_at' in item) { item.startsAt = item.starts_at; delete item.starts_at; }
+            if ('expires_at' in item) { item.expiresAt = item.expires_at; delete item.expires_at; }
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if ('allow_multiple_selection' in item) { item.allowMultipleSelection = item.allow_multiple_selection; delete item.allow_multiple_selection; }
+        }
+        if (this.table === 'events') {
+            if ('end_date' in item) { item.endDate = item.end_date; delete item.end_date; }
+            if ('end_time' in item) { item.endTime = item.end_time; delete item.end_time; }
+            if ('assigned_to' in item) { item.assignedTo = item.assigned_to; delete item.assigned_to; }
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+        }
+        if (this.table === 'feedback') {
+            if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }
+            if ('user_name' in item) { item.userName = item.user_name; delete item.user_name; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+        }
+        if (this.table === 'weather_favs') {
+            if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }
+        }
+        if (this.table === 'family') {
+            if ('dark_mode' in item) { item.darkMode = item.dark_mode; delete item.dark_mode; }
+            if ('must_change_password' in item) { item.mustChangePassword = item.must_change_password; delete item.must_change_password; }
+        }
+        if (this.table === 'notifications') {
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+        }
+
+        if (this.table === 'meal_requests') {
+            if ('dish_name' in item) { item.dishName = item.dish_name; delete item.dish_name; }
+            if ('requested_by' in item) { item.requestedBy = item.requested_by; delete item.requested_by; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+        }
+
+        if (this.table === 'meal_plan') {
+            if ('meal_name' in item) { item.mealName = item.meal_name; delete item.meal_name; }
+            if ('recipe_hint' in item) { item.recipe_hint = item.recipe_hint; delete item.recipe_hint; }
+        }
+
+        return item as T;
     }
 
     async getAll(): Promise<T[]> {
@@ -174,11 +241,12 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (supabase) {
             try {
                 const { data, error } = await supabase.from(this.table).select('*');
-                
+
                 if (!error && data) {
+                    const mapped = data.map(d => this.desanitize(d));
                     // Success: Update local cache and return fresh data
-                    await this.localFallback.setAll(data as T[]);
-                    return data as T[];
+                    await this.localFallback.setAll(mapped);
+                    return mapped;
                 } else if (error) {
                     console.warn(`[Supabase] Load warning (${this.table}): ${error.message}. Using fallback.`);
                 }
@@ -186,7 +254,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                 console.warn(`[Supabase] Network error (${this.table}). Using fallback.`, err);
             }
         }
-        
+
         // Fallback
         return this.localFallback.getAll();
     }
@@ -253,15 +321,15 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                 } else {
                     // Case 2: Items exist -> Sync
                     const ids = items.map(i => i.id).filter(id => id); // Ensure no undefined IDs
-                    
+
                     if (ids.length > 0) {
                         // 1. Delete items that are NOT in the new list
                         // FIX: Explicitly format list for PostgREST syntax if standard array fails
                         const idList = `(${ids.map(id => `"${id}"`).join(',')})`;
                         const { error: deleteError } = await supabase.from(this.table).delete().filter('id', 'not.in', idList);
-                        
+
                         if (deleteError) {
-                             console.warn(`[Supabase] Bulk delete failed (${this.table}):`, deleteError.message);
+                            console.warn(`[Supabase] Bulk delete failed (${this.table}):`, deleteError.message);
                         }
                     }
 
@@ -274,7 +342,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                 console.error(`[Supabase] setAll exception`, err);
             }
         }
-        
+
         return this.localFallback.getAll();
     }
 }

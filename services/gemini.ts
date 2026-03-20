@@ -2,8 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { MealPlan, CalendarEvent, Recipe, PlaceRecommendation, VoiceAction } from "../types";
 
-// API Key Fallback für APK Builds (da process.env dort leer sein kann)
-const apiKey = process.env.API_KEY || 'AIzaSyADpKvZxuPBtZ4jd5aWq7hAOqtBGb-O1kc'; 
+// API Key aus .env (Vite Environment Variable)
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ''; 
 
 const getAI = () => new GoogleGenAI({ apiKey });
 

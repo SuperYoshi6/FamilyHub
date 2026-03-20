@@ -175,9 +175,8 @@ const ListsPage: React.FC<ListsPageProps> = ({
 
     const renderTaskList = (tasks: Task[], type: 'household' | 'personal') => {
         let visibleTasks = tasks;
-        if (type === 'household' && currentUser.role === 'child') {
-            visibleTasks = tasks.filter(t => t.assignedTo === currentUser.id);
-        }
+        // In v2.0.7, we show all household tasks to everyone so children know what's going on, 
+        // but we'll control interaction separately.
 
         const priorityWeight = { high: 3, medium: 2, low: 1 };
         const sorted = [...visibleTasks].sort((a, b) => {
@@ -189,7 +188,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {sorted.map(task => {
                     const assignee = family.find(f => f.id === task.assignedTo);
-                    const isReadOnly = type === 'household' && currentUser.role === 'child';
+                    const isReadOnly = false; // Everyone can check off tasks in v2.0.7
 
                     return (
                         <div key={task.id} className={`flex flex-col p-3 rounded-xl border relative overflow-hidden transition-all ${task.done ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 opacity-60' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm'}`}>
