@@ -1430,7 +1430,7 @@ const App: React.FC = () => {
 
   return (
       <div 
-        className={`min-h-screen transition-all duration-500 overflow-x-hidden ${currentRoute === AppRoute.LANDING ? '' : 'pb-[calc(6.5rem+env(safe-area-inset-bottom, 0px))]'} ${getAppBackgroundClass()}`}
+        className={`min-h-screen transition-all duration-500 overflow-x-hidden ${getAppBackgroundClass()}`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >

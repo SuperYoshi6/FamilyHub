@@ -29,7 +29,7 @@ export const requestFirebaseToken = async (userId: string) => {
         console.log('FCM Token received:', token);
         // Save token to Supabase
         const { error } = await supabase
-          .from('family_members')
+          .from('family')
           .update({ fcm_token: token })
           .eq('id', userId);
           
