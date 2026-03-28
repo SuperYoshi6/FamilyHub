@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
     <title>FamilyHub</title>
     <script type="text/javascript">
       // Single Page Apps for GitHub Pages
@@ -106,8 +107,15 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+      /* Global Reset */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      
       /* Disable selection globally for app-like feel */
       html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
         -webkit-tap-highlight-color: transparent;
         -webkit-touch-callout: none;
         -webkit-user-select: none;
@@ -125,7 +133,6 @@
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
         transition: background-color 0.5s ease, color 0.5s ease;
-        padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
         /* Hardware Acceleration Hint */
         transform: translateZ(0); 
@@ -133,7 +140,7 @@
       }
       
       header.sticky {
-        top: env(safe-area-inset-top);
+        top: 0;
       }
       
       nav.fixed.bottom-0 {

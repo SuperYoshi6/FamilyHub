@@ -544,7 +544,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, liq
     const bgGradient = getBackgroundClass(currentCode, isDay, liquidGlass);
 
     return (
-        <div className={`min-h-screen ${liquidGlass ? '' : 'bg-gradient-to-b'} ${bgGradient} ${textColorClass} pb-24 transition-all duration-1000 relative overflow-hidden`}>
+        <div className={`min-h-screen ${liquidGlass ? '' : 'bg-gradient-to-b'} ${bgGradient} ${textColorClass} transition-all duration-1000 relative overflow-hidden`}>
             <WeatherEffects code={currentCode} isDay={isDay} />
 
             {/* Header Optimized Layout */}

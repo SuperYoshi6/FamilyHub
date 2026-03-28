@@ -11,8 +11,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     LocalNotifications: {
-      smallIcon: "ic_stat_logo", // Muss in Android Studio als 'Notification Icon' angelegt werden
-      iconColor: "#8b5cf6", // Violett (Brand Color) statt Blau, damit es zum Logo passt
+      smallIcon: "notification_icon",
+      iconColor: "#FFFFFF",
       sound: "beep.wav",
     },
   },

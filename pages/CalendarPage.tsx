@@ -23,6 +23,8 @@ interface CalendarPageProps {
     initialTab?: 'calendar' | 'news';
     onMarkNewsRead?: (id: string) => void;
     liquidGlass?: boolean;
+    unreadNotifications?: number;
+    onNotificationClick?: () => void;
 }
 
 type Tab = 'calendar' | 'news';
@@ -32,7 +34,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     onAddEvent, onUpdateEvent, onDeleteEvent,
     onAddNews, onUpdateNews, onDeleteNews,
     onAddPoll, onUpdatePoll, onDeletePoll,
-    onProfileClick, initialTab = 'calendar', liquidGlass = false
+    onProfileClick, initialTab = 'calendar', liquidGlass = false,
+    unreadNotifications = 0, onNotificationClick
 }) => {
     // Tab State with Persistence
     const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -426,7 +429,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                     <textarea placeholder="Beschreibung..." value={newsDesc} onChange={(e) => setNewsDesc(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} rows={3} />
                                     <div className="relative"><Hash size={16} className="absolute left-3 top-3.5 text-gray-400" /><input type="text" placeholder="Tag (#Sommer)" value={newsTag} onChange={(e) => setNewsTag(e.target.value)} className={`w-full rounded-xl p-3 pl-9 text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} /></div>
 
-                                    <div className={`p-3 rounded-xl border border-dashed ${liquidGlass ? 'bg-white/30 border-white/40' : 'bg-gray-50 dark:bg-gray-750 border-gray-300 dark:border-gray-600'}`}>
+                                    <div className={`p-3 rounded-xl border border-dashed ${liquidGlass ? 'bg-white/30 border-white/40' : 'bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600'}`}>
                                         <div className="flex gap-2 mb-2">
                                             <button type="button" onClick={() => setImageMode('upload')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'upload' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>Foto</button>
                                             <button type="button" onClick={() => setImageMode('url')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'url' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>URL</button>
@@ -434,23 +437,23 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         {imageMode === 'upload' ? (
                                             <div className="text-center py-2">
                                                 <input type="file" ref={newsFileInputRef} onChange={handleNewsFileChange} accept="image/*" className="hidden" />
-                                                {newsImage ? (<div className="relative inline-block"><img src={newsImage} className="h-32 rounded-lg shadow-sm" /><button type="button" onClick={() => setNewsImage('')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12} /></button></div>) : (<button type="button" onClick={() => newsFileInputRef.current?.click()} className="flex flex-col items-center justify-center w-full py-4 text-gray-400 hover:text-indigo-500 transition">{processingImage ? <Loader2 className="animate-spin mb-1" size={24} /> : <Camera size={24} className="mb-1" />}<span className="text-xs">Foto wählen</span></button>)}
-                                            </div>
-                                        ) : (
-                                            <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
-                                        )}
-                                    </div>
-                                    <button type="submit" disabled={!newsTitle.trim() || processingImage} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50">Veröffentlichen</button>
-                                </form>
-                            </div>
-                        )}
-
-                        <div className="grid gap-4">
-                            {news.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
-                            {news.map(item => {
-                                const author = family.find(f => f.id === item.authorId);
-                                return (
-                                    <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
+                                                 {newsImage ? (<div className="relative inline-block"><img src={newsImage} className="h-32 rounded-lg shadow-sm" /><button type="button" onClick={() => setNewsImage('')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12} /></button></div>) : (<button type="button" onClick={() => newsFileInputRef.current?.click()} className="flex flex-col items-center justify-center w-full py-4 text-gray-400 hover:text-indigo-500 transition">{processingImage ? <Loader2 className="animate-spin mb-1" size={24} /> : <Camera size={24} className="mb-1" />}<span className="text-xs">Foto wählen</span></button>)}
+                                             </div>
+                                         ) : (
+                                             <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
+                                         )}
+                                     </div>
+                                     <button type="submit" disabled={!newsTitle.trim() || processingImage} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50">Veröffentlichen</button>
+                                 </form>
+                             </div>
+                         )}
+ 
+                         <div className="grid gap-4">
+                             {news.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
+                             {news.map(item => {
+                                 const author = family.find(f => f.id === item.authorId);
+                                 return (
+                                     <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700'}`}>
                                         {item.image && (<div className="h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-900 relative"><img src={item.image} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" alt="News" /></div>)}
                                         <div className="p-4">
                                             <div className="flex justify-between items-start mb-2">
@@ -633,7 +636,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                 title={activeTab === 'calendar' ? 'Kalender' : 'Pinnwand'}
                 currentUser={currentUser}
                 onProfileClick={onProfileClick}
-                liquidGlass={liquidGlass}
+                unreadNotifications={unreadNotifications}
+                onNotificationClick={onNotificationClick}
             />
 
             {/* Slider Tabs - Main */}
@@ -677,7 +681,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                 </div>
             )}
 
-            <div className="p-4 pb-24 relative min-h-[calc(100vh-140px)]">
+            <div className="p-4 relative min-h-[calc(100vh-140px)]">
                 {activeTab === 'calendar' && renderMonthView()}
                 {activeTab === 'news' && renderNewsBoard()}
 
@@ -710,16 +714,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                             </div>
                                         ) : (
                                             (groupedEvents[selectedDate] || []).map(event => (
-                                                <div key={event.id} className={`p-4 rounded-xl border-l-4 border-blue-500 relative group shadow-sm hover:shadow-md transition-all ${liquidGlass ? 'bg-white/40 border border-white/20' : 'bg-gray-50 dark:bg-gray-750'}`}>
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="flex-1">
-                                                            <h4 className={`font-bold text-base ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{event.title}</h4>
-                                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center"><Clock size={14} className="mr-1.5 text-blue-500" /> {event.time} - {event.endTime}</div>
-                                                            {event.location && (<div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center"><MapPin size={14} className="mr-1.5 text-red-500" /> {event.location}</div>)}
-                                                        </div>
-                                                        <button onClick={() => handleEditEvent(event)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition"><Edit2 size={18} /></button>
-                                                    </div>
-                                                </div>
+                                                 <div key={event.id} className={`p-4 rounded-xl border-l-4 border-blue-500 relative group shadow-sm hover:shadow-md transition-all ${liquidGlass ? 'bg-white/40 border border-white/20' : 'bg-gray-50 dark:bg-slate-800'}`}>
+                                                     <div className="flex justify-between items-start">
+                                                         <div className="flex-1">
+                                                             <h4 className={`font-bold text-base ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{event.title}</h4>
+                                                             <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center"><Clock size={14} className="mr-1.5 text-blue-500" /> {event.time} - {event.endTime}</div>
+                                                             {event.location && (<div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center"><MapPin size={14} className="mr-1.5 text-red-500" /> {event.location}</div>)}
+                                                         </div>
+                                                         <button onClick={() => handleEditEvent(event)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"><Edit2 size={18} /></button>
+                                                     </div>
+                                                 </div>
                                             ))
                                         )}
                                     </div>

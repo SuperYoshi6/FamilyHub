@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import { FamilyMember, CalendarEvent, MealPlan, AppRoute, SavedLocation, NewsItem } from '../types';
-import { Clock, ClipboardList, Utensils, ChevronRight, Sun, CheckCircle, CloudRain, Search, MapPin, Loader2, Info, X, Check, ArrowRight } from 'lucide-react';
+import { Clock, ClipboardList, Utensils, ChevronRight, Sun, CheckCircle, CloudRain, Search, MapPin, Loader2, Info, X, Check, ArrowRight, Cloud, CloudFog, CloudSnow, CloudLightning, Moon, ShoppingCart, Calendar } from 'lucide-react';
 import { fetchWeather, getWeatherDescription } from '../services/weather';
 import { t, Language } from '../services/translations';
 
@@ -100,63 +100,90 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [lang]);
 
-  const getWeatherIcon = (code: number, day: number) => {
-    if (code === 0) return day ? <Sun className="text-yellow-300" size={48} /> : <span>🌙</span>;
-    if (code >= 1 && code <= 3) return <span>☁️</span>;
-    if (code >= 51) return <CloudRain className="text-blue-300" size={48} />;
-    return <Sun className="text-yellow-300" size={48} />;
-  };
-
   const getWeatherGradient = (code: number, day: number) => {
-    if (!day) return 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900';
-    if (code === 0) return 'bg-gradient-to-br from-blue-500 to-sky-400';
-    return 'bg-gradient-to-br from-blue-400 to-indigo-500';
+    if (!day) return 'from-slate-800 to-indigo-950';
+    if (code === 0) return 'from-blue-500 via-blue-600 to-indigo-700';
+    if (code >= 1 && code <= 3) return 'from-blue-400 to-slate-400';
+    if (code >= 51) return 'from-slate-600 to-gray-700';
+    return 'from-blue-500 to-cyan-600';
   };
 
   const getGreetingData = () => {
     const hours = new Date().getHours();
-    if (hours < 11) return { main: "Guten Morgen", sub: `Hab einen tollen Start, ${currentUser.name}!` };
-    if (hours < 18) return { main: "Hallo", sub: `Schön dich zu sehen, ${currentUser.name}.` };
-    return { main: "Guten Abend", sub: `Zeit zum Entspannen, ${currentUser.name}.` };
+    if (hours >= 5 && hours < 11) return { main: "Guten Morgen", sub: "Bereit für den Tag?" };
+    if (hours >= 11 && hours < 14) return { main: "Schönen Mittag", sub: "Was gibt's zu essen?" };
+    if (hours >= 14 && hours < 17) return { main: "Guten Nachmittag", sub: "Zeit für eine Pause?" };
+    if (hours >= 17 && hours < 22) return { main: "Guten Abend", sub: "Entspann dich schön." };
+    return { main: "Gute Nacht", sub: "Träum was Schönes." };
   };
 
   const greeting = getGreetingData();
 
-  return (
-    <>
-      <Header title="Übersicht" currentUser={currentUser} onProfileClick={onProfileClick} />
-      <main className="p-4 space-y-6 pb-24">
+  const getBtnClass = (isActive: boolean) => isActive ? "bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white" : "text-slate-500 dark:text-slate-400";
 
-        {/* Dynamic Greeting Section */}
-        <div className={`${getWeatherGradient(weatherCode, isDay)} rounded-3xl p-6 text-white shadow-xl relative overflow-hidden`}>
-          <div className="relative z-10 flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-black">{greeting.main}</h2>
-              <p className="text-sm opacity-90 mt-1">{greeting.sub}</p>
-              <div className="mt-4 inline-flex items-center px-3 py-1 bg-white/20 rounded-full text-xs font-bold backdrop-blur-sm">
-                <MapPin size={12} className="mr-1" /> {locationName || 'Ort suchen...'} • {currentTemp}
-              </div>
-            </div>
-            <div className="text-5xl">{getWeatherIcon(weatherCode, isDay)}</div>
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <Header 
+        title={t('dashboard.title', lang)} 
+        currentUser={currentUser} 
+        onProfileClick={onProfileClick} 
+      />
+      <main className="p-5 space-y-5 max-w-2xl mx-auto">
+
+        {/* 1. Greeting Card (Enhanced Dynamic Gradient) */}
+        <div className={`bg-gradient-to-br ${getWeatherGradient(weatherCode, isDay)} rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden active:scale-[0.98] transition-transform`}>
+          <div className="relative z-10">
+            <h2 className="text-4xl font-extrabold tracking-tight mb-2">{greeting.main}</h2>
+            <p className="text-blue-100/90 text-lg font-medium italic">{greeting.sub} {currentUser.name}</p>
           </div>
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-20 transform rotate-12">
+            <Cloud size={120} strokeWidth={1} />
+          </div>
+          {/* Subtle Decorative Shapes */}
+          <div className="absolute -top-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
         </div>
 
-        {/* News Highlights */}
+        {/* 2. Weather Widget (Reverted to v2.0.6 Style) */}
+        <button
+          onClick={() => onNavigate(AppRoute.WEATHER)}
+          className="w-full bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group active:scale-[0.98] outline-none"
+        >
+          <div className="flex items-center space-x-6">
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-500 shadow-inner">
+               <CloudRain size={36} strokeWidth={2.5} />
+            </div>
+            <div className="text-left">
+              <span className="text-5xl font-black text-slate-800 dark:text-white block leading-tight tracking-tighter">
+                {weatherError ? '--' : currentTemp}
+              </span>
+              <p className="text-sm text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest mt-0.5">
+                {locationName ? `${locationName} • ` : ''} {weatherDesc}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
+            DETAILS <ChevronRight size={14} className="ml-1" />
+          </div>
+          {weatherLoading && (
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100 dark:bg-slate-800 overflow-hidden">
+               <div className="h-full bg-blue-500 animate-loading-bar w-1/3"></div>
+            </div>
+          )}
+        </button>
+
+        {/* Dashboard News (Optional Feature) */}
         {unreadNews.length > 0 && (
-          <div className="animate-fade-in">
-             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-black text-gray-800 dark:text-white">Neuigkeiten</h3>
-                <button onClick={() => onNavigate(AppRoute.NEWS)} className="text-blue-500 text-xs font-bold">PINNWAND <ChevronRight size={14} className="inline"/></button>
+          <div className="animate-fade-in pt-2">
+             <div className="flex justify-between items-center mb-4 px-1">
+                <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Pinwand-Highlights</h3>
              </div>
-             <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
+             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1">
                 {unreadNews.map(n => (
-                  <button key={n.id} onClick={() => setSelectedNews(n)} className="flex-shrink-0 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden text-left hover:scale-[1.02] transition-all">
+                  <button key={n.id} onClick={() => setSelectedNews(n)} className="flex-shrink-0 w-64 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden text-left hover:scale-[1.02] transition-all">
                       {n.image && <img src={n.image} className="w-full h-32 object-cover" />}
-                      <div className="p-4">
-                          <span className="text-[10px] uppercase font-black text-blue-500 mb-1 block">WICHTIG</span>
-                          <h4 className="font-bold text-gray-800 dark:text-white line-clamp-1">{n.title}</h4>
-                          <p className="text-xs text-gray-500 line-clamp-2 mt-1">{n.description}</p>
+                      <div className="p-5">
+                          <span className="text-[10px] uppercase font-black text-blue-500 mb-2 block tracking-widest">Wichtig</span>
+                          <h4 className="font-bold text-slate-800 dark:text-white line-clamp-1 text-lg leading-tight">{n.title}</h4>
                       </div>
                   </button>
                 ))}
@@ -164,84 +191,91 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {/* Action Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => onNavigate(AppRoute.LISTS)} className="p-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm text-left flex flex-col justify-between">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl w-fit mb-4"><ClipboardList size={24}/></div>
-            <div>
-              <span className="block font-black text-gray-800 dark:text-white">Einkaufen</span>
-              <span className="text-xs text-gray-400 font-bold">{shoppingCount} Artikel</span>
-            </div>
+        {/* 3. Action Grid (2 columns) */}
+        <div className="grid grid-cols-2 gap-5">
+          <button onClick={() => onNavigate(AppRoute.LISTS)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start transition hover:bg-slate-50 dark:hover:bg-slate-800/50 group active:scale-95">
+             <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
+               <ShoppingCart className="text-orange-500" size={24} />
+             </div>
+             <h4 className="font-bold text-slate-800 dark:text-white text-base">Einkaufsliste</h4>
+             <p className="text-[12px] text-slate-400 mt-1">{shoppingCount === 0 ? 'Alles erledigt' : `${shoppingCount} Artikel`}</p>
           </button>
-          <button onClick={() => onNavigate(AppRoute.MEALS)} className="p-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm text-left flex flex-col justify-between">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-xl w-fit mb-4"><Utensils size={24}/></div>
-            <div>
-              <span className="block font-black text-gray-800 dark:text-white truncate">{todayMeal?.mealName || 'Kein Plan'}</span>
-              <span className="text-xs text-gray-400 font-bold">Essensplan</span>
-            </div>
+
+          <button onClick={() => onNavigate(AppRoute.MEALS)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start transition hover:bg-slate-50 dark:hover:bg-slate-800/50 group active:scale-95">
+             <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
+               <Utensils className="text-green-500" size={24} />
+             </div>
+             <h4 className="font-bold text-slate-800 dark:text-white text-base line-clamp-1 w-full text-left">{todayMeal ? todayMeal.mealName : 'Nichts geplant'}</h4>
+             <p className="text-[12px] text-slate-400 mt-1">Heute essen</p>
           </button>
         </div>
 
-        {/* Timeline */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-black text-gray-800 dark:text-white">Heutige Termine</h3>
-            <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
-              <button onClick={() => setCalendarView('family')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition ${calendarView === 'family' ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' : 'text-gray-400'}`}>ALLE</button>
-              <button onClick={() => setCalendarView('private')} className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition ${calendarView === 'private' ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' : 'text-gray-400'}`}>ICH</button>
-            </div>
-          </div>
-          <div className="space-y-4">
-            {sortedEvents.length > 0 ? sortedEvents.map(event => (
-              <div key={event.id} className="flex gap-4 group">
-                  <div className="flex flex-col items-center">
-                      <div className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-500/10" />
-                      <div className="w-0.5 flex-1 bg-gray-100 dark:bg-gray-700 my-1" />
-                  </div>
-                  <div className="flex-1 pb-4">
-                      <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-gray-800 dark:text-white">{event.title}</h4>
-                          <span className="text-xs font-black text-gray-400">{event.time}</span>
-                      </div>
-                      {event.location && <p className="text-xs text-gray-400 mt-0.5 flex items-center"><MapPin size={10} className="mr-1"/>{event.location}</p>}
-                  </div>
+        {/* 4. Tasks Row (Full Width) */}
+        <button onClick={() => onNavigate(AppRoute.LISTS)} className="w-full bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 group transition-all active:scale-95">
+           <div className="flex items-center space-x-5">
+             <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-2xl group-hover:rotate-12 transition-transform">
+               <CheckCircle className="text-purple-500" size={28} />
+             </div>
+             <div className="text-left">
+               <h4 className="font-black text-slate-800 dark:text-white text-lg">Meine Aufgaben</h4>
+               <p className="text-sm text-slate-400 mt-1">{openTaskCount === 0 ? 'Alles erledigt! 🎉' : `${openTaskCount} Aufgaben offen`}</p>
+             </div>
+           </div>
+           <ArrowRight className="text-slate-300 dark:text-slate-600 group-hover:translate-x-1 transition-transform" size={20} />
+        </button>
+
+        {/* 5. Timeline Widget */}
+        <div className="pt-4">
+           <div className="flex justify-between items-center mb-6 px-1">
+              <h3 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Termine heute</h3>
+              <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
+                <button onClick={() => setCalendarView('family')} className={`px-4 py-1.5 rounded-lg text-xs font-black transition ${getBtnClass(calendarView === 'family')}`}>ALLE</button>
+                <button onClick={() => setCalendarView('private')} className={`px-4 py-1.5 rounded-lg text-xs font-black transition ${getBtnClass(calendarView === 'private')}`}>MEINE</button>
               </div>
-            )) : <p className="text-center text-gray-400 italic py-4">Keine Termine für heute.</p>}
-          </div>
-          <button onClick={() => onNavigate(AppRoute.CALENDAR)} className="w-full mt-2 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-2xl text-blue-500 text-xs font-black hover:bg-blue-50 transition-all flex items-center justify-center gap-2">KALENDER ÖFFNEN <ArrowRight size={14}/></button>
+           </div>
+           <div className="space-y-4">
+              {sortedEvents.length > 0 ? sortedEvents.map(event => (
+                <div key={event.id} className="p-5 rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center border-l-8 border-l-blue-500">
+                   <div className="flex-1">
+                      <h4 className="font-bold text-slate-800 dark:text-white text-lg">{event.title}</h4>
+                      <div className="flex items-center text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">
+                         <Clock size={14} className="mr-1.5 text-blue-500" /> {event.time} {event.location && `• ${event.location}`}
+                      </div>
+                   </div>
+                   <ArrowRight className="text-slate-200" size={18}/>
+                </div>
+              )) : (
+                <div className="py-12 flex flex-col items-center justify-center space-y-3 opacity-40">
+                   <Calendar size={48} strokeWidth={1} className="text-slate-400" />
+                   <p className="text-center text-slate-500 text-lg font-medium">Keine Termine für heute.</p>
+                </div>
+              )}
+           </div>
         </div>
       </main>
 
       {/* News Detail Modal */}
       {selectedNews && (
-        <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl animate-scale-in">
+        <div className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-5">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] overflow-hidden shadow-2xl animate-scale-in">
                 <div className="relative h-64">
-                    {selectedNews.image ? <img src={selectedNews.image} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-blue-500 flex items-center justify-center text-white"><Info size={64} opacity={0.2}/></div>}
-                    <button onClick={() => setSelectedNews(null)} className="absolute top-6 right-6 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-all"><X size={20}/></button>
+                    {selectedNews.image ? <img src={selectedNews.image} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-white/20"><Info size={80} /></div>}
+                    <button onClick={() => setSelectedNews(null)} className="absolute top-6 right-6 p-2 bg-black/30 text-white rounded-full hover:bg-black/50 transition-colors"><X size={20}/></button>
                 </div>
                 <div className="p-8">
                     <div className="flex items-center gap-2 mb-4">
-                        <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black rounded-full uppercase tracking-widest">News Update</span>
-                        <span className="text-gray-400 text-[10px] font-bold">{new Date(selectedNews.createdAt).toLocaleDateString()}</span>
+                        <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-black rounded-full uppercase tracking-widest">News Update</span>
                     </div>
-                    <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-4 leading-tight">{selectedNews.title}</h2>
-                    <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8 scrollbar-hide max-h-48 overflow-y-auto">{selectedNews.description}</p>
-                    
-                    <button 
-                        onClick={() => {
-                            if (onMarkNewsRead) onMarkNewsRead(selectedNews.id);
-                            setSelectedNews(null);
-                        }}
-                        className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-3"
-                    >
-                        <Check size={20} /> ALS GELESEN MARKIEREN
+                    <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{selectedNews.title}</h2>
+                    <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-8 max-h-48 overflow-y-auto pr-2 custom-scrollbar italic">{selectedNews.description}</p>
+                    <button onClick={() => { if (onMarkNewsRead) onMarkNewsRead(selectedNews.id); setSelectedNews(null); }} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-indigo-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                        <Check size={22} /> ALS GELESEN MARKIEREN
                     </button>
                 </div>
             </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

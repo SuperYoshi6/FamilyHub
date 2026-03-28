@@ -10,7 +10,8 @@ import SettingsPage from './pages/SettingsPage';
 import WeatherPage from './pages/WeatherPage';
 import LandingPage from './pages/LandingPage';
 import Logo from './components/Logo';
-import { NotificationContext } from './NotificationContext';
+import NotificationModal from './components/NotificationModal';
+import { requestFirebaseToken, onMessageListener } from './services/fcm';
 import { Lock, X, Loader2, ArrowRight, UserPlus, Eye, EyeOff, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { t, Language } from './services/translations';
 import { Backend } from './services/backend';
@@ -72,7 +73,6 @@ const App: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   
   // --- Settings state ---
   const [darkMode, setDarkMode] = useState(false);
@@ -82,10 +82,14 @@ const App: React.FC = () => {
   // --- Native UI (v2.0.8/2.0.9) ---
   useEffect(() => {
     const initNativeUI = async () => {
-      try {
-        await StatusBar.setOverlaysWebView({ overlay: true });
-        await LocalNotifications.requestPermissions();
-      } catch (e) { console.warn('Native UI setup failed:', e); }
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // ChatGPT Rescue Fix (v3.1.4): Re-enable overlay and use safe-area padding
+          await StatusBar.setOverlaysWebView({ overlay: true });
+          await StatusBar.setBackgroundColor({ color: '#00000000' });
+          await LocalNotifications.requestPermissions();
+        } catch (e) { console.warn('Native UI setup failed:', e); }
+      }
     };
     initNativeUI();
   }, []);
@@ -135,6 +139,23 @@ const App: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   
+  // --- Notification Deduplication Memory ---
+  const processedNotificationsRef = useRef<Set<string>>(new Set());
+  
+  const shouldFireNotification = (title: string, message: string) => {
+    const key = `${title}:${message}`;
+    if (processedNotificationsRef.current.has(key)) return false;
+    
+    // Add to memory
+    processedNotificationsRef.current.add(key);
+    // Cleanup old entries after 2 minutes to keep memory small
+    setTimeout(() => {
+        processedNotificationsRef.current.delete(key);
+    }, 120000);
+    
+    return true;
+  };
+
   // Admin Override State
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
@@ -142,6 +163,54 @@ const App: React.FC = () => {
   
   const [showPassword, setShowPassword] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
+  
+  // --- FCM Push Notifications ---
+  useEffect(() => {
+    let unsubscribeFCM: (() => void) | undefined;
+
+    if (currentUser) {
+      const setupFCM = async () => {
+        const token = await requestFirebaseToken(currentUser.id);
+        if (token) {
+           // Handle foreground messages with cleanup support
+           unsubscribeFCM = onMessageListener((payload: any) => {
+             console.log('Push received in foreground:', payload);
+             if (payload.notification) {
+               const title = payload.notification.title || 'Mitteilung';
+               const message = payload.notification.body || '';
+               
+               if (shouldFireNotification(title, message)) {
+                 if (Capacitor.isNativePlatform()) {
+                   try {
+                     LocalNotifications.schedule({
+                       notifications: [{
+                         id: hashCode(title + message),
+                         title: title,
+                         body: message,
+                         smallIcon: 'notification_icon',
+                         schedule: { at: new Date(Date.now() + 100) },
+                         sound: 'default'
+                       }]
+                     });
+                   } catch (err) {
+                     console.error('Local notification error:', err);
+                   }
+                 }
+               }
+             }
+           });
+        }
+      };
+      setupFCM();
+    }
+
+    return () => {
+      if (unsubscribeFCM) {
+        unsubscribeFCM();
+        console.log('FCM Listener cleaned up');
+      }
+    };
+  }, [currentUser]);
   
   // Setup State
   const [newMemberName, setNewMemberName] = useState('');
@@ -225,6 +294,56 @@ const App: React.FC = () => {
       };
   }, [currentRoute, currentUser, loginStep]);
 
+      // --- Hourly Weather Notification ---
+      useEffect(() => {
+        if (!currentUser) return;
+
+        const scheduleWeatherNotification = async () => {
+          try {
+            // Only on native for background push, or local notifications for PWA/Web
+            const hasPermissions = await Notification.requestPermission();
+            if (hasPermissions !== 'granted') return;
+
+            // Fetch current weather
+            if (navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(async (pos) => {
+                const data = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
+                if (data) {
+                  const temp = Math.round(data.current.temperature_2m);
+                  const desc = getWeatherDescription(data.current.weather_code);
+                  
+                  // For LocalNotifications (Capacitor)
+                  if (Capacitor.isNativePlatform()) {
+                    const { LocalNotifications } = await import('@capacitor/local-notifications');
+                    await LocalNotifications.schedule({
+                      notifications: [{
+                        id: 99,
+                        title: `Wetter Update: ${temp}°C`,
+                        body: `Es ist aktuell ${desc} an deinem Standort.`,
+                        smallIcon: 'notification_icon',
+                        schedule: { at: new Date(Date.now() + 1000 * 5) } // Show after 5s for test
+                      }]
+                    });
+                  }
+                }
+              });
+            }
+          } catch (e) {
+             console.error('Weather notification error:', e);
+          }
+        };
+
+        // Run every hour
+        const interval = setInterval(scheduleWeatherNotification, 3600000); // 1 hour
+        // Also run once on start after 10s
+        const timeout = setTimeout(scheduleWeatherNotification, 10000);
+
+        return () => {
+          clearInterval(interval);
+          clearTimeout(timeout);
+        };
+      }, [currentUser]);
+
       const requestAppPermissions = async () => {
       // 1. Native Permissions (Geo)
       try {
@@ -261,7 +380,7 @@ const App: React.FC = () => {
   useEffect(() => {
       const loadAll = async () => {
           try {
-              const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData, notifs] = await Promise.all([
+              const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData] = await Promise.all([
                   Backend.family.getAll(),
                   Backend.events.getAll(),
                   Backend.news.getAll(),
@@ -273,8 +392,7 @@ const App: React.FC = () => {
                   Backend.weatherFavorites.getAll(),
                   Backend.recipes.getAll(),
                   Backend.feedback.getAll(),
-                  Backend.polls.getAll(),
-                  Backend.notifications.getAll()
+                  Backend.polls.getAll()
               ]);
               
               setFamily(fam);
@@ -289,7 +407,6 @@ const App: React.FC = () => {
               setRecipes(rec);
               setFeedbacks(fbs);
               setPolls(pollsData);
-              setNotifications(notifs);
           } catch (e) {
               console.error("Failed to load backend data", e);
           } finally {
@@ -387,16 +504,16 @@ const App: React.FC = () => {
         },
         async (payload) => {
           const newNotif = payload.new;
-          // Filter out self-notifications using author_id
-          if (newNotif.author_id !== currentUser.id) {
+          // Filter out self-notifications and handle deduplication
+          if (newNotif.author_id !== currentUser.id && shouldFireNotification(newNotif.title, newNotif.message)) {
             try {
               await LocalNotifications.schedule({
                 notifications: [
                   {
                     title: newNotif.title,
                     body: newNotif.message,
-                    id: hashCode(newNotif.id || Date.now().toString()),
-                    schedule: { at: new Date(Date.now() + 1000) },
+                    id: hashCode(newNotif.id || (newNotif.title + newNotif.message)),
+                    schedule: { at: new Date(Date.now() + 500) },
                     sound: 'default'
                   }
                 ]
@@ -404,21 +521,6 @@ const App: React.FC = () => {
             } catch (e) {
               console.warn('Native notification failed:', e);
             }
-            
-            // Update local state to show the red dot immediately without polling
-            setNotifications(prev => {
-                const mapped: AppNotification = {
-                    id: newNotif.id,
-                    title: newNotif.title,
-                    message: newNotif.message,
-                    type: (newNotif.type as any) || 'info',
-                    timestamp: newNotif.created_at || new Date().toISOString(),
-                    read: false,
-                    authorId: newNotif.author_id
-                };
-                if (prev.some(n => n.id === mapped.id)) return prev;
-                return [mapped, ...prev];
-            });
           }
         }
       )
@@ -432,29 +534,49 @@ const App: React.FC = () => {
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
-      try { StatusBar.setStyle({ style: Style.Dark }); } catch(e) {}
+      if (Capacitor.isNativePlatform()) {
+        try { StatusBar.setStyle({ style: Style.Dark }); } catch(e) {}
+      }
     } else {
       document.documentElement.classList.remove('dark');
-      try { StatusBar.setStyle({ style: Style.Light }); } catch(e) {}
+      if (Capacitor.isNativePlatform()) {
+        try { StatusBar.setStyle({ style: Style.Light }); } catch(e) {}
+      }
     }
   }, [darkMode]);
 
   const addNotification = async (title: string, message: string) => {
-      const notif: AppNotification = {
-          id: Date.now().toString() + Math.random(),
-          title,
-          message,
-          type: 'info',
-          timestamp: new Date().toISOString(),
-          read: false,
-          authorId: currentUser?.id
-      };
-      setNotifications(prev => [notif, ...prev]);
-      await Backend.notifications.add(notif);
+      // Deduplicate internal triggers too
+      if (shouldFireNotification(title, message)) {
+          const notif: AppNotification = {
+              id: Date.now().toString() + Math.random(),
+              title,
+              message,
+              type: 'info',
+              timestamp: new Date().toISOString(),
+              read: false,
+              authorId: currentUser?.id
+          };
+          
+          // Still add to remote for history, but native only for alert
+          await Backend.notifications.add(notif);
+          
+          if (Capacitor.isNativePlatform()) {
+              LocalNotifications.schedule({
+                  notifications: [{
+                      id: hashCode(title + message),
+                      title,
+                      body: message,
+                      smallIcon: 'notification_icon',
+                      schedule: { at: new Date(Date.now() + 100) },
+                      sound: 'default'
+                  }]
+              });
+          }
+      }
   };
 
   const clearAllNotifications = async () => {
-      setNotifications([]);
       const all = await Backend.notifications.getAll();
       if(all.length > 0) {
           await Backend.notifications.setAll([]);
@@ -823,24 +945,24 @@ const App: React.FC = () => {
       e.preventDefault();
       if (!loginUser || !passwordInput.trim()) return;
 
-      if (loginStep === 'set-pass') {
-          if (passwordInput.trim().length < 4) {
-              setLoginError("Das Passwort muss mindestens 4 Zeichen lang sein.");
-              return;
-          }
-          updateFamilyMember(loginUser.id, { password: passwordInput });
-          setCurrentUser({ ...loginUser, password: passwordInput });
-          localStorage.setItem('fh_session_user', loginUser.id);
-          requestAppPermissions(); 
-      } else {
-          if (passwordInput === loginUser.password) {
-              setCurrentUser(loginUser);
-              localStorage.setItem('fh_session_user', loginUser.id);
-              requestAppPermissions(); 
-          }
-          else setLoginError(t('login.wrong_pass', language));
-      }
-  };
+    if (loginStep === 'set-pass') {
+        if (passwordInput.trim().length < 4) {
+            setLoginError("Das Passwort muss mindestens 4 Zeichen lang sein.");
+            return;
+        }
+        updateFamilyMember(loginUser.id, { password: passwordInput });
+        setCurrentUser({ ...loginUser, password: passwordInput });
+        localStorage.setItem('fh_session_user', loginUser.id);
+        requestAppPermissions(); 
+    } else {
+        if (passwordInput === loginUser.password) {
+            setCurrentUser(loginUser);
+            localStorage.setItem('fh_session_user', loginUser.id);
+            requestAppPermissions(); 
+        }
+        else setLoginError(t('login.wrong_pass', language));
+    }
+};
 
   const handleLogoClick = () => {
       setLogoClickCount(prev => {
@@ -1137,13 +1259,6 @@ const App: React.FC = () => {
   const myOpenTaskCount = householdTasks.filter(t => t.assignedTo === currentUser.id && !t.done).length + personalTasks.filter(t => !t.done).length;
   const regularFamily = family.filter(f => f.role !== 'admin');
 
-  // Provide Context for Notifications
-  const contextValue = {
-      notifications,
-      markAllRead: () => setNotifications(prev => prev.map(n => ({ ...n, read: true }))),
-      clearAll: clearAllNotifications
-  };
-
   const renderPage = () => {
     const content = () => {
         switch (currentRoute) {
@@ -1152,8 +1267,6 @@ const App: React.FC = () => {
             case 'INVALID' as AppRoute:
               return null; // Don't load anything for invalid routes
             case AppRoute.APP:
-              // For /app, we show the dashboard or whatever the current state is
-              // But if we are on /app specifically, dashboard is the base
               return <Dashboard 
                         family={regularFamily} 
                         currentUser={currentUser} 
@@ -1197,8 +1310,6 @@ const App: React.FC = () => {
                         onAddNews={addNews} 
                         onUpdateNews={updateNews}
                         onDeleteNews={deleteNews} 
-                        onAddPoll={addPoll}
-                        onUpdatePoll={updatePoll}
                         onDeletePoll={deletePoll}
                         currentUser={currentUser} 
                         onProfileClick={handleOpenSettings}
@@ -1318,19 +1429,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <NotificationContext.Provider value={contextValue}>
-      {/* 
-          Main App Container
-          Added extra bottom padding to account for navigation bar 
-          and prevent list items from being hidden behind it.
-      */}
       <div 
-        className={`min-h-screen transition-all duration-500 overflow-x-hidden ${currentRoute === AppRoute.WEATHER ? '' : 'pb-24'} ${getAppBackgroundClass()}`}
+        className={`min-h-screen transition-all duration-500 overflow-x-hidden ${currentRoute === AppRoute.LANDING ? '' : 'pb-[calc(6.5rem+env(safe-area-inset-bottom, 0px))]'} ${getAppBackgroundClass()}`}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
         {/* Hide Navigation on Landing Page */}
         {renderPage()}
+
         {showPasswordChange && currentUser && (
           <div className="fixed inset-0 z-[9999] bg-white dark:bg-gray-900 flex items-center justify-center p-6 animate-fade-in">
               <div className="w-full max-w-sm space-y-8 text-center">
@@ -1345,14 +1451,14 @@ const App: React.FC = () => {
                   <form onSubmit={async (e) => {
                       e.preventDefault();
                       const form = e.currentTarget;
-                      const p1 = (form.elements.namedItem('p1') as HTMLInputElement).value;
-                      const p2 = (form.elements.namedItem('p2') as HTMLInputElement).value;
-                      if (p1.length < 3) { alert("Zu kurz!"); return; }
-                      if (p1 !== p2) { alert("Passwörter ungleich!"); return; }
-                      await updateFamilyMember(currentUser.id, { password: p1, mustChangePassword: false });
-                      setShowPasswordChange(false);
-                      await addNotification('Willkommen! 👋', `Schön, dass du da bist, ${currentUser.name}! Deine Reise mit FamilienHub beginnt jetzt.`);
-                  }} className="space-y-4 text-left">
+                    const p1 = (form.elements.namedItem('p1') as HTMLInputElement).value;
+                    const p2 = (form.elements.namedItem('p2') as HTMLInputElement).value;
+                    if (p1.length < 4) { alert("Das Passwort muss mindestens 4 Zeichen lang sein!"); return; }
+                    if (p1 !== p2) { alert("Passwörter stimmen nicht überein!"); return; }
+                    await updateFamilyMember(currentUser.id, { password: p1, mustChangePassword: false });
+                    setShowPasswordChange(false);
+                    await addNotification('Passwort aktualisiert 🔐', 'Dein Passwort wurde erfolgreich geändert.');
+                }} className="space-y-4 text-left">
                       <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Neues Passwort</label>
                           <input name="p1" type="password" required className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="••••" />
@@ -1374,7 +1480,6 @@ const App: React.FC = () => {
           />
         )}
       </div>
-    </NotificationContext.Provider>
   );
 };
 

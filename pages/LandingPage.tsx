@@ -21,48 +21,56 @@ const LandingPage: React.FC = () => {
             </header>
 
             {/* Hero Section */}
-            <main className="pt-32 pb-20 px-6">
-                <div className="max-w-6xl mx-auto text-center">
-                    <div className="inline-block px-4 py-1.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-300 text-xs font-black uppercase tracking-widest mb-8 animate-fade-in">
-                        Neu: FamilyHub 1.0.0
+            <main className="pt-40 pb-24 px-6 relative overflow-hidden">
+                <div className="max-w-6xl mx-auto text-center relative z-10">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-widest mb-10 animate-fade-in border border-blue-500/20">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        Version 1.0.0 (3.0.4) • Jetzt noch schneller
                     </div>
-                    <h1 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter leading-[0.9] animate-slide-up">
-                        Eure Familie.<br/><span className="text-blue-600">Perfekt organisiert.</span>
+                    <h1 className="text-7xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.85] animate-slide-up">
+                        Das Herz eures<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Zuhauses.</span>
                     </h1>
-                    <p className="max-w-2xl mx-auto text-xl text-gray-500 dark:text-gray-400 mb-12 animate-slide-up animation-delay-300">
-                        Einkaufslisten, Kalender, Essenspläne und Aufgaben – alles an einem Ort, synchronisiert für die ganze Familie.
+                    <p className="max-w-2xl mx-auto text-xl text-slate-500 dark:text-slate-400 mb-14 animate-slide-up animation-delay-300 leading-relaxed font-medium">
+                        Die intelligente Plattform für eure Familie. Einkaufslisten, Kalender und Essenspläne – perfekt synchronisiert auf allen Geräten.
                     </p>
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-4 animate-slide-up animation-delay-500">
-                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-3xl text-xl font-bold hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/40 active:scale-95">
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-6 animate-slide-up animation-delay-500">
+                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="w-full md:w-auto bg-blue-600 text-white px-12 py-6 rounded-3xl text-xl font-bold hover:bg-blue-700 hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-1 transition-all active:scale-95 text-center">
                             Im Web starten 🌐
                         </a>
-                        <div className="relative group">
-                            <button className="w-full md:w-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-10 py-5 rounded-3xl text-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-750 transition-all active:scale-95 flex items-center justify-center gap-2">
+                        <div className="relative group w-full md:w-auto">
+                            <button className="w-full md:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-12 py-6 rounded-3xl text-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all active:scale-95 flex items-center justify-center gap-3 shadow-xl shadow-slate-200/50 dark:shadow-none">
                                 <Download size={24} /> Installieren
                             </button>
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all z-20 w-64 md:left-1/2 md:-translate-x-1/2">
-                                <a href="#install" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 text-left">
-                                    <Globe className="text-blue-500" />
+                            {/* Dropdown with high Z-Index and better visibility */}
+                            <div className="absolute top-[calc(100%+15px)] left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-slate-100 dark:border-slate-700 overflow-hidden opacity-0 translate-y-4 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300 z-[100] w-full md:w-80 p-2">
+                                <a href="#install" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left">
+                                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center text-blue-600">
+                                        <Globe size={24} />
+                                    </div>
                                     <div>
-                                        <div className="font-bold">PWA (Web-App)</div>
-                                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-tight">Google Chrome</div>
-                                        <div className="text-xs opacity-50">Browser-Installation</div>
+                                        <div className="font-black text-sm">PWA (Web-App)</div>
+                                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-widest mt-0.5">iPhone & Android</div>
                                     </div>
                                 </a>
-                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 text-left">
-                                    <Smartphone className="text-orange-500" />
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
+                                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/40 rounded-xl flex items-center justify-center text-orange-500">
+                                        <Smartphone size={24} />
+                                    </div>
                                     <div>
-                                        <div className="font-bold">Android (APK)</div>
-                                        <div className="text-[10px] text-orange-500 font-bold uppercase tracking-tight">Chrome benötigt</div>
-                                        <div className="text-xs opacity-50">Direkte Installation</div>
+                                        <div className="font-black text-sm">Android (APK)</div>
+                                        <div className="text-[10px] text-orange-500 font-bold uppercase tracking-widest mt-0.5">Vollversion v3.0.4</div>
                                     </div>
                                 </a>
-                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left">
-                                    <Smartphone className="text-pink-500" />
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
+                                    <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 rounded-xl flex items-center justify-center text-pink-500">
+                                        <Smartphone size={24} />
+                                    </div>
                                     <div>
-                                        <div className="font-bold">iOS / iPadOS</div>
-                                        <div className="text-[10px] text-pink-500 font-bold uppercase tracking-tight">Swift Playground</div>
-                                        <div className="text-xs opacity-50">App-Projekt öffnen</div>
+                                        <div className="font-black text-sm">iOS / iPadOS</div>
+                                        <div className="text-[10px] text-pink-500 font-bold uppercase tracking-widest mt-0.5">Swift Playground</div>
                                     </div>
                                 </a>
                             </div>
@@ -70,8 +78,7 @@ const LandingPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Video/Mockup Mock */}
-                <div className="max-w-4xl mx-auto mt-20 relative animate-fade-in animation-delay-700">
+                <div className="max-w-4xl mx-auto mt-24 relative animate-fade-in animation-delay-700 z-0">
                     <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 rounded-[2.5rem] shadow-2xl overflow-hidden group">
                         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                              <div className="bg-white/20 backdrop-blur-xl p-8 rounded-full border border-white/20 active:scale-90 transition-transform cursor-pointer">

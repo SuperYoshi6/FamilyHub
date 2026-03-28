@@ -341,7 +341,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 <span className={`font-bold text-xl text-gray-800 dark:text-white`}>{t('settings.title', lang)}</span>
             </div>
 
-            <div className="flex-1 p-6 pb-32 space-y-6 max-w-md mx-auto w-full">
+            <div className="flex-1 p-6 space-y-6 max-w-md mx-auto w-full">
                 {/* Profile Section */}
                 <section className="space-y-6">
                     <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">{t('settings.profile', lang)}</h2>

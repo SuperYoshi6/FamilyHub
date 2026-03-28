@@ -127,15 +127,11 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
     private sanitize(item: Partial<T> | T): any {
         const payload: any = { ...item };
 
-        // Remove virtual fields not in DB
-        if (this.table === 'news' && 'readBy' in payload) {
-            delete payload.readBy;
-        }
-
         // Map camelCase to snake_case for specific tables
         if (this.table === 'news') {
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+            if ('readBy' in payload) { payload.read_by = payload.readBy; delete payload.readBy; }
         }
 
         if (this.table === 'polls') {
@@ -161,6 +157,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
         if (this.table === 'notifications') {
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
         }
 
         if (this.table === 'weather_favs') {
@@ -192,6 +189,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'news') {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
             if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+            if ('read_by' in item) { item.readBy = item.read_by; delete item.read_by; }
         }
         if (this.table === 'polls') {
             if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
@@ -220,6 +218,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         }
         if (this.table === 'notifications') {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
         }
 
         if (this.table === 'meal_requests') {
@@ -237,18 +236,27 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
     }
 
     async getAll(): Promise<T[]> {
-        // Try Supabase first, fallback to local on ANY error
+        // Try Supabase first
         if (supabase) {
             try {
                 const { data, error } = await supabase.from(this.table).select('*');
 
                 if (!error && data) {
                     const mapped = data.map(d => this.desanitize(d));
+                    
+                    // Safety check: Don't wipe local data if Supabase returns 0 but we have local data.
+                    // This often happens when the table schema is broken or sync failed.
+                    const localData = await this.localFallback.getAll();
+                    if (mapped.length === 0 && localData.length > 0) {
+                        console.warn(`[Supabase] Received 0 items for ${this.table}, but local cache has ${localData.length}. Keeping local data.`);
+                        return localData;
+                    }
+
                     // Success: Update local cache and return fresh data
                     await this.localFallback.setAll(mapped);
                     return mapped;
                 } else if (error) {
-                    console.warn(`[Supabase] Load warning (${this.table}): ${error.message}. Using fallback.`);
+                    console.warn(`[Supabase] Load error (${this.table}): ${error.message}. Using fallback.`);
                 }
             } catch (err) {
                 console.warn(`[Supabase] Network error (${this.table}). Using fallback.`, err);
@@ -324,10 +332,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
                     if (ids.length > 0) {
                         // 1. Delete items that are NOT in the new list
-                        // FIX: Explicitly format list for PostgREST syntax if standard array fails
-                        const idList = `(${ids.map(id => `"${id}"`).join(',')})`;
-                        const { error: deleteError } = await supabase.from(this.table).delete().filter('id', 'not.in', idList);
-
+                        const { error: deleteError } = await supabase.from(this.table).delete().not('id', 'in', ids);
                         if (deleteError) {
                             console.warn(`[Supabase] Bulk delete failed (${this.table}):`, deleteError.message);
                         }

@@ -23,6 +23,7 @@ const translations = {
       lists: 'Listen',
     },
     dashboard: {
+      title: 'Übersicht',
       greeting: 'Hallo',
       good_day: 'Einen schönen Tag.',
       weather_details: 'DETAILS',
@@ -92,6 +93,7 @@ const translations = {
       lists: 'Lists',
     },
     dashboard: {
+      title: 'Dashboard',
       greeting: 'Hello',
       good_day: 'Have a wonderful day.',
       weather_details: 'DETAILS',

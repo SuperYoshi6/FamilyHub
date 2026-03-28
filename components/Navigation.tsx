@@ -48,12 +48,12 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
   // Dynamic Class for Nav Container
   const getNavClass = () => {
       if (liquidGlass) {
-          return 'liquid-shimmer-card pb-[env(safe-area-inset-bottom)]';
+          return 'liquid-shimmer-card';
       }
       if (isWeather) {
-          return 'bg-black/20 backdrop-blur-lg border-t border-white/10 pb-[env(safe-area-inset-bottom)]';
+          return 'bg-black/20 backdrop-blur-lg border-t border-white/10';
       }
-      return 'bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 pb-[env(safe-area-inset-bottom)]';
+      return 'bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800';
   };
 
   // Calculate active index for the slider position
@@ -125,16 +125,22 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
   return (
     <nav 
         ref={navRef}
-        className={`fixed bottom-0 left-0 right-0 px-2 pt-2 pb-safe flex justify-around items-center z-50 transition-all duration-500 ${getNavClass()}`}
+        className={`fixed bottom-0 left-0 right-0 px-2 transition-all duration-500 z-50 flex justify-around items-center ${getNavClass()}`}
+        style={{ 
+            bottom: '0px', 
+            paddingBottom: 'max(env(safe-area-inset-bottom), 12px)',
+            paddingTop: '8px'
+        }}
     >
       
       {/* --- ACTIVE TAB SLIDER (Liquid Glass Only) --- */}
       {isSliderVisible && (
           <div 
-            className={`absolute top-1 bottom-[calc(env(safe-area-inset-bottom)+0.25rem)] rounded-2xl z-0 will-change-transform ${transitionClass}`}
+            className={`absolute top-1 rounded-2xl z-0 will-change-transform ${transitionClass}`}
             style={{
                 left: `${currentLeftPosition}%`,
                 width: `${itemWidthPercent}%`,
+                bottom: 'calc(max(env(safe-area-inset-bottom, 0px), 12px) - 4px)'
             }}
           >
               <div className={`h-full rounded-2xl mx-0.5 w-[calc(100%-4px)] transition-transform duration-200 ${scaleClass} ${getSliderStyle()}`}>
@@ -149,10 +155,11 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
       {/* --- INTERACTION HANDLE (Liquid Glass Only) --- */}
       {isSliderVisible && (
           <div
-            className={`absolute top-1 bottom-[calc(env(safe-area-inset-bottom)+0.25rem)] z-20 touch-none ${transitionClass}`}
+            className={`absolute top-1 z-20 touch-none ${transitionClass}`}
             style={{
                 left: `${currentLeftPosition}%`,
                 width: `${itemWidthPercent}%`,
+                bottom: 'calc(max(env(safe-area-inset-bottom, 0px), 12px) - 4px)'
             }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -191,7 +198,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
           <button
             key={item.route}
             onClick={() => onNavigate(item.route)}
-            className={`flex flex-col items-center justify-center w-full space-y-1 transition-all duration-300 z-10 pb-[env(safe-area-inset-bottom)] group ${textColor}`}
+            className={`flex flex-col items-center justify-center w-full space-y-1 transition-all duration-300 z-10 group ${textColor}`}
             style={{ width: `${itemWidthPercent}%` }}
           >
             <div className={`relative transition-transform duration-300 ${iconScale} ${isActive && liquidGlass ? 'drop-shadow-md' : ''} pointer-events-none`}>
