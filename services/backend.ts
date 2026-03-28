@@ -245,10 +245,10 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                     const mapped = data.map(d => this.desanitize(d));
                     
                     // Safety check: Don't wipe local data if Supabase returns 0 but we have local data.
-                    // This often happens when the table schema is broken or sync failed.
+                    // This can happen with intermittent connectivity / delayed sync.
                     const localData = await this.localFallback.getAll();
                     if (mapped.length === 0 && localData.length > 0) {
-                        console.warn(`[Supabase] Received 0 items for ${this.table}, but local cache has ${localData.length}. Keeping local data.`);
+                        console.debug(`[Supabase] Received 0 items for ${this.table}, but local cache has ${localData.length}. Keeping local data.`);
                         return localData;
                     }
 

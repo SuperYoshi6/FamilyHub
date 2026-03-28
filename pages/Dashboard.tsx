@@ -28,10 +28,12 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [calendarView, setCalendarView] = useState<'family' | 'private'>('family');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [selectedNewsStep, setSelectedNewsStep] = useState<'preview' | 'article' | null>(null);
   const today = new Date().toISOString().split('T')[0];
 
-  // Filter unread news
-  const unreadNews = news.filter(n => !n.readBy?.includes(currentUser.id));
+  // Filter public news only (keine privaten Nachrichten)
+  const publicNews = news.filter(n => !n.tag?.startsWith('PRIVATE:'));
+  const unreadNews = publicNews.filter(n => !n.readBy?.includes(currentUser.id));
 
   // Filter events based on view mode
   const filteredEvents = events.filter(e => {
@@ -179,11 +181,12 @@ const Dashboard: React.FC<DashboardProps> = ({
              </div>
              <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1">
                 {unreadNews.map(n => (
-                  <button key={n.id} onClick={() => setSelectedNews(n)} className="flex-shrink-0 w-64 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden text-left hover:scale-[1.02] transition-all">
+                  <button key={n.id} onClick={() => { setSelectedNews(n); setSelectedNewsStep('preview'); }} className="flex-shrink-0 w-64 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden text-left hover:scale-[1.02] transition-all">
                       {n.image && <img src={n.image} className="w-full h-32 object-cover" />}
                       <div className="p-5">
                           <span className="text-[10px] uppercase font-black text-blue-500 mb-2 block tracking-widest">Wichtig</span>
                           <h4 className="font-bold text-slate-800 dark:text-white line-clamp-1 text-lg leading-tight">{n.title}</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">{n.description}</p>
                       </div>
                   </button>
                 ))}
@@ -260,17 +263,27 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] overflow-hidden shadow-2xl animate-scale-in">
                 <div className="relative h-64">
                     {selectedNews.image ? <img src={selectedNews.image} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-white/20"><Info size={80} /></div>}
-                    <button onClick={() => setSelectedNews(null)} className="absolute top-6 right-6 p-2 bg-black/30 text-white rounded-full hover:bg-black/50 transition-colors"><X size={20}/></button>
+                    <button onClick={() => { setSelectedNews(null); setSelectedNewsStep(null); }} className="absolute top-6 right-6 p-2 bg-black/30 text-white rounded-full hover:bg-black/50 transition-colors"><X size={20}/></button>
                 </div>
                 <div className="p-8">
                     <div className="flex items-center gap-2 mb-4">
                         <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-black rounded-full uppercase tracking-widest">News Update</span>
                     </div>
                     <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{selectedNews.title}</h2>
-                    <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-8 max-h-48 overflow-y-auto pr-2 custom-scrollbar italic">{selectedNews.description}</p>
-                    <button onClick={() => { if (onMarkNewsRead) onMarkNewsRead(selectedNews.id); setSelectedNews(null); }} className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-indigo-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
-                        <Check size={22} /> ALS GELESEN MARKIEREN
-                    </button>
+                    {selectedNewsStep === 'preview' && (
+                        <>
+                            <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-8 max-h-24 overflow-hidden">{selectedNews.description.substring(0, 180)}{selectedNews.description.length > 180 ? '…' : ''}</p>
+                            <button onClick={() => setSelectedNewsStep('article')} className="w-full bg-indigo-600 text-white font-black py-3 rounded-2xl shadow-xl hover:bg-indigo-700 transition-all mb-4">Mehr lesen</button>
+                        </>
+                    )}
+                    {selectedNewsStep === 'article' && (
+                        <>
+                            <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-8 max-h-64 overflow-y-auto pr-2 custom-scrollbar">{selectedNews.description}</p>
+                            <button onClick={() => { if (onMarkNewsRead) onMarkNewsRead(selectedNews.id); setSelectedNews(null); setSelectedNewsStep(null); }} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-green-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                                <Check size={22} /> ALS GELESEN MARKIEREN
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

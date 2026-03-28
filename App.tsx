@@ -64,6 +64,7 @@ const App: React.FC = () => {
   const [family, setFamily] = useState<FamilyMember[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
+  const publicNews = news.filter(n => !n.tag?.startsWith('PRIVATE:'));
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [householdTasks, setHouseholdTasks] = useState<Task[]>([]);
   const [personalTasks, setPersonalTasks] = useState<Task[]>([]);
@@ -298,44 +299,66 @@ const App: React.FC = () => {
       useEffect(() => {
         if (!currentUser) return;
 
+        const getCurrentPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000 });
+        });
+
+        const getEmojiForWeather = (code: number, isDay: number) => {
+          if (code === 0) return '☀️';
+          if (code === 1) return '🌤️';
+          if (code === 2 || code === 3) return '☁️';
+          if (code >= 45 && code <= 48) return '🌫️';
+          if (code >= 51 && code <= 67) return '🌧️';
+          if (code >= 71 && code <= 86) return '❄️';
+          if (code >= 95 && code <= 99) return '⛈️';
+          return isDay === 1 ? '🌤️' : '🌙';
+        };
+
         const scheduleWeatherNotification = async () => {
           try {
-            // Only on native for background push, or local notifications for PWA/Web
-            const hasPermissions = await Notification.requestPermission();
-            if (hasPermissions !== 'granted') return;
+            if (!navigator.geolocation) return;
 
-            // Fetch current weather
-            if (navigator.geolocation) {
-              navigator.geolocation.getCurrentPosition(async (pos) => {
-                const data = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
-                if (data) {
-                  const temp = Math.round(data.current.temperature_2m);
-                  const desc = getWeatherDescription(data.current.weather_code);
-                  
-                  // For LocalNotifications (Capacitor)
-                  if (Capacitor.isNativePlatform()) {
-                    const { LocalNotifications } = await import('@capacitor/local-notifications');
-                    await LocalNotifications.schedule({
-                      notifications: [{
-                        id: 99,
-                        title: `Wetter Update: ${temp}°C`,
-                        body: `Es ist aktuell ${desc} an deinem Standort.`,
-                        smallIcon: 'notification_icon',
-                        schedule: { at: new Date(Date.now() + 1000 * 5) } // Show after 5s for test
-                      }]
-                    });
-                  }
-                }
+            if (Notification.permission !== 'granted') {
+              const permission = await Notification.requestPermission();
+              if (permission !== 'granted') return;
+            }
+
+            const pos = await getCurrentPosition();
+            const data = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
+            if (!data) return;
+
+            const temp = Math.round(data.current.temperature_2m);
+            const desc = getWeatherDescription(data.current.weather_code);
+            const emoji = getEmojiForWeather(data.current.weather_code, data.current.is_day);
+            const title = `🌦️ Stündliches Wetter: ${emoji} ${temp}°C`;
+            const body = `📍 Aktuell: ${desc}, ${temp}°C. Folge dem Wetterplan + bleib trocken!`;
+
+            if (Capacitor.isNativePlatform()) {
+              const { LocalNotifications } = await import('@capacitor/local-notifications');
+
+              await LocalNotifications.cancel({ notifications: [{ id: 9001 }] });
+              await LocalNotifications.schedule({
+                notifications: [{
+                  id: 9001,
+                  title,
+                  body,
+                  smallIcon: 'notification_icon',
+                  schedule: { every: 'hour', allowWhileIdle: true }
+                }]
               });
+            } else {
+              if (Notification.permission === 'granted') {
+                new Notification(title, { body });
+              }
             }
           } catch (e) {
-             console.error('Weather notification error:', e);
+            console.error('Weather notification error:', e);
           }
         };
 
         // Run every hour
         const interval = setInterval(scheduleWeatherNotification, 3600000); // 1 hour
-        // Also run once on start after 10s
+        // Also run once after 10 seconds (for fast startup check)
         const timeout = setTimeout(scheduleWeatherNotification, 10000);
 
         return () => {
@@ -421,6 +444,62 @@ const App: React.FC = () => {
       if (currentUser) {
           requestAppPermissions();
       }
+  }, [currentUser]);
+
+  // --- Hourly Wetter-Benachrichtigung ---
+  useEffect(() => {
+      if (!currentUser) return;
+
+      const getCurrentPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000 });
+      });
+
+      const notifyWeather = async () => {
+          try {
+              if (!navigator.geolocation) return;
+
+              if (Notification.permission !== 'granted') {
+                  const permission = await Notification.requestPermission();
+                  if (permission !== 'granted') return;
+              }
+
+              const position = await getCurrentPosition();
+              const data = await fetchWeather(position.coords.latitude, position.coords.longitude);
+              if (!data) return;
+
+              const text = `${Math.round(data.current.temperature_2m)}°C, ${getWeatherDescription(data.current.weather_code)}`;
+              const title = 'Aktuelles Wetter';
+              const body = `Jetzt: ${text}`;
+
+              if (Capacitor.isNativePlatform()) {
+                  const { LocalNotifications } = await import('@capacitor/local-notifications');
+
+                  // sichern, dass wir alte stündliche Einträge entfernen
+                  await LocalNotifications.cancel({ notifications: [{ id: 9001 }] });
+
+                  await LocalNotifications.schedule({
+                      notifications: [{
+                          id: 9001,
+                          title,
+                          body,
+                          smallIcon: 'notification_icon',
+                          schedule: {
+                              every: 'hour',
+                              allowWhileIdle: true
+                          }
+                      }]
+                  });
+              } else {
+                  new Notification(title, { body });
+              }
+          } catch (error) {
+              console.error('Stündliche Wetterbenachrichtigung fehlgeschlagen:', error);
+          }
+      };
+
+      notifyWeather();
+      const weatherInterval = setInterval(notifyWeather, 60 * 60 * 1000);
+      return () => clearInterval(weatherInterval);
   }, [currentUser]);
 
   // --- BACKGROUND POLLING & NOTIFICATIONS ---
@@ -574,6 +653,23 @@ const App: React.FC = () => {
               });
           }
       }
+  };
+
+  const sendAdminBroadcast = async (title: string, message: string) => {
+      if (!currentUser) {
+          alert('Kein Benutzer angemeldet.');
+          return;
+      }
+
+      if (currentUser.role !== 'admin') {
+          alert('Nur Administratoren können diese Aktion ausführen.');
+          return;
+      }
+
+      const broadcastTitle = `🚨 ${title}`;
+      const broadcastMessage = `🔔 ${message}`;
+
+      await addNotification(broadcastTitle, broadcastMessage);
   };
 
   const clearAllNotifications = async () => {
@@ -1280,7 +1376,7 @@ const App: React.FC = () => {
                         weatherFavorites={userWeatherFavorites}
                         currentWeatherLocation={currentWeatherLocation}
                         onUpdateWeatherLocation={setCurrentWeatherLocation}
-                        news={news}
+                        news={publicNews}
                      />;
             case AppRoute.DASHBOARD:
               return <Dashboard 
@@ -1296,12 +1392,12 @@ const App: React.FC = () => {
                         weatherFavorites={userWeatherFavorites}
                         currentWeatherLocation={currentWeatherLocation}
                         onUpdateWeatherLocation={setCurrentWeatherLocation}
-                        news={news}
+                        news={publicNews}
                      />;
             case AppRoute.CALENDAR:
               return <CalendarPage 
                         events={events} 
-                        news={news} 
+                        news={publicNews} 
                         polls={polls}
                         family={regularFamily} 
                         onAddEvent={addEvent} 
@@ -1319,7 +1415,7 @@ const App: React.FC = () => {
             case AppRoute.NEWS: // Added Route for direct Pinnwand access
               return <CalendarPage 
                         events={events} 
-                        news={news} 
+                        news={publicNews} 
                         polls={polls}
                         family={regularFamily} 
                         onAddEvent={addEvent} 
@@ -1415,6 +1511,7 @@ const App: React.FC = () => {
                         onAddFamilyMember={addFamilyMember}
                         onDeleteUser={deleteUser}
                         onMarkNewsRead={markNewsRead}
+                        onSendAdminNotification={sendAdminBroadcast}
                      />;
             default:
               return null;

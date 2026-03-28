@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     message TEXT NOT NULL,
     type TEXT CHECK (type IN ('info', 'success', 'warning', 'alert')),
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    read BOOLEAN DEFAULT FALSE
+    read BOOLEAN DEFAULT FALSE,
+    author_id TEXT REFERENCES family(id)
 );
 
 -- Enable RLS on all tables (Optional but recommended)

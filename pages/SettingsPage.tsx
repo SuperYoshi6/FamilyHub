@@ -38,6 +38,7 @@ interface SettingsPageProps {
     backupData?: any;
     onResetPassword?: (member: FamilyMember) => void;
     onMarkNewsRead?: (id: string) => void;
+    onSendAdminNotification?: (title: string, message: string) => void;
 }
 
 const EXPANDED_COLORS = [
@@ -62,7 +63,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
@@ -103,6 +104,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [newUserName, setNewUserName] = useState('');
     const [newUserRole, setNewUserRole] = useState<'parent' | 'child'>('parent');
     const [isAddingUser, setIsAddingUser] = useState(false);
+
+    // Admin Broadcast Notification States
+    const [broadcastTitle, setBroadcastTitle] = useState('Update verfügbar!');
+    const [broadcastMessage, setBroadcastMessage] = useState('Wir haben ein Update oder eine Wartung. Bitte prüfen.');
+    const [broadcastStatus, setBroadcastStatus] = useState<'idle'|'sending'|'sent'|'error'>('idle');
 
     const isAdmin = currentUser.role === 'admin';
     const unreadFeedbacks: FeedbackItem[] = allFeedbacks?.filter(f => !f.read) || [];
@@ -504,6 +510,54 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             {family.filter(f => f.id !== currentUser.id && f.role !== 'admin').length === 0 && (
                                 <div className="p-4 text-center text-gray-400 text-sm italic">Keine anderen Nutzer.</div>
                             )}
+                        </div>
+                    </section>
+                )}
+
+                {/* Admin Broadcast (Admin only) */}
+                {isAdmin && (
+                    <section className="space-y-4">
+                        <div className="flex justify-between items-end px-1">
+                            <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Admin Broadcast</h2>
+                            <span className="text-[10px] text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full font-bold">Nur Admins</span>
+                        </div>
+                        <div className="rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800 p-4">
+                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Titel</label>
+                            <input
+                                type="text"
+                                value={broadcastTitle}
+                                onChange={(e) => setBroadcastTitle(e.target.value)}
+                                className="w-full mt-1 mb-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm"
+                            />
+                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Nachricht</label>
+                            <textarea
+                                value={broadcastMessage}
+                                onChange={(e) => setBroadcastMessage(e.target.value)}
+                                rows={3}
+                                className="w-full mt-1 mb-3 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm"
+                            />
+                            <button
+                                onClick={async () => {
+                                    if (broadcastMessage.trim().length === 0) {
+                                        alert('Bitte Nachricht eingeben.');
+                                        return;
+                                    }
+                                    setBroadcastStatus('sending');
+                                    try {
+                                        await onSendAdminNotification?.(broadcastTitle, broadcastMessage);
+                                        setBroadcastStatus('sent');
+                                    } catch (err) {
+                                        console.error(err);
+                                        setBroadcastStatus('error');
+                                    }
+                                }}
+                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+                            >
+                                <Send size={16} /> Broadcast senden
+                            </button>
+                            {broadcastStatus === 'sending' && <p className="text-xs text-blue-500 mt-2">Sende Broadcast…</p>}
+                            {broadcastStatus === 'sent' && <p className="text-xs text-green-500 mt-2">Broadcast gesendet.</p>}
+                            {broadcastStatus === 'error' && <p className="text-xs text-red-500 mt-2">Fehler beim Versand.</p>}
                         </div>
                     </section>
                 )}

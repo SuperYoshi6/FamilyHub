@@ -174,7 +174,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="p-4 min-h-[calc(100vh-96px)]">
          {activeTab === 'plan' ? renderPlan() : (
              <div className="animate-fade-in space-y-4 text-gray-800 dark:text-white">
                  <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-3xl">

@@ -87,6 +87,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     const newsFileInputRef = useRef<HTMLInputElement>(null);
     const [processingImage, setProcessingImage] = useState(false);
 
+    const publicNews = news.filter(n => !n.tag?.startsWith('PRIVATE:'));
+
     // --- POLL STATE ---
     const [boardType, setBoardType] = useState<'news' | 'polls'>('news');
     const [showPollForm, setShowPollForm] = useState(false);
@@ -449,8 +451,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                          )}
  
                          <div className="grid gap-4">
-                             {news.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
-                             {news.map(item => {
+                             {publicNews.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
+                             {publicNews.map(item => {
                                  const author = family.find(f => f.id === item.authorId);
                                  return (
                                      <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700'}`}>

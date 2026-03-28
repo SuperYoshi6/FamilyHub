@@ -371,7 +371,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                 </div>
             </div>
 
-            <div className="p-4">
+            <div className="p-4 min-h-[calc(100vh-96px)]">
                 {/* Add Form */}
                 {showAddForm && (
                     <div className={`mb-6 p-3 rounded-2xl shadow-sm border animate-slide-in bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700`}>
