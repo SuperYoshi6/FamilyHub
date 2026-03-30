@@ -134,15 +134,28 @@
       /* Nav Wobble Bubble */
       .nav-wobble-bubble {
         position: absolute;
-        height: 80%;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1));
-        border-radius: 24px;
+        height: 75%;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.2));
+        border-radius: 20px;
         z-index: 0;
-        transition: all 0.5s cubic-bezier(0.68, -0.6, 0.32, 1.6);
         pointer-events: none;
+        will-change: left, width, transform;
       }
       .dark .nav-wobble-bubble {
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.2));
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(139, 92, 246, 0.3));
+      }
+
+      /* Legibility Helpers */
+      .glass-text-glow {
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 2px rgba(255, 255, 255, 1);
+      }
+      .dark .glass-text-glow {
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 1);
+      }
+
+      @keyframes easter-sway {
+        0%, 100% { transform: translateX(-10px); }
+        50% { transform: translateX(10px); }
       }
       
       /* Disable selection globally for app-like feel */
@@ -222,7 +235,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="./assets/index-eEOVoQ7d.js"></script>
+  <script type="module" crossorigin src="./assets/index-DneQZ3fX.js"></script>
 </head>
   <body class="transition-colors duration-300">
     <div id="root"></div>
