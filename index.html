@@ -97,9 +97,15 @@
                 '94%': { opacity: '0' }
               },
               liquidWobble: {
-                '0%, 100%': { transform: 'rotate(0deg)' },
-                '25%': { transform: 'rotate(-1.5deg)' },
-                '75%': { transform: 'rotate(1.5deg)' }
+                '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
+                '25%': { transform: 'scale(1.05) rotate(-1deg)' },
+                '75%': { transform: 'scale(1.05) rotate(1deg)' }
+              },
+              'easter-fall': {
+                '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '0' },
+                '10%': { opacity: '1' },
+                '90%': { opacity: '1' },
+                '100%': { transform: 'translateY(110vh) rotate(360deg)', opacity: '0' }
               }
             }
           }
@@ -110,6 +116,34 @@
     <style>
       /* Global Reset */
       * { margin: 0; padding: 0; box-sizing: border-box; }
+      
+      /* Liquid Glass Refinements */
+      .liquid-shimmer-card {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 40px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+      }
+      .dark .liquid-shimmer-card {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* Nav Wobble Bubble */
+      .nav-wobble-bubble {
+        position: absolute;
+        height: 80%;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1));
+        border-radius: 24px;
+        z-index: 0;
+        transition: all 0.5s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+        pointer-events: none;
+      }
+      .dark .nav-wobble-bubble {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.2));
+      }
       
       /* Disable selection globally for app-like feel */
       html, body {
@@ -188,7 +222,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="./assets/index-CDjldo8k.js"></script>
+  <script type="module" crossorigin src="./assets/index-eEOVoQ7d.js"></script>
 </head>
   <body class="transition-colors duration-300">
     <div id="root"></div>
