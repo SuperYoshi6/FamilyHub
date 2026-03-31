@@ -30,7 +30,7 @@ export const suggestMealPlan = async (preferences: string): Promise<MealPlan[]> 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -82,7 +82,7 @@ export const parseNaturalLanguageEvent = async (input: string): Promise<Partial<
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -116,7 +116,7 @@ export const analyzeRecipeImage = async (base64Image: string): Promise<Recipe | 
         const mimeType = base64Image.split(';')[0].split(':')[1];
 
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.0-flash",
             contents: {
                 parts: [
                     {
@@ -175,7 +175,7 @@ export const importRecipeFromUrl = async (url: string): Promise<Recipe | null> =
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.0-flash",
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -229,7 +229,7 @@ export const interpretVoiceCommand = async (text: string): Promise<VoiceAction |
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.0-flash",
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
@@ -279,7 +279,7 @@ export const suggestActivities = async (
     `;
 
     const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.0-flash",
         contents: prompt,
         config: {
             responseMimeType: "application/json",
@@ -337,7 +337,7 @@ export const generateAvatar = async (): Promise<string | null> => {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-2.0-flash',
       contents: {
         parts: [{ text: prompt }]
       },
@@ -361,7 +361,7 @@ export const findCoordinates = async (locationName: string): Promise<{lat: numbe
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.0-flash",
             contents: `Bestimme die Geokoordinaten (Latitude/Longitude) für den Ort: "${locationName}".
             Gib den offiziellen Namen des Ortes zurück.`,
             config: {

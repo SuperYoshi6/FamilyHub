@@ -186,8 +186,8 @@ const MealsPage: React.FC<MealsPageProps> = ({
                  </div>
                  
                  <div className="space-y-3">
-                     {requests.length === 0 && <p className="text-center text-gray-400 italic py-8">Noch keine Wünsche...</p>}
-                     {requests.map(req => {
+                     {(requests || []).length === 0 && <p className="text-center text-gray-400 italic py-8">Noch keine Wünsche...</p>}
+                     {(requests || []).map(req => {
                          const requester = family.find(f => f.id === req.requestedBy);
                          return (
                             <div key={req.id} className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">

@@ -10,6 +10,7 @@ interface WeatherPageProps {
     favorites: SavedLocation[];
     onToggleFavorite: (location: SavedLocation) => void;
     initialLocation: { lat: number, lng: number, name: string } | null;
+    onUpdateCurrentWeatherLocation: (location: { lat: number, lng: number, name: string }) => void;
     liquidGlass?: boolean;
 }
 
@@ -31,7 +32,20 @@ const renderMetricIcon = (iconName: string, className: string) => {
 };
 
 const getBigWeatherIcon = (code: number, isDay: number = 1) => {
-    if (code === 0) return isDay ? <Sun size={80} className="text-yellow-400 animate-pulse-slow" /> : <Moon size={80} className="text-gray-200" />;
+    if (code === 0) {
+        if (isDay) {
+            return <Sun size={80} className="text-yellow-400 animate-pulse-slow" />;
+        } else {
+            // Nacht mit Sternen-Animation: Moon + Stern-Funkel
+            return (
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                    <Moon size={80} className="text-blue-100 drop-shadow-lg" />
+                    <div className="absolute top-2 right-8 text-yellow-200 animate-pulse" style={{fontSize: '8px', opacity: 0.8}}>✦</div>
+                    <div className="absolute top-8 left-4 text-yellow-100 animate-pulse" style={{fontSize: '6px', opacity: 0.6, animationDelay: '0.5s'}}>✧</div>
+                </div>
+            );
+        }
+    }
     if (code >= 1 && code <= 3) return <Cloud size={80} className="text-gray-200 animate-float" />;
     if (code >= 45 && code <= 48) return <CloudFog size={80} className="text-gray-300 animate-float" />;
     if (code >= 51 && code <= 67) return <CloudRain size={80} className="text-blue-300" />;
@@ -185,7 +199,7 @@ const WeatherEffects: React.FC<{ code: number; isDay: number }> = ({ code, isDay
     );
 };
 
-const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, liquidGlass = false }: WeatherPageProps) => {
+const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onUpdateCurrentWeatherLocation, liquidGlass = false }: WeatherPageProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<WeatherData | null>(null);
@@ -214,6 +228,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, liq
         if (result) {
             setData(result);
             if (name) setLocationName(name);
+            onUpdateCurrentWeatherLocation({ lat, lng, name: name || 'Unbekannt' });
 
             const sunrise = new Date(result.daily.sunrise[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             const sunset = new Date(result.daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -307,7 +322,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, liq
         onToggleFavorite({ id: locationName, name: locationName, lat: currentCoords.lat, lng: currentCoords.lng });
     };
 
-    const isFavorite = favorites.some(f => f.name === locationName);
+    const isFavorite = (favorites || []).some(f => f.name === locationName);
 
     // --- Swapping Logic (Tap to move) ---
     const handleSectionClick = (index: number) => {

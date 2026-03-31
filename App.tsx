@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AppRoute, FamilyMember, CalendarEvent, ShoppingItem, MealPlan, Task, MealRequest, SavedLocation, Recipe, NewsItem, TaskPriority, FeedbackItem, Poll, AppNotification, VoiceAction } from './types';
 import Navigation from './components/Navigation';
 import Dashboard from './pages/Dashboard';
@@ -37,34 +38,31 @@ const useLocalSetting = <T,>(key: string, defaultValue: T): [T, React.Dispatch<R
   useEffect(() => {
     localStorage.setItem(key, JSON.stringify(value));
   }, [key, value]);
-  
+
   return [value, setValue];
 };
 
 // Helper: Convert String ID to Integer ID for LocalNotifications
 const hashCode = (str: string): number => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    return Math.abs(hash);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
 };
 
 // --- APP VERSION CONFIGURATION ---
-const CURRENT_APP_VERSION = "1.0.0"; 
-const POLLING_INTERVAL = 30000; 
-
+const CURRENT_APP_VERSION = "1.0.0 (4.4.6)";
+const POLLING_INTERVAL = 30000;
 
 const App: React.FC = () => {
-  // --- Data State ---
+  // --- 1. Global State Hooks ---
   const [loadingData, setLoadingData] = useState(true);
-  
   const [family, setFamily] = useState<FamilyMember[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
-  const publicNews = news.filter(n => !n.tag?.startsWith('PRIVATE:'));
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [householdTasks, setHouseholdTasks] = useState<Task[]>([]);
   const [personalTasks, setPersonalTasks] = useState<Task[]>([]);
@@ -74,1510 +72,461 @@ const App: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
-  
-  // --- Settings state ---
+
+  // --- 2. Settings & Session State ---
   const [darkMode, setDarkMode] = useState(false);
   const [enableSwipe, setEnableSwipe] = useLocalSetting<boolean>('fh_enableswipe', false);
-  const language: Language = 'de'; 
-
-  // --- Native UI (v2.0.8/2.0.9) ---
-  useEffect(() => {
-    const initNativeUI = async () => {
-      if (Capacitor.isNativePlatform()) {
-        try {
-          // ChatGPT Rescue Fix (v3.1.4): Re-enable overlay and use safe-area padding
-          await StatusBar.setOverlaysWebView({ overlay: true });
-          await StatusBar.setBackgroundColor({ color: '#00000000' });
-          await LocalNotifications.requestPermissions();
-        } catch (e) { console.warn('Native UI setup failed:', e); }
-      }
-    };
-    initNativeUI();
-  }, []);
-
-  // --- Session State ---
+  const [easterMode, setEasterMode] = useLocalSetting<boolean>('fh_eastermode', false);
+  const [liquidGlass, setLiquidGlass] = useLocalSetting<boolean>('fh_liquidglass', true);
+  const [globalEasterEnabled, setGlobalEasterEnabled] = useLocalSetting<boolean>('fh_global_easter_enabled', true);
+  const [globalLiquidGlassEnabled, setGlobalLiquidGlassEnabled] = useLocalSetting<boolean>('fh_global_liquidglass_enabled', true);
+  const language: Language = 'de';
   const [currentUser, setCurrentUser] = useState<FamilyMember | null>(null);
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(() => {
     const path = window.location.pathname.toLowerCase();
     if (path.includes('/install')) return AppRoute.LANDING;
-    if (path.includes('/app')) return AppRoute.APP;
-    // Navigation Persistence
     const savedRoute = localStorage.getItem('fh_last_route');
     const hasBooted = localStorage.getItem('fh_has_booted');
     if (hasBooted && savedRoute && Object.values(AppRoute).includes(savedRoute as AppRoute)) {
-      // Don't restore if it was Settings or Landing (to avoid frustration)
-      if (savedRoute !== AppRoute.SETTINGS && savedRoute !== AppRoute.LANDING) {
-        return savedRoute as AppRoute;
-      }
+      return savedRoute as AppRoute;
     }
     return AppRoute.DASHBOARD;
   });
-
-  const [lastRoute, setLastRoute] = useState<AppRoute>(AppRoute.DASHBOARD);
-
-  // Mark that the app has booted at least once
-  useEffect(() => {
-    if (currentRoute !== AppRoute.LANDING) {
-      localStorage.setItem('fh_has_booted', 'true');
-    }
-  }, [currentRoute]);
-
-  // Save current route for persistence (exclude Settings and Landing)
-  useEffect(() => {
-    if (currentRoute !== AppRoute.SETTINGS && currentRoute !== AppRoute.LANDING) {
-      localStorage.setItem('fh_last_route', currentRoute);
-    }
-  }, [currentRoute]);
-
-  // --- Global Weather State ---
-  const [currentWeatherLocation, setCurrentWeatherLocation] = useState<{lat: number, lng: number, name: string} | null>(null);
-  const lastWeatherNotifyRef = useRef<number>(0);
-  const updateNotifiedRef = useRef<boolean>(false);
-
-  // Login Logic State
+  const [currentWeatherLocation, setCurrentWeatherLocation] = useState<{ lat: number, lng: number, name: string } | null>(null);
+  
+  // Login State
   const [loginStep, setLoginStep] = useState<'select' | 'enter-pass' | 'set-pass'>('select');
   const [loginUser, setLoginUser] = useState<FamilyMember | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
-  
-  // --- Notification Deduplication Memory ---
-  const processedNotificationsRef = useRef<Set<string>>(new Set());
-  
-  const shouldFireNotification = (title: string, message: string) => {
-    const key = `${title}:${message}`;
-    if (processedNotificationsRef.current.has(key)) return false;
-    
-    // Add to memory
-    processedNotificationsRef.current.add(key);
-    // Cleanup old entries after 2 minutes to keep memory small
-    setTimeout(() => {
-        processedNotificationsRef.current.delete(key);
-    }, 120000);
-    
-    return true;
-  };
-
-  // Admin Override State
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [logoClickCount, setLogoClickCount] = useState(0);
-  
   const [showPassword, setShowPassword] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
-  
-  // --- FCM Push Notifications ---
-  useEffect(() => {
-    let unsubscribeFCM: (() => void) | undefined;
+  const [showSecurityScreen, setShowSecurityScreen] = useState(false);
 
-    if (currentUser) {
-      const setupFCM = async () => {
-        const token = await requestFirebaseToken(currentUser.id);
-        if (token) {
-           // Handle foreground messages with cleanup support
-           unsubscribeFCM = onMessageListener((payload: any) => {
-             console.log('Push received in foreground:', payload);
-             if (payload.notification) {
-               const title = payload.notification.title || 'Mitteilung';
-               const message = payload.notification.body || '';
-               
-               if (shouldFireNotification(title, message)) {
-                 if (Capacitor.isNativePlatform()) {
-                   try {
-                     LocalNotifications.schedule({
-                       notifications: [{
-                         id: hashCode(title + message),
-                         title: title,
-                         body: message,
-                         smallIcon: 'notification_icon',
-                         schedule: { at: new Date(Date.now() + 100) },
-                         sound: 'default'
-                       }]
-                     });
-                   } catch (err) {
-                     console.error('Local notification error:', err);
-                   }
-                 }
-               }
-             }
-           });
-        }
-      };
-      setupFCM();
-    }
+  // --- 3. Refs ---
+  const processedNotificationsRef = useRef<Set<string>>(new Set());
+  const lastPollTimeRef = useRef<number>(Date.now());
 
-    return () => {
-      if (unsubscribeFCM) {
-        unsubscribeFCM();
-        console.log('FCM Listener cleaned up');
-      }
-    };
-  }, [currentUser]);
-  
-  // Setup State
-  const [newMemberName, setNewMemberName] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState<'parent' | 'child'>('parent');
-  const [creatingUser, setCreatingUser] = useState(false);
-  const [showNewUserForm, setShowNewUserForm] = useState(false);
+  // --- 4. Helper Logic (Non-Conditional) ---
+  const regularFamily = family.filter(f => f.role !== 'admin');
+  const myOpenTaskCount = householdTasks.filter(t => t.assignedTo === currentUser?.id && !t.done).length + personalTasks.filter(t => !t.done).length;
+  const userWeatherFavorites = (currentUser && weatherFavorites) ? weatherFavorites.filter(f => f.userId === currentUser.id) : [];
+  const allowEasterForUser = currentUser ? (currentUser.role === 'admin' || globalEasterEnabled) : globalEasterEnabled;
+  const allowLiquidGlassForUser = currentUser ? (currentUser.role === 'admin' || globalLiquidGlassEnabled) : globalLiquidGlassEnabled;
+  const effectiveEasterMode = allowEasterForUser ? easterMode : false;
+  const effectiveLiquidGlass = allowLiquidGlassForUser ? liquidGlass : false;
 
-  // References for polling
-  const lastPollTime = useRef<number>(Date.now());
-
-  // --- SWIPE GESTURE LOGIC ---
-  const touchStartRef = useRef<{x: number, y: number} | null>(null);
-  
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-          target.closest('nav') || 
-          target.closest('input') || 
-          target.closest('textarea') || 
-          target.closest('.no-swipe') ||
-          target.tagName === 'BUTTON' ||
-          e.touches[0].clientX < 20 || 
-          e.touches[0].clientX > window.innerWidth - 20
-      ) return;
-      
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, []);
-
-  const onTouchEnd = useCallback((e: React.TouchEvent) => {
-      if (!touchStartRef.current || !enableSwipe) return;
-      
-      const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-      const distanceX = touchStartRef.current.x - touchEnd.x;
-      const distanceY = touchStartRef.current.y - touchEnd.y;
-      touchStartRef.current = null;
-
-      const minSwipeDistance = 80; 
-      const maxVerticalVariance = 50; 
-
-      if (Math.abs(distanceX) > minSwipeDistance && Math.abs(distanceY) < maxVerticalVariance) {
-          const navOrder = [
-              AppRoute.DASHBOARD,
-              AppRoute.WEATHER,
-              AppRoute.CALENDAR,
-              AppRoute.MEALS,
-              AppRoute.LISTS
-          ];
-          let currentIndex = navOrder.indexOf(currentRoute);
-          if (currentRoute === AppRoute.NEWS) currentIndex = 2; 
-
-          if (currentIndex !== -1) {
-              if (distanceX > 0) { // Swiped Left -> Next Tab
-                  const nextIndex = (currentIndex + 1) % navOrder.length;
-                  setCurrentRoute(navOrder[nextIndex]);
-              } else { // Swiped Right -> Prev Tab
-                  const prevIndex = (currentIndex - 1 + navOrder.length) % navOrder.length;
-                  setCurrentRoute(navOrder[prevIndex]);
-              }
-          }
-      }
-  }, [currentRoute, enableSwipe]);
-
-  // --- HARDWARE BACK BUTTON HANDLING ---
-  useEffect(() => {
-      if (Capacitor.isNativePlatform()) {
-          CapacitorApp.addListener('backButton', ({ canGoBack }) => {
-              if (currentRoute !== AppRoute.DASHBOARD && currentUser) {
-                  setCurrentRoute(AppRoute.DASHBOARD);
-              } else if (!currentUser && (loginStep === 'enter-pass' || loginStep === 'set-pass')) {
-                  setLoginStep('select');
-                  setLoginUser(null);
-              } else {
-                  CapacitorApp.exitApp();
-              }
-          });
-      }
-      return () => {
-          if (Capacitor.isNativePlatform()) {
-              CapacitorApp.removeAllListeners();
-          }
-      };
-  }, [currentRoute, currentUser, loginStep]);
-
-      // --- Hourly Weather Notification ---
-      useEffect(() => {
-        if (!currentUser) return;
-
-        const getCurrentPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000 });
-        });
-
-        const getEmojiForWeather = (code: number, isDay: number) => {
-          if (code === 0) return '☀️';
-          if (code === 1) return '🌤️';
-          if (code === 2 || code === 3) return '☁️';
-          if (code >= 45 && code <= 48) return '🌫️';
-          if (code >= 51 && code <= 67) return '🌧️';
-          if (code >= 71 && code <= 86) return '❄️';
-          if (code >= 95 && code <= 99) return '⛈️';
-          return isDay === 1 ? '🌤️' : '🌙';
-        };
-
-        const scheduleWeatherNotification = async () => {
-          try {
-            if (!navigator.geolocation) return;
-
-            if (Notification.permission !== 'granted') {
-              const permission = await Notification.requestPermission();
-              if (permission !== 'granted') return;
-            }
-
-            const pos = await getCurrentPosition();
-            const data = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
-            if (!data) return;
-
-            const temp = Math.round(data.current.temperature_2m);
-            const desc = getWeatherDescription(data.current.weather_code);
-            const emoji = getEmojiForWeather(data.current.weather_code, data.current.is_day);
-            const title = `🌦️ Stündliches Wetter: ${emoji} ${temp}°C`;
-            const body = `📍 Aktuell: ${desc}, ${temp}°C. Folge dem Wetterplan + bleib trocken!`;
-
-            if (Capacitor.isNativePlatform()) {
-              const { LocalNotifications } = await import('@capacitor/local-notifications');
-
-              await LocalNotifications.cancel({ notifications: [{ id: 9001 }] });
-              await LocalNotifications.schedule({
-                notifications: [{
-                  id: 9001,
-                  title,
-                  body,
-                  smallIcon: 'notification_icon',
-                  schedule: { every: 'hour', allowWhileIdle: true }
-                }]
-              });
-            } else {
-              if (Notification.permission === 'granted') {
-                new Notification(title, { body });
-              }
-            }
-          } catch (e) {
-            console.error('Weather notification error:', e);
-          }
-        };
-
-        // Run every hour
-        const interval = setInterval(scheduleWeatherNotification, 3600000); // 1 hour
-        // Also run once after 10 seconds (for fast startup check)
-        const timeout = setTimeout(scheduleWeatherNotification, 10000);
-
-        return () => {
-          clearInterval(interval);
-          clearTimeout(timeout);
-        };
-      }, [currentUser]);
-
-      const requestAppPermissions = async () => {
-      // 1. Native Permissions (Geo)
-      try {
-          if (Capacitor.isNativePlatform()) {
-              
-              try {
-                  const geoPerm = await Geolocation.checkPermissions();
-                  if (geoPerm.location !== 'granted') {
-                      await Geolocation.requestPermissions();
-                  }
-              } catch (e) {}
-          }
-      } catch (e) {}
-
-      // 2. Web Geolocation (Browser Prompt)
-      if (!Capacitor.isNativePlatform() && navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                  setCurrentWeatherLocation({
-                      lat: pos.coords.latitude,
-                      lng: pos.coords.longitude,
-                      name: 'Aktueller Standort'
-                  });
-              },
-              (err) => {
-                  console.log("Browser GPS request denied or failed:", err.message);
-              },
-              { enableHighAccuracy: false, timeout: 5000 }
-          );
-      }
+  const shouldFireNotification = (title: string, message: string) => {
+    const key = `${title}:${message}`;
+    if (processedNotificationsRef.current.has(key)) return false;
+    processedNotificationsRef.current.add(key);
+    setTimeout(() => { processedNotificationsRef.current.delete(key); }, 120000);
+    return true;
   };
 
-  // Initial Data Load
+  const addNotification = async (title: string, message: string) => {
+    if (!shouldFireNotification(title, message)) return;
+    const notif: AppNotification = { id: Date.now().toString() + Math.random(), title, message, type: 'info', timestamp: new Date().toISOString(), read: false, authorId: currentUser?.id };
+    await Backend.notifications.add(notif);
+    if (Capacitor.isNativePlatform()) {
+      LocalNotifications.schedule({ notifications: [{ id: hashCode(title + message), title, body: message, smallIcon: 'notification_icon', schedule: { at: new Date(Date.now() + 100) }, sound: 'default' }] });
+    }
+  };
+
+  const requestAppPermissions = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const geoPerm = await Geolocation.checkPermissions();
+        if (geoPerm.location !== 'granted') await Geolocation.requestPermissions();
+      } catch (e) { }
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setCurrentWeatherLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'Aktueller Standort' }),
+        null, { enableHighAccuracy: false, timeout: 5000 }
+      );
+    }
+  };
+
+  // --- 5. Effect Hooks (Unconditional) ---
+
   useEffect(() => {
-      const loadAll = async () => {
-          try {
-              const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData] = await Promise.all([
-                  Backend.family.getAll(),
-                  Backend.events.getAll(),
-                  Backend.news.getAll(),
-                  Backend.shopping.getAll(),
-                  Backend.householdTasks.getAll(),
-                  Backend.personalTasks.getAll(),
-                  Backend.mealPlan.getAll(),
-                  Backend.mealRequests.getAll(),
-                  Backend.weatherFavorites.getAll(),
-                  Backend.recipes.getAll(),
-                  Backend.feedback.getAll(),
-                  Backend.polls.getAll()
-              ]);
-              
-              setFamily(fam);
-              setEvents(ev);
-              setNews(newsData);
-              setShoppingList(shop);
-              setHouseholdTasks(house);
-              setPersonalTasks(pers);
-              setMealPlan(meals);
-              setMealRequests(reqs);
-              setWeatherFavorites(weath);
-              setRecipes(rec);
-              setFeedbacks(fbs);
-              setPolls(pollsData);
-          } catch (e) {
-              console.error("Failed to load backend data", e);
-          } finally {
-              setLoadingData(false);
-          }
-      };
-      loadAll();
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => {});
+      LocalNotifications.requestPermissions().catch(() => {});
+    }
   }, []);
 
-  // Trigger permissions request when a user logs in or is restored
   useEffect(() => {
-      if (currentUser) {
-          requestAppPermissions();
+    if (currentRoute !== AppRoute.LANDING) localStorage.setItem('fh_has_booted', 'true');
+    if (currentRoute !== AppRoute.SETTINGS && currentRoute !== AppRoute.LANDING) localStorage.setItem('fh_last_route', currentRoute);
+  }, [currentRoute]);
+
+  useEffect(() => {
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [darkMode]);
+
+  useEffect(() => {
+    if (!loadingData && family.length > 0 && !currentUser) {
+      const storedUserId = localStorage.getItem('fh_session_user');
+      const foundUser = family.find(f => f.id === storedUserId);
+      if (foundUser) {
+        setCurrentUser(foundUser);
+        setDarkMode(foundUser.darkMode || false);
       }
-  }, [currentUser]);
-
-  // --- Hourly Wetter-Benachrichtigung ---
-  useEffect(() => {
-      if (!currentUser) return;
-
-      const getCurrentPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000 });
-      });
-
-      const notifyWeather = async () => {
-          try {
-              if (!navigator.geolocation) return;
-
-              if (Notification.permission !== 'granted') {
-                  const permission = await Notification.requestPermission();
-                  if (permission !== 'granted') return;
-              }
-
-              const position = await getCurrentPosition();
-              const data = await fetchWeather(position.coords.latitude, position.coords.longitude);
-              if (!data) return;
-
-              const text = `${Math.round(data.current.temperature_2m)}°C, ${getWeatherDescription(data.current.weather_code)}`;
-              const title = 'Aktuelles Wetter';
-              const body = `Jetzt: ${text}`;
-
-              if (Capacitor.isNativePlatform()) {
-                  const { LocalNotifications } = await import('@capacitor/local-notifications');
-
-                  // sichern, dass wir alte stündliche Einträge entfernen
-                  await LocalNotifications.cancel({ notifications: [{ id: 9001 }] });
-
-                  await LocalNotifications.schedule({
-                      notifications: [{
-                          id: 9001,
-                          title,
-                          body,
-                          smallIcon: 'notification_icon',
-                          schedule: {
-                              every: 'hour',
-                              allowWhileIdle: true
-                          }
-                      }]
-                  });
-              } else {
-                  new Notification(title, { body });
-              }
-          } catch (error) {
-              console.error('Stündliche Wetterbenachrichtigung fehlgeschlagen:', error);
-          }
-      };
-
-      notifyWeather();
-      const weatherInterval = setInterval(notifyWeather, 60 * 60 * 1000);
-      return () => clearInterval(weatherInterval);
-  }, [currentUser]);
-
-  // --- BACKGROUND POLLING & NOTIFICATIONS ---
-  useEffect(() => {
-      if (!currentUser) return;
-
-      const interval = setInterval(async () => {
-          const [freshNews, freshFeedback] = await Promise.all([
-              Backend.news.getAll(),
-              Backend.feedback.getAll()
-          ]);
-          setNews(freshNews);
-          setFeedbacks(freshFeedback);
-
-          const checkTime = lastPollTime.current;
-          
-          const newMessages = freshNews.filter(n => {
-              const isPrivate = n.tag === `PRIVATE:${currentUser.id}`;
-              const isNew = new Date(n.createdAt).getTime() > checkTime;
-              const notRead = !n.readBy?.includes(currentUser.id);
-              return isPrivate && isNew && notRead;
-          });
-
-          newMessages.forEach(msg => {
-              const sender = family.find(f => f.id === msg.authorId)?.name || 'Jemand';
-              addNotification('Neue Nachricht 📬', `${sender}: ${msg.description.substring(0, 30)}...`);
-          });
-
-          if (currentUser.role === 'admin') {
-              const newFeedback = freshFeedback.filter(f => {
-                  return new Date(f.createdAt).getTime() > checkTime && !f.read;
-              });
-              newFeedback.forEach(fb => {
-                  addNotification('Neues Feedback ⭐', `${fb.userName} hat Feedback gesendet.`);
-              });
-          }
-
-          const SIMULATED_SERVER_VERSION = "1.1.4"; 
-          if (SIMULATED_SERVER_VERSION > CURRENT_APP_VERSION && !updateNotifiedRef.current) {
-               addNotification('Update verfügbar 📲', `Version ${SIMULATED_SERVER_VERSION} ist bereit. Jetzt herunterladen.`);
-               updateNotifiedRef.current = true;
-          }
-
-          lastPollTime.current = Date.now();
-
-      }, POLLING_INTERVAL);
-
-      return () => clearInterval(interval);
-  }, [currentUser, family]);
-
-  useEffect(() => {
-      if (!loadingData && family.length > 0 && !currentUser) {
-          const storedUserId = localStorage.getItem('fh_session_user');
-          if (storedUserId) {
-              const foundUser = family.find(f => f.id === storedUserId);
-              if (foundUser) {
-                  setCurrentUser(foundUser);
-              }
-          }
-      }
+    }
   }, [loadingData, family, currentUser]);
 
   useEffect(() => {
-    if (currentUser) {
-       setDarkMode(currentUser.darkMode || false);
-    }
-  }, [currentUser]);
+    const loadAll = async () => {
+      try {
+        const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData] = await Promise.all([
+          Backend.family.getAll(), Backend.events.getAll(), Backend.news.getAll(), Backend.shopping.getAll(),
+          Backend.householdTasks.getAll(), Backend.personalTasks.getAll(), Backend.mealPlan.getAll(),
+          Backend.mealRequests.getAll(), Backend.weatherFavorites.getAll(), Backend.recipes.getAll(),
+          Backend.feedback.getAll(), Backend.polls.getAll()
+        ]);
+        setFamily(fam); setEvents(ev); setNews(newsData); setShoppingList(shop);
+        setHouseholdTasks(house); setPersonalTasks(pers); setMealPlan(meals);
+        setMealRequests(reqs); setWeatherFavorites(weath); setRecipes(rec);
+        setFeedbacks(fbs); setPolls(pollsData);
+      } finally { setLoadingData(false); }
+    };
+    loadAll();
+  }, []);
 
-  // --- Realtime Native Notifications (v2.0.9) ---
   useEffect(() => {
-    if (!supabase || !currentUser) return;
-
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        async (payload) => {
-          const newNotif = payload.new;
-          // Filter out self-notifications and handle deduplication
-          if (newNotif.author_id !== currentUser.id && shouldFireNotification(newNotif.title, newNotif.message)) {
-            try {
-              await LocalNotifications.schedule({
-                notifications: [
-                  {
-                    title: newNotif.title,
-                    body: newNotif.message,
-                    id: hashCode(newNotif.id || (newNotif.title + newNotif.message)),
-                    schedule: { at: new Date(Date.now() + 500) },
-                    sound: 'default'
-                  }
-                ]
-              });
-            } catch (e) {
-              console.warn('Native notification failed:', e);
+    if (!currentUser) return;
+    requestAppPermissions();
+    let unsubscribeFCM: (() => void) | undefined;
+    const setupFCM = async () => {
+      const token = await requestFirebaseToken(currentUser.id);
+      if (token) {
+        unsubscribeFCM = onMessageListener((payload: any) => {
+          if (payload.notification) {
+            const title = payload.notification.title || 'Mitteilung';
+            const message = payload.notification.body || '';
+            if (shouldFireNotification(title, message) && Capacitor.isNativePlatform()) {
+              LocalNotifications.schedule({ notifications: [{ id: hashCode(title + message), title, body: message, smallIcon: 'notification_icon', schedule: { at: new Date(Date.now() + 100) }, sound: 'default' }] });
             }
           }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+        });
+      }
     };
+    setupFCM();
+    return () => { if (unsubscribeFCM) unsubscribeFCM(); };
   }, [currentUser]);
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      if (Capacitor.isNativePlatform()) {
-        try { StatusBar.setStyle({ style: Style.Dark }); } catch(e) {}
-      }
-    } else {
-      document.documentElement.classList.remove('dark');
-      if (Capacitor.isNativePlatform()) {
-        try { StatusBar.setStyle({ style: Style.Light }); } catch(e) {}
-      }
-    }
-  }, [darkMode]);
-
-  const addNotification = async (title: string, message: string) => {
-      // Deduplicate internal triggers too
-      if (shouldFireNotification(title, message)) {
-          const notif: AppNotification = {
-              id: Date.now().toString() + Math.random(),
-              title,
-              message,
-              type: 'info',
-              timestamp: new Date().toISOString(),
-              read: false,
-              authorId: currentUser?.id
-          };
-          
-          // Still add to remote for history, but native only for alert
-          await Backend.notifications.add(notif);
-          
-          if (Capacitor.isNativePlatform()) {
-              LocalNotifications.schedule({
-                  notifications: [{
-                      id: hashCode(title + message),
-                      title,
-                      body: message,
-                      smallIcon: 'notification_icon',
-                      schedule: { at: new Date(Date.now() + 100) },
-                      sound: 'default'
-                  }]
-              });
-          }
-      }
-  };
-
-  const sendAdminBroadcast = async (title: string, message: string) => {
-      if (!currentUser) {
-          alert('Kein Benutzer angemeldet.');
-          return;
-      }
-
-      if (currentUser.role !== 'admin') {
-          alert('Nur Administratoren können diese Aktion ausführen.');
-          return;
-      }
-
-      const broadcastTitle = `🚨 ${title}`;
-      const broadcastMessage = `🔔 ${message}`;
-
-      await addNotification(broadcastTitle, broadcastMessage);
-  };
-
-  const clearAllNotifications = async () => {
-      const all = await Backend.notifications.getAll();
-      if(all.length > 0) {
-          await Backend.notifications.setAll([]);
-      }
-  };
-
-  const addEvent = async (event: CalendarEvent) => {
-      const newEvent = { ...event, authorId: currentUser?.id };
-      setEvents(prev => [...prev, newEvent]);
-      await Backend.events.add(newEvent);
-
-      const creatorName = currentUser?.name || 'Jemand';
-      await addNotification('Neuer Termin 📅', `${creatorName} hat "${event.title}" am ${new Date(event.date).toLocaleDateString()} erstellt.`);
-  };
-  
-  const updateEvent = async (id: string, updates: Partial<CalendarEvent>) => {
-      setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
-      await Backend.events.update(id, updates);
-  };
-  
-    const deleteEvent = async (id: string) => {
-       if (!currentUser) return;
-       const event = events.find(e => e.id === id);
-       if (!event) return;
-       
-       if (currentUser.role !== 'admin' && event.authorId && event.authorId !== currentUser.id) {
-           alert("Nur der Autor oder Admin kann Termine löschen.");
-           return;
-       }
-       
-       setEvents(prev => prev.filter(e => e.id !== id));
-       await Backend.events.delete(id);
-   };
-
-  const addNews = async (item: NewsItem) => {
-      setNews(prev => [item, ...prev]);
-      await Backend.news.add(item);
-      
-      if (!item.tag?.startsWith('PRIVATE:')) {
-          const creatorName = currentUser?.name || 'Jemand';
-          await addNotification('Pinnwand 📌', `${creatorName} hat "${item.title}" gepostet.`);
-      }
-  };
-  const updateNews = async (id: string, updates: Partial<NewsItem>) => {
-      setNews(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
-      await Backend.news.update(id, updates);
-  };
-   const deleteNews = async (id: string) => {
-       if (!currentUser) return;
-       const item = news.find(n => n.id === id);
-       if (!item) return;
-
-       if (currentUser.role !== 'admin' && item.authorId !== currentUser.id) {
-           alert("Nur der Autor oder Admin kann News löschen.");
-           return;
-       }
-
-       setNews(prev => prev.filter(n => n.id !== id));
-       await Backend.news.delete(id);
-   };
-  const markNewsRead = async (id: string) => {
-      if (!currentUser) return;
-      const item = news.find(n => n.id === id);
-      if (item) {
-          const newReadBy = [...(item.readBy || []), currentUser.id];
-          setNews(prev => prev.map(n => n.id === id ? { ...n, readBy: newReadBy } : n));
-          await Backend.news.update(id, { readBy: newReadBy });
-      }
-  };
-  
-  const addPoll = async (poll: Poll) => {
-      setPolls(prev => [poll, ...prev]);
-      await Backend.polls.add(poll);
-      const creatorName = currentUser?.name || 'Jemand';
-      await addNotification('Neue Umfrage 📊', `${creatorName} fragt: "${poll.question}"`);
-  }
-  const updatePoll = async (id: string, updates: Partial<Poll>) => {
-      setPolls(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-      await Backend.polls.update(id, updates);
-  }
-   const deletePoll = async (id: string) => {
-       if (!currentUser) return;
-       const poll = polls.find(p => p.id === id);
-       if (!poll) return;
-
-       if (currentUser.role !== 'admin' && poll.authorId !== currentUser.id) {
-           alert("Nur der Autor oder Admin kann Umfragen löschen.");
-           return;
-       }
-
-       setPolls(prev => prev.filter(p => p.id !== id));
-       await Backend.polls.delete(id);
-   };
-
-  const toggleShoppingItem = async (id: string) => {
-      const item = shoppingList.find(i => i.id === id);
-      if (item) {
-          const newItem = { ...item, checked: !item.checked };
-          setShoppingList(prev => prev.map(i => i.id === id ? newItem : i));
-          await Backend.shopping.update(id, { checked: newItem.checked });
-      }
-  };
-  const addShoppingItem = async (name: string, note?: string, category?: string) => {
-      const newItem: ShoppingItem = { id: Date.now().toString(), name, checked: false, note, category };
-      setShoppingList(prev => [...prev, newItem]);
-      await Backend.shopping.add(newItem);
-      await addNotification('Einkaufsliste 🛒', `"${name}" wurde hinzugefügt.`);
-  };
-  const deleteShoppingItem = async (id: string) => {
-      setShoppingList(prev => prev.filter(i => i.id !== id));
-      await Backend.shopping.delete(id);
-  };
-  const addIngredientsToShopping = async (ingredients: string[]) => {
-      const newItems = ingredients.map(ing => ({ id: Date.now().toString() + Math.random(), name: ing, checked: false }));
-      setShoppingList(prev => [...prev, ...newItems]);
-      const fullList = await Backend.shopping.getAll();
-      await Backend.shopping.setAll([...fullList, ...newItems]);
-      await addNotification('Einkaufsliste 🛒', `${ingredients.length} Zutaten aus Rezept hinzugefügt.`);
-  };
-
-  const addHouseholdTask = async (title: string, assignedTo: string, priority: TaskPriority = 'medium', note?: string) => {
-      const task: Task = { id: Date.now().toString(), title, done: false, assignedTo, type: 'household', priority, note };
-      setHouseholdTasks(prev => [...prev, task]);
-      await Backend.householdTasks.add(task);
-      
-      const member = family.find(f => f.id === assignedTo);
-      await addNotification('Neue Aufgabe 🏠', `"${title}" wurde ${member?.name || 'jemandem'} zugewiesen.`);
-  };
-  const addPersonalTask = async (title: string, priority: TaskPriority = 'medium', note?: string) => {
-      const task: Task = { id: Date.now().toString(), title, done: false, type: 'personal', priority, note };
-      setPersonalTasks(prev => [...prev, task]);
-      await Backend.personalTasks.add(task);
-      await addNotification('Neue Aufgabe 👤', `"${title}" wurde zu deinen persönlichen Aufgaben hinzugefügt.`);
-  };
-  const toggleTask = async (id: string, type: 'household' | 'personal') => {
-      if (type === 'household') {
-          const task = householdTasks.find(t => t.id === id);
-          if (task) {
-              setHouseholdTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
-              await Backend.householdTasks.update(id, { done: !task.done });
-          }
-      } else {
-          const task = personalTasks.find(t => t.id === id);
-          if (task) {
-              setPersonalTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
-              await Backend.personalTasks.update(id, { done: !task.done });
-          }
-      }
-  };
-  const deleteTask = async (id: string, type: 'household' | 'personal') => {
-      if (type === 'household') {
-          setHouseholdTasks(prev => prev.filter(t => t.id !== id));
-          await Backend.householdTasks.delete(id);
-      } else {
-          setPersonalTasks(prev => prev.filter(t => t.id !== id));
-          await Backend.personalTasks.delete(id);
-      }
-  };
-
-  const updateMealPlan = async (plan: MealPlan[]) => {
-      setMealPlan(plan);
-      await Backend.mealPlan.setAll(plan);
-  };
-  
-  const handlePlanGenerated = () => {
-      addNotification('Wochenplan erstellt 🍽️', 'Dein neuer Essensplan für die Woche ist fertig!');
-  };
-
-  const addMealToPlan = async (day: string, mealName: string, ingredients: string[]) => {
-      const existingMeal = mealPlan.find(m => m.day === day);
-      const id = existingMeal ? existingMeal.id : Date.now().toString() + Math.random().toString().slice(2,5);
-
-      const filtered = mealPlan.filter(m => m.day !== day);
-      const newMeal: MealPlan = { 
-          id, 
-          day, 
-          mealName, 
-          ingredients, 
-          recipeHint: 'Aus Rezeptlager',
-          breakfast: existingMeal?.breakfast || '',
-          lunch: existingMeal?.lunch || ''
-      };
-      const newPlan = [...filtered, newMeal];
-      setMealPlan(newPlan);
-      await Backend.mealPlan.setAll(newPlan);
-      await addNotification('Essensplan-Update 🍴', `Für ${day} wurde "${mealName}" eingetragen.`);
-  };
-  const addMealRequest = async (dishName: string) => {
-      if (currentUser) {
-          const req: MealRequest = { id: Date.now().toString(), dishName, requestedBy: currentUser.id, createdAt: new Date().toISOString() };
-          setMealRequests(prev => [...prev, req]);
-          await Backend.mealRequests.add(req);
-          const requestName = currentUser.name;
-          await addNotification('Essenswunsch 😋', `${requestName} wünscht sich: ${dishName}`);
-      }
-  };
-  const deleteMealRequest = async (id: string) => {
-      setMealRequests(prev => prev.filter(r => r.id !== id));
-      await Backend.mealRequests.delete(id);
-  };
-  const addRecipe = async (recipe: Recipe) => {
-      setRecipes(prev => [...prev, recipe]);
-      await Backend.recipes.add(recipe);
-  };
-  const updateRecipe = async (id: string, updates: Partial<Recipe>) => {
-      setRecipes(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
-      await Backend.recipes.update(id, updates);
-  };
-  const deleteRecipe = async (id: string) => {
-      setRecipes(prev => prev.filter(r => r.id !== id));
-      await Backend.recipes.delete(id);
-  };
-
-  const updateFamilyMember = async (id: string, updates: Partial<FamilyMember>) => {
-    setFamily(prev => prev.map(member => member.id === id ? { ...member, ...updates } : member));
-    if (currentUser && currentUser.id === id) setCurrentUser({ ...currentUser, ...updates });
-    await Backend.family.update(id, updates);
-  };
-
-  const addFamilyMember = async (name: string, role: 'parent' | 'child', mustChangePassword?: boolean) => {
-      const newMember: FamilyMember = {
-          id: Date.now().toString(),
-          name,
-          role,
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
-          color: role === 'parent' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white',
-          password: '123', // Standardpasswort
-          mustChangePassword: mustChangePassword || false
-      };
-      setFamily(prev => [...prev, newMember]);
-      await Backend.family.add(newMember);
-      return newMember;
-  };
-
-  const deleteUser = async (id: string) => {
-      if (id === currentUser?.id) {
-          alert("Du kannst dich nicht selbst löschen!");
-          return;
-      }
-      setFamily(prev => prev.filter(f => f.id !== id));
-      await Backend.family.delete(id);
-  };
-
-  const resetMemberPassword = async (member: FamilyMember) => {
-      const updates = { password: '123' }; // standard reset
-      setFamily(prev => prev.map(m => m.id === member.id ? { ...m, ...updates } : m));
-      await Backend.family.update(member.id, updates);
-  };
-  
-  const addFeedback = async (item: FeedbackItem) => {
-      setFeedbacks(prev => [...prev, item]);
-      await Backend.feedback.add(item);
-      addNotification('Feedback gesendet ✅', 'Danke für dein Feedback!');
-  };
-
-  const markFeedbacksRead = async (ids: string[]) => {
-      setFeedbacks(prev => prev.map(f => ids.includes(f.id) ? { ...f, read: true } : f));
-      for (const id of ids) {
-          await Backend.feedback.update(id, { read: true });
-      }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('fh_session_user');
-    setCurrentUser(null);
-    setCurrentRoute(AppRoute.DASHBOARD);
-    setLoginStep('select');
-    setLoginUser(null);
-    setPasswordInput('');
-  };
-
-  const toggleWeatherFavorite = async (location: SavedLocation) => {
-      if (!currentUser) return;
-      const exists = weatherFavorites.find(f => f.name === location.name && f.userId === currentUser.id);
-      if (exists) {
-          setWeatherFavorites(prev => prev.filter(f => f.id !== exists.id));
-          await Backend.weatherFavorites.delete(exists.id);
-      } else {
-          const newFav: SavedLocation = { ...location, id: Date.now().toString(), userId: currentUser.id };
-          setWeatherFavorites(prev => [...prev, newFav]);
-          await Backend.weatherFavorites.add(newFav);
-      }
-  };
-
-  const handleVoiceAction = (action: VoiceAction) => {
-      if (action.type === 'ADD_SHOPPING') {
-          if (action.data?.item) {
-              addShoppingItem(action.data.item);
-          }
-      } else if (action.type === 'ADD_TASK') {
-          if (action.data?.title) {
-              if (action.data.type === 'personal') addPersonalTask(action.data.title);
-              else addHouseholdTask(action.data.title, currentUser?.id || family[0].id);
-              addNotification('Sprachbefehl 🗣️', `Aufgabe "${action.data.title}" erstellt.`);
-          }
-      } else if (action.type === 'ADD_EVENT') {
-          if (action.data?.title && action.data?.date && action.data?.time) {
-              addEvent({
-                  id: Date.now().toString(),
-                  title: action.data.title,
-                  date: action.data.date,
-                  time: action.data.time,
-                  endTime: action.data.endTime || undefined,
-                  assignedTo: [currentUser?.id || '']
-              });
-          }
-      } else if (action.type === 'ADD_MEAL') {
-          if (action.data?.dish) {
-              addMealRequest(action.data.dish);
-          }
-      }
-  };
-
-  const handleOpenSettings = () => {
-      setLastRoute(currentRoute); 
-      setCurrentRoute(AppRoute.SETTINGS);
-  };
-
-  const handleUserSelect = (member: FamilyMember) => {
-      setLoginUser(member);
-      setPasswordInput('');
-      setLoginError('');
-      setShowPassword(false); 
-      if (member.password) {
-          setLoginStep('enter-pass');
-      } else {
-          setLoginStep('set-pass');
-      }
-  };
-
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
-
-  useEffect(() => {
-    if (currentUser?.mustChangePassword) {
-      setShowPasswordChange(true);
-    } else {
-      setShowPasswordChange(false);
+    if (currentUser?.mustShowSecurityScreen) {
+      setShowSecurityScreen(true);
     }
   }, [currentUser]);
 
-  const handleCreateMember = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!newMemberName.trim()) return;
-      setCreatingUser(true);
-
-      try {
-          const newMember = await addFamilyMember(newMemberName, newMemberRole);
-          if (newMember) {
-              if (!currentUser) {
-                  setCurrentUser(newMember);
-                  localStorage.setItem('fh_session_user', newMember.id);
-                  requestAppPermissions(); 
-              } else {
-                  setShowNewUserForm(false);
-              }
-          }
-          setNewMemberName('');
-      } catch (err) {
-          console.error("Setup failed", err);
-      } finally {
-          setCreatingUser(false);
-      }
-  };
-
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!loginUser || !passwordInput.trim()) return;
-
-    if (loginStep === 'set-pass') {
-        if (passwordInput.trim().length < 4) {
-            setLoginError("Das Passwort muss mindestens 4 Zeichen lang sein.");
-            return;
-        }
-        updateFamilyMember(loginUser.id, { password: passwordInput });
-        setCurrentUser({ ...loginUser, password: passwordInput });
-        localStorage.setItem('fh_session_user', loginUser.id);
-        requestAppPermissions(); 
-    } else {
-        if (passwordInput === loginUser.password) {
-            setCurrentUser(loginUser);
-            localStorage.setItem('fh_session_user', loginUser.id);
-            requestAppPermissions(); 
-        }
-        else setLoginError(t('login.wrong_pass', language));
-    }
-};
-
-  const handleLogoClick = () => {
-      setLogoClickCount(prev => {
-          if (prev + 1 >= 5) {
-              setShowAdminLogin(true);
-              setLoginError('');
-              setAdminPasswordInput('');
-              setShowAdminPassword(false);
-              return 0;
-          }
-          return prev + 1;
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('backButton', () => {
+        if (currentRoute !== AppRoute.DASHBOARD && currentUser) setCurrentRoute(AppRoute.DASHBOARD);
+        else if (!currentUser && (loginStep === 'enter-pass' || loginStep === 'set-pass')) { setLoginStep('select'); setLoginUser(null); }
+        else CapacitorApp.exitApp();
       });
-  };
+    }
+  }, [currentRoute, currentUser, loginStep]);
 
-  const handleAdminLoginSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      // Try to find the admin user or check against default admin005 if not found in list
-      const adminUser = family.find(f => f.role === 'admin');
-      
-      if (adminPasswordInput === 'admin005') {
-          // If we found the user in the list, use that, otherwise use a fallback mock
-          const targetUser = adminUser || {
-              id: 'admin_user',
-              name: 'Administrator',
-              avatar: 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff',
-              color: 'bg-gray-800 text-white',
-              role: 'admin'
-          } as FamilyMember;
+  useEffect(() => {
+    if (!currentUser) return;
+    const scheduleWeather = async () => {
+      try {
+        if (!navigator.geolocation) return;
+        const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 15000 }));
+        const data = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
+        if (!data) return;
+        const temp = Math.round(data.current.temperature_2m);
+        const title = `Stündliches Wetterupdate: ${temp}°C`;
+        const body = `Jetzt: ${getWeatherDescription(data.current.weather_code)}.`;
 
-          setCurrentUser(targetUser);
-          localStorage.setItem('fh_session_user', targetUser.id);
-          setShowAdminLogin(false);
-          setAdminPasswordInput('');
-          setLoginError('');
-          requestAppPermissions(); 
-      } else {
-          setLoginError("Zugriff verweigert. Falsches Passwort.");
-      }
-  };
-
-  if (loadingData) {
-      return (
-          <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
-              <Logo size={80} className="animate-pulse mb-4" />
-              <Loader2 className="animate-spin text-blue-500" size={32} />
-              <p className="mt-4 text-gray-500 font-medium">Lade Familiendaten...</p>
-          </div>
-      );
-  }
-
-  const getAppBackgroundClass = () => {
-      return 'bg-gray-50 dark:bg-gray-900';
-  };
-
-  // --- PUBLIC ROUTES (No Login Required) ---
-  if (currentRoute === AppRoute.LANDING) {
-      return (
-          <div className={`min-h-screen ${getAppBackgroundClass()} transition-colors duration-500`}>
-              <LandingPage />
-          </div>
-      );
-  }
-
-  // --- LOGIN SCREEN ---
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex flex-col items-center justify-center p-6 transition-colors relative overflow-hidden">
-        
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-400/10 rounded-full blur-[100px]"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-400/10 rounded-full blur-[100px]"></div>
-        </div>
-
-        <div className="text-center mb-10 animate-fade-in flex flex-col items-center z-10">
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-[30px] shadow-xl mb-6 ring-1 ring-black/5 dark:ring-white/10 active:scale-95 transition-transform cursor-pointer select-none" onClick={handleLogoClick}>
-               <Logo size={80} />
-           </div>
-           <h1 className="text-4xl font-extrabold text-gray-800 dark:text-white mb-2 tracking-tight">FamilyHub</h1>
-           <p className="text-gray-500 dark:text-gray-400 font-medium">{t('login.welcome', language)}</p>
-        </div>
-        
-        {/* ... (Rest of Login UI same as before) ... */}
-        {family.length > 0 && !showNewUserForm ? (
-            <div className="w-full max-w-md z-10">
-                <div className="grid grid-cols-2 gap-4 animate-slide-in">
-                  {family
-                    .filter(m => m.role !== 'admin') 
-                    .sort((a, b) => {
-                        if (a.role === 'parent' && b.role !== 'parent') return -1;
-                        if (a.role !== 'parent' && b.role === 'parent') return 1;
-                        if (a.role === 'parent') {
-                             return a.id.localeCompare(b.id);
-                        } else {
-                             return b.id.localeCompare(a.id);
-                        }
-                    })
-                    .map(member => (
-                    <button 
-                      key={member.id}
-                      onClick={() => handleUserSelect(member)}
-                      className={`bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center hover:scale-105 hover:shadow-md active:scale-95 transition-all group relative`}
-                    >
-                      <div className="relative mb-3">
-                          <img src={member.avatar} alt={member.name} className="w-16 h-16 rounded-full object-cover ring-4 ring-gray-50 dark:ring-gray-700 group-hover:ring-blue-50 dark:group-hover:ring-blue-900/50 transition-all" />
-                          {member.password && (
-                              <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 p-1 rounded-full border border-gray-100 dark:border-gray-700 text-gray-400">
-                                  <Lock size={12} />
-                              </div>
-                          )}
-                      </div>
-                      <span className="font-bold text-base text-gray-800 dark:text-gray-200">{member.name}</span>
-                    </button>
-                  ))}
-                </div>
-            </div>
-        ) : (
-            // ... (New User Form) ...
-            <div className="w-full max-w-xs animate-fade-in z-10 relative">
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700">
-                    {family.length > 0 && (
-                        <button onClick={() => setShowNewUserForm(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                            <X size={20} />
-                        </button>
-                    )}
-                    
-                    <div className="text-center mb-6">
-                        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-1">
-                            {family.length === 0 ? "Neu hier?" : "Neues Mitglied"}
-                        </h2>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {family.length === 0 ? "Erstelle das erste Profil." : "Füge jemanden hinzu."}
-                        </p>
-                    </div>
-
-                    <form onSubmit={handleCreateMember}>
-                        <div className="mb-4">
-                            <input 
-                                type="text"
-                                placeholder="Name (z.B. Mama)"
-                                value={newMemberName}
-                                onChange={(e) => setNewMemberName(e.target.value)}
-                                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-center text-lg font-semibold outline-none focus:ring-2 focus:ring-blue-500 dark:text-white placeholder-gray-400 transition-all"
-                                autoFocus
-                            />
-                        </div>
-
-                        <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-700/50 rounded-xl">
-                            <button
-                                type="button"
-                                onClick={() => setNewMemberRole('parent')}
-                                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center space-x-1 ${newMemberRole === 'parent' ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'}`}
-                            >
-                                <span>Elternteil</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setNewMemberRole('child')}
-                                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center space-x-1 ${newMemberRole === 'child' ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-300 shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'}`}
-                            >
-                                <span>Kind</span>
-                            </button>
-                        </div>
-
-                        <button 
-                            type="submit"
-                            disabled={!newMemberName.trim() || creatingUser}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition disabled:opacity-50 flex justify-center items-center"
-                        >
-                            {creatingUser ? <Loader2 className="animate-spin" size={20}/> : <span className="flex items-center">Erstellen <ArrowRight size={18} className="ml-2"/></span>}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        )}
-
-        {(loginStep === 'enter-pass' || loginStep === 'set-pass') && loginUser && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
-                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-xs p-8 relative animate-slide-up ring-1 ring-white/20">
-                    <button 
-                        onClick={() => { setLoginStep('select'); setLoginUser(null); }}
-                        className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 bg-gray-100 dark:bg-gray-700 rounded-full p-1 transition"
-                    >
-                        <X size={20} />
-                    </button>
-                    
-                    <div className="flex flex-col items-center mb-8">
-                        <div className="relative">
-                            <img src={loginUser.avatar} className="w-20 h-20 rounded-full mb-4 ring-4 ring-white dark:ring-gray-700 shadow-md" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">{t('login.hello', language)} {loginUser.name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            {loginStep === 'set-pass' ? t('login.create_pass', language) : t('login.enter_pass', language)}
-                        </p>
-                    </div>
-
-                    <form onSubmit={handlePasswordSubmit}>
-                        <div className="relative">
-                            <input 
-                                type={showPassword ? "text" : "password"}
-                                autoFocus
-                                value={passwordInput}
-                                onChange={(e) => { setPasswordInput(e.target.value); setLoginError(''); }}
-                                placeholder={loginStep === 'set-pass' ? t('login.new_pass_placeholder', language) : t('login.pass_placeholder', language)}
-                                className={`w-full bg-gray-50 dark:bg-gray-700 border ${loginError ? 'border-red-500 text-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-2xl px-4 py-4 pr-12 text-center text-xl tracking-widest mb-6 outline-none focus:ring-4 focus:ring-blue-500/20 transition-all dark:text-white`}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                            >
-                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                            </button>
-                            {loginError && <div className="absolute -bottom-5 left-0 right-0 text-red-500 text-xs text-center font-bold animate-pulse">{loginError}</div>}
-                        </div>
-                        
-                        <button 
-                            type="submit"
-                            disabled={!passwordInput.trim()}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition disabled:opacity-50 disabled:shadow-none"
-                        >
-                            {loginStep === 'set-pass' ? t('login.set_pass_btn', language) : t('login.login_btn', language)}
-                        </button>
-                    </form>
-                </div>
-            </div>
-        )}
-
-        {showAdminLogin && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-red-950/80 backdrop-blur-md animate-fade-in">
-                <div className="bg-gray-900 w-full max-w-sm rounded-3xl shadow-2xl p-8 relative border border-red-500/30 ring-4 ring-red-500/10 animate-slide-up">
-                    <button 
-                        onClick={() => { setShowAdminLogin(false); setAdminPasswordInput(''); setLoginError(''); setShowAdminPassword(false); }}
-                        className="absolute top-4 right-4 text-red-400 hover:text-red-200 bg-red-950/50 rounded-full p-1 transition"
-                    >
-                        <X size={20} />
-                    </button>
-
-                    <div className="flex flex-col items-center text-center mb-6">
-                        <div className="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mb-4 border border-red-500/50">
-                            <ShieldAlert size={32} className="text-red-500" />
-                        </div>
-                        <h3 className="text-xl font-black text-red-500 uppercase tracking-widest">System Überschreibung</h3>
-                        <p className="text-xs text-red-300 font-mono mt-2 bg-red-950/50 px-2 py-1 rounded">
-                            <AlertTriangle size={10} className="inline mr-1"/>
-                            ADMINBEREICH: Nur erlaubter Zutritt
-                        </p>
-                    </div>
-
-                    <form onSubmit={handleAdminLoginSubmit}>
-                        <div className="relative mb-6">
-                            <input 
-                                type={showAdminPassword ? "text" : "password"}
-                                autoFocus
-                                value={adminPasswordInput}
-                                onChange={(e) => { setAdminPasswordInput(e.target.value); setLoginError(''); }}
-                                placeholder="Admin Passwort"
-                                className={`w-full bg-black/50 border ${loginError ? 'border-red-500' : 'border-red-900'} rounded-xl px-4 py-4 pr-12 text-center text-white placeholder-red-800/50 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-mono tracking-wider`}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowAdminPassword(!showAdminPassword)}
-                                className="absolute right-4 top-4 text-red-400 hover:text-red-200"
-                            >
-                                {showAdminPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                            </button>
-                            {loginError && <div className="absolute -bottom-6 left-0 right-0 text-red-500 text-xs text-center font-bold animate-pulse">{loginError}</div>}
-                        </div>
-                        
-                        <button 
-                            type="submit"
-                            disabled={!adminPasswordInput.trim()}
-                            className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-900/20 active:scale-95 transition disabled:opacity-50 disabled:shadow-none uppercase tracking-wide text-sm"
-                        >
-                            Zugriff Gewähren
-                        </button>
-                    </form>
-                </div>
-            </div>
-        )}
-
-      </div>
-    );
-  };
-  
-  const getTodayMeal = () => {
-    const today = new Date().toLocaleDateString('de-DE', { weekday: 'long' });
-    return mealPlan.find(m => m.day === today);
-  };
-
-  const userWeatherFavorites = (currentUser && weatherFavorites) 
-    ? weatherFavorites.filter(f => f.userId === currentUser.id) 
-    : [];
-
-  const myOpenTaskCount = householdTasks.filter(t => t.assignedTo === currentUser.id && !t.done).length + personalTasks.filter(t => !t.done).length;
-  const regularFamily = family.filter(f => f.role !== 'admin');
-
-  const renderPage = () => {
-    const content = () => {
-        switch (currentRoute) {
-            case AppRoute.LANDING:
-              return <LandingPage />;
-            case 'INVALID' as AppRoute:
-              return null; // Don't load anything for invalid routes
-            case AppRoute.APP:
-              return <Dashboard 
-                        family={regularFamily} 
-                        currentUser={currentUser} 
-                        events={events} 
-                        shoppingCount={shoppingList.filter(i => !i.checked).length} 
-                        openTaskCount={myOpenTaskCount} 
-                        todayMeal={getTodayMeal()} 
-                        onNavigate={setCurrentRoute} 
-                        onProfileClick={handleOpenSettings}
-                        lang={language} 
-                        weatherFavorites={userWeatherFavorites}
-                        currentWeatherLocation={currentWeatherLocation}
-                        onUpdateWeatherLocation={setCurrentWeatherLocation}
-                        news={publicNews}
-                     />;
-            case AppRoute.DASHBOARD:
-              return <Dashboard 
-                        family={regularFamily} 
-                        currentUser={currentUser} 
-                        events={events} 
-                        shoppingCount={shoppingList.filter(i => !i.checked).length} 
-                        openTaskCount={myOpenTaskCount} 
-                        todayMeal={getTodayMeal()} 
-                        onNavigate={setCurrentRoute} 
-                        onProfileClick={handleOpenSettings}
-                        lang={language} 
-                        weatherFavorites={userWeatherFavorites}
-                        currentWeatherLocation={currentWeatherLocation}
-                        onUpdateWeatherLocation={setCurrentWeatherLocation}
-                        news={publicNews}
-                     />;
-            case AppRoute.CALENDAR:
-              return <CalendarPage 
-                        events={events} 
-                        news={publicNews} 
-                        polls={polls}
-                        family={regularFamily} 
-                        onAddEvent={addEvent} 
-                        onUpdateEvent={updateEvent} 
-                        onDeleteEvent={deleteEvent} 
-                        onAddNews={addNews} 
-                        onUpdateNews={updateNews}
-                        onDeleteNews={deleteNews} 
-                        onDeletePoll={deletePoll}
-                        currentUser={currentUser} 
-                        onProfileClick={handleOpenSettings}
-                        initialTab="calendar"
-                        onMarkNewsRead={markNewsRead}
-                     />;
-            case AppRoute.NEWS: // Added Route for direct Pinnwand access
-              return <CalendarPage 
-                        events={events} 
-                        news={publicNews} 
-                        polls={polls}
-                        family={regularFamily} 
-                        onAddEvent={addEvent} 
-                        onUpdateEvent={updateEvent} 
-                        onDeleteEvent={deleteEvent} 
-                        onAddNews={addNews} 
-                        onUpdateNews={updateNews}
-                        onDeleteNews={deleteNews} 
-                        onAddPoll={addPoll}
-                        onUpdatePoll={updatePoll}
-                        onDeletePoll={deletePoll}
-                        currentUser={currentUser} 
-                        onProfileClick={handleOpenSettings}
-                        initialTab="news"
-                        onMarkNewsRead={markNewsRead}
-                     />;
-            case AppRoute.LISTS:
-              return <ListsPage 
-                        shoppingItems={shoppingList} 
-                        householdTasks={householdTasks} 
-                        personalTasks={personalTasks} 
-                        recipes={recipes} 
-                        family={regularFamily} 
-                        currentUser={currentUser} 
-                        onToggleShopping={toggleShoppingItem} 
-                        onAddShopping={addShoppingItem} 
-                        onDeleteShopping={deleteShoppingItem} 
-                        onAddHousehold={addHouseholdTask} 
-                        onToggleTask={toggleTask} 
-                        onAddPersonal={addPersonalTask} 
-                        onDeleteTask={deleteTask} 
-                        onAddRecipe={addRecipe} 
-                        onDeleteRecipe={deleteRecipe} 
-                        onUpdateRecipe={updateRecipe}
-                        onAddIngredientsToShopping={addIngredientsToShopping} 
-                        onAddMealToPlan={addMealToPlan} 
-                        onProfileClick={handleOpenSettings}
-                     />;
-            case AppRoute.MEALS:
-              return <MealsPage 
-                        plan={mealPlan} 
-                        requests={mealRequests} 
-                        family={regularFamily} 
-                        currentUser={currentUser} 
-                        onUpdatePlan={updateMealPlan} 
-                        onAddRequest={addMealRequest} 
-                        onDeleteRequest={deleteMealRequest} 
-                        onAddIngredientsToShopping={addIngredientsToShopping} 
-                        onProfileClick={handleOpenSettings}
-                        recipes={recipes}
-                        onAddRecipe={addRecipe}
-                        onPlanGenerated={handlePlanGenerated}
-                     />;
-            case AppRoute.ACTIVITIES:
-              return <ActivitiesPage 
-                        onProfileClick={handleOpenSettings} 
-                        currentLocation={currentWeatherLocation}
-                     />;
-            case AppRoute.WEATHER:
-              return <WeatherPage 
-                        onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} 
-                        favorites={userWeatherFavorites} 
-                        onToggleFavorite={toggleWeatherFavorite} 
-                        initialLocation={currentWeatherLocation} 
-                     />;
-            case AppRoute.SETTINGS:
-              return <SettingsPage 
-                        currentUser={currentUser} 
-                        onUpdateUser={(updates) => updateFamilyMember(currentUser.id, updates)} 
-                        onUpdateFamilyMember={updateFamilyMember}
-                        onLogout={handleLogout} 
-                        onClose={() => setCurrentRoute(lastRoute)}
-                        darkMode={darkMode} 
-                        onToggleDarkMode={() => {
-                            const newMode = !darkMode;
-                            setDarkMode(newMode);
-                            if (currentUser) {
-                                updateFamilyMember(currentUser.id, { darkMode: newMode });
-                            }
-                        }} 
-                        enableSwipe={enableSwipe}
-                        onToggleSwipe={() => setEnableSwipe(!enableSwipe)}
-                        lang={language} 
-                        setLang={() => {}} 
-                        family={family} 
-                        onResetPassword={resetMemberPassword} 
-                        onSendFeedback={addFeedback} 
-                        allFeedbacks={feedbacks} 
-                        onMarkFeedbackRead={markFeedbacksRead}
-                        onAddNews={addNews}
-                        news={news}
-                        onDeleteNews={deleteNews}
-                        onAddFamilyMember={addFamilyMember}
-                        onDeleteUser={deleteUser}
-                        onMarkNewsRead={markNewsRead}
-                        onSendAdminNotification={sendAdminBroadcast}
-                     />;
-            default:
-              return null;
+        if (Capacitor.isNativePlatform()) {
+          try {
+            await LocalNotifications.cancel({ notifications: [{ id: 9001 }] });
+          } catch (e) {
+            // ignore if no existing notification is set
           }
+          LocalNotifications.schedule({ notifications: [{ id: 9001, title, body, smallIcon: 'notification_icon', schedule: { every: 'hour', allowWhileIdle: true } }] });
+        }
+      } catch (e) { }
     };
+    const startup = setTimeout(scheduleWeather, 10000);
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (!Capacitor.isNativePlatform()) {
+      interval = setInterval(scheduleWeather, 3600000);
+    }
+    return () => { clearTimeout(startup); if (interval) clearInterval(interval); };
+  }, [currentUser]);
 
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: (currentRoute === AppRoute.WEATHER || darkMode) ? Style.Dark : Style.Light }).catch(() => {});
+    }
+  }, [currentRoute, darkMode]);
+
+  const updateMealPlan = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
+  const addMealRequest = async (r: MealRequest) => { setMealRequests(p => [...p, r]); await Backend.mealRequests.add(r); };
+  const deleteMealRequest = async (id: string) => { setMealRequests(p => p.filter(x => x.id !== id)); await Backend.mealRequests.delete(id); };
+  const addIngredientsToShopping = async (ings: string[]) => { const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); setShoppingList(p => [...p, ...items]); await addNotification('Einkauf', 'Zutaten hinzugefügt'); };
+  const addRecipe = async (r: Recipe) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); };
+  const handlePlanGenerated = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
+  const updateFamilyMember = async (id: string, u: Partial<FamilyMember>) => { setFamily(p => p.map(m => m.id === id ? {...m, ...u} : m)); await Backend.family.update(id, u); };
+  const addFeedback = async (f: FeedbackItem) => { setFeedbacks(p => [...p, f]); await Backend.feedback.add(f); };
+  const markFeedbacksRead = async (ids: string[]) => { setFeedbacks(p => p.map(f => ids.includes(f.id) ? {...f, read: true} : f)); for(const id of ids) await Backend.feedback.update(id, {read: true}); };
+  const addNews = async (n: NewsItem) => { setNews(p => [n, ...p]); await Backend.news.add(n); };
+  const addFamilyMember = async (m: FamilyMember) => { setFamily(p => [...p, m]); await Backend.family.add(m); };
+  const deleteUser = async (id: string) => { setFamily(p => p.filter(x => x.id !== id)); await Backend.family.delete(id); };
+  const deleteNews = async (id: string) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); };
+  const resetMemberPassword = async (id: string) => {
+    await Backend.family.update(id, { password: '', mustChangePassword: true, mustShowSecurityScreen: true });
+    setFamily(p => p.map(m => m.id === id ? { ...m, password: '', mustChangePassword: true, mustShowSecurityScreen: true } : m));
+  };
+  const markNewsRead = async (id: string) => { const n = news.find(x => x.id === id); if (n && currentUser) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? {...x, readBy: readers} : x)); await Backend.news.update(id, {readBy: readers}); } };
+  const sendAdminBroadcast = async (title: string, msg: string) => { await addNotification(title, msg); };
+  const triggerSecurityScreen = async (id: string) => {
+    await Backend.family.update(id, { mustShowSecurityScreen: true });
+    setFamily(p => p.map(m => m.id === id ? { ...m, mustShowSecurityScreen: true } : m));
+  };
+  const acknowledgeSecurityScreen = async () => {
+    if (!currentUser) return;
+    await Backend.family.update(currentUser.id, { mustShowSecurityScreen: false });
+    setFamily(p => p.map(m => m.id === currentUser.id ? { ...m, mustShowSecurityScreen: false } : m));
+    setCurrentUser(prev => prev ? { ...prev, mustShowSecurityScreen: false } : prev);
+    setShowSecurityScreen(false);
+  };
+
+  const handleLogoClick = () => { if (logoClickCount + 1 >= 5) { setShowAdminLogin(true); setLogoClickCount(0); } else setLogoClickCount(p => p+1); };
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginUser || !passwordInput.trim()) return;
+
+    if (loginStep === 'set-pass' || loginUser.mustChangePassword) {
+      const newPassword = passwordInput.trim();
+      if (newPassword.length < 4) {
+        setLoginError('Passwort muss mindestens 4 Zeichen lang sein');
+        return;
+      }
+
+      // Update family member password and deprecate forced reset flag
+      await Backend.family.update(loginUser.id, { password: newPassword, mustChangePassword: false });
+      const updatedUser = { ...loginUser, password: newPassword, mustChangePassword: false };
+      setCurrentUser(updatedUser);
+      setFamily((prev) => prev.map((f) => (f.id === updatedUser.id ? updatedUser : f)));
+      localStorage.setItem('fh_session_user', updatedUser.id);
+      setLoginError('');
+      setLoginStep('enter-pass');
+      setPasswordInput('');
+      return;
+    }
+
+    if (passwordInput === loginUser.password) {
+      setCurrentUser(loginUser);
+      localStorage.setItem('fh_session_user', loginUser.id);
+      setLoginError('');
+    } else {
+      setLoginError(t('login.wrong_pass', language));
+    }
+  };
+  const handleAdminLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPasswordInput === 'admin005') {
+      const admin = family.find(f => f.role === 'admin') || { id: 'admin_user', name: 'Administrator', role: 'admin' } as FamilyMember;
+      setCurrentUser(admin);
+      localStorage.setItem('fh_session_user', admin.id);
+      setShowAdminLogin(false);
+    } else setLoginError("Zugriff verweigert.");
+  };
+  const handleUserSelect = (member: FamilyMember) => {
+    setLoginUser(member);
+    setPasswordInput('');
+    setLoginError('');
+    if (member.mustChangePassword) {
+      setLoginStep('set-pass');
+      setLoginError('Admin verlangt Passwortänderung. Bitte neues Passwort setzen.');
+    } else {
+      setLoginStep(member.password ? 'enter-pass' : 'set-pass');
+    }
+  };
+  const handleLogout = () => { localStorage.removeItem('fh_session_user'); setCurrentUser(null); setCurrentRoute(AppRoute.DASHBOARD); setLoginStep('select'); setLoginUser(null); };
+
+  const toggleWeatherFavorite = async (loc: SavedLocation) => {
+    if (!currentUser) return;
+    const exists = weatherFavorites.find(f => f.name === loc.name && f.userId === currentUser.id);
+    if (exists) { setWeatherFavorites(p => p.filter(f => f.id !== exists.id)); await Backend.weatherFavorites.delete(exists.id); }
+    else { const n = { ...loc, id: Date.now().toString(), userId: currentUser.id }; setWeatherFavorites(p => [...p, n]); await Backend.weatherFavorites.add(n); }
+  };
+
+  const renderEasterDecorations = () => {
+    if (!effectiveEasterMode) return null;
+    const eggs = ['🥚', '🐰', '🐣', '🌷', '🦋'];
     return (
-        <div key={currentRoute} className="page-transition-wrapper">
-            {content()}
-        </div>
+      <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
+        {[...Array(15)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute text-3xl animate-easter-fall"
+            style={{
+              left: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 10}s`,
+              animationDuration: `${10 + Math.random() * 15}s`,
+              top: '-50px'
+            }}
+          >
+            <span className="animate-[easter-sway_3s_ease-in-out_infinite] block">
+              {eggs[Math.floor(Math.random() * eggs.length)]}
+            </span>
+          </div>
+        ))}
+      </div>
     );
   };
 
-  return (
-      <div 
-        className={`min-h-screen transition-all duration-500 overflow-x-hidden ${getAppBackgroundClass()}`}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        {/* Hide Navigation on Landing Page */}
-        {renderPage()}
+  // --- 7. Page Rendering Helper ---
+  const renderContent = () => {
+    if (loadingData) return (
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
+        <Logo size={80} className="animate-pulse mb-4" />
+        <Loader2 className="animate-spin text-blue-500" size={32} />
+        <p className="mt-4 text-gray-500 font-medium">Lade Familiendaten...</p>
+      </div>
+    );
 
-        {showPasswordChange && currentUser && (
-          <div className="fixed inset-0 z-[9999] bg-white dark:bg-gray-900 flex items-center justify-center p-6 animate-fade-in">
-              <div className="w-full max-w-sm space-y-8 text-center">
-                  <div className="mx-auto w-20 h-20 bg-blue-500 text-white rounded-3xl flex items-center justify-center shadow-2xl shadow-blue-500/20">
-                      <Lock size={40} />
-                  </div>
-                  <div className="space-y-2">
-                      <h2 className="text-3xl font-black text-gray-900 dark:text-white">Sicherheit geht vor!</h2>
-                      <p className="text-gray-500 dark:text-gray-400">Dein Administrator erfordert eine Passwortänderung.</p>
-                  </div>
-                  
-                  <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.currentTarget;
-                    const p1 = (form.elements.namedItem('p1') as HTMLInputElement).value;
-                    const p2 = (form.elements.namedItem('p2') as HTMLInputElement).value;
-                    if (p1.length < 4) { alert("Das Passwort muss mindestens 4 Zeichen lang sein!"); return; }
-                    if (p1 !== p2) { alert("Passwörter stimmen nicht überein!"); return; }
-                    await updateFamilyMember(currentUser.id, { password: p1, mustChangePassword: false });
-                    setShowPasswordChange(false);
-                    await addNotification('Passwort aktualisiert 🔐', 'Dein Passwort wurde erfolgreich geändert.');
-                }} className="space-y-4 text-left">
-                      <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Neues Passwort</label>
-                          <input name="p1" type="password" required className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="••••" />
-                      </div>
-                      <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Bestätigen</label>
-                          <input name="p2" type="password" required className="w-full bg-gray-100 dark:bg-gray-800 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="••••" />
-                      </div>
-                      <button type="submit" className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-700 transition-all active:scale-95">Passwort speichern & starten</button>
-                  </form>
-              </div>
+    if (currentRoute === AppRoute.LANDING) return <LandingPage onNavigate={setCurrentRoute} lang={language} />;
+
+    if (!currentUser) return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex flex-col items-center justify-center p-6 relative">
+        <div className="text-center mb-10 flex flex-col items-center">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-[30px] shadow-xl mb-6 active:scale-95 transition-transform cursor-pointer" onClick={handleLogoClick}><Logo size={80} /></div>
+          <h1 className="text-4xl font-extrabold text-gray-800 dark:text-white mb-2 tracking-tight">FamilyHub</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">{t('login.welcome', language)}</p>
+        </div>
+        <div className="w-full max-w-md grid grid-cols-2 gap-4">
+          {family.filter(f => f.role !== 'admin').map(member => (
+            <button key={member.id} onClick={() => handleUserSelect(member)} className="relative bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center hover:scale-105 active:scale-95 transition-all">
+              <img src={member.avatar} className="w-16 h-16 rounded-full object-cover mb-3" />
+              <span className="font-bold text-gray-800 dark:text-gray-200">{member.name}</span>
+              {(member.password || member.mustChangePassword) && (
+                <span className="absolute bottom-2 right-2 text-gray-400 dark:text-gray-300" title="Passwort geschützt"><Lock size={14} /></span>
+              )}
+            </button>
+          ))}
+        </div>
+        {(loginStep === 'enter-pass' || loginStep === 'set-pass') && loginUser && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 relative w-full max-w-xs text-center shadow-2xl">
+              <button onClick={() => { setLoginStep('select'); setLoginUser(null); }} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition"><X size={24} /></button>
+              <img src={loginUser.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white dark:border-gray-700 shadow-md" />
+              <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-1 glass-text-glow drop-shadow-sm">{t('login.hello', language)}</h2>
+              <p className="text-blue-600 dark:text-blue-400 font-black text-xl mb-2 glass-text-glow drop-shadow-sm">{loginUser.name}</p>
+              {loginUser.mustChangePassword && (
+                <p className="text-yellow-700 dark:text-yellow-300 text-sm font-semibold mb-4 border border-yellow-200 dark:border-yellow-800 rounded-lg p-2">
+                  {t('login.change_required', language)}
+                </p>
+              )}
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    autoFocus 
+                    value={passwordInput} 
+                    onChange={(e) => { setPasswordInput(e.target.value); setLoginError(''); }} 
+                    placeholder={loginStep === 'set-pass' ? t('login.create_pass', language) : t('login.pass_placeholder', language)}
+                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl px-4 py-4 text-center text-xl outline-none dark:text-white focus:ring-2 focus:ring-blue-500 transition-all font-mono tracking-widest" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl transition-all transform active:scale-95">
+                  {loginStep === 'set-pass' ? t('login.set_pass_btn', language) : 'Login'}
+                </button>
+
+                {loginError && <p className="text-red-500 text-sm mt-2 font-bold animate-shake">{loginError}</p>}
+              </form>
+            </div>
           </div>
         )}
-        {currentRoute !== AppRoute.LANDING && (
-          <Navigation 
-              currentRoute={currentRoute} 
-              onNavigate={setCurrentRoute} 
-              lang={language} 
-          />
+        {showAdminLogin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-red-950/95 backdrop-blur-[4px]">
+            <div className="bg-red-900 w-full max-w-sm rounded-3xl p-8 relative border border-red-400 shadow-2xl">
+              <div className="text-center mb-4">
+                <ShieldAlert size={36} className="text-yellow-300 mx-auto" />
+                <h2 className="text-xl font-black text-white mt-2">SYSTEMÜBERSCHREITUNG</h2>
+                <p className="text-xs text-red-200 mt-1">Admin-Modus aktiviert. Bitte Admin-Passwort eingeben.</p>
+              </div>
+              <form onSubmit={handleAdminLoginSubmit}>
+                <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 text-center text-white outline-none" />
+                <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl mt-6 uppercase">Zutritt</button>
+              </form>
+              <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-red-100"><X size={20} /></button>
+            </div>
+          </div>
         )}
       </div>
-  );
+    );
+
+    let PageComponent;
+    switch (currentRoute) {
+      case AppRoute.WEATHER:
+        PageComponent = <WeatherPage onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} favorites={userWeatherFavorites} onToggleFavorite={toggleWeatherFavorite} initialLocation={currentWeatherLocation} onUpdateCurrentWeatherLocation={setCurrentWeatherLocation} />;
+        break;
+      case AppRoute.CALENDAR:
+        PageComponent = <CalendarPage events={events} news={news} polls={polls} family={family} currentUser={currentUser} onAddEvent={async (e) => { const ev = {...e, authorId: currentUser.id}; setEvents(p => [...p, ev]); await Backend.events.add(ev); }} onUpdateEvent={async (id, u) => { setEvents(p => p.map(x => x.id === id ? {...x, ...u} : x)); await Backend.events.update(id, u); }} onDeleteEvent={async (id) => { setEvents(p => p.filter(x => x.id !== id)); await Backend.events.delete(id); }} onAddNews={async (n) => { setNews(p => [n, ...p]); await Backend.news.add(n); }} onUpdateNews={async (id, u) => { setNews(p => p.map(x => x.id === id ? {...x, ...u} : x)); await Backend.news.update(id, u); }} onDeleteNews={async (id) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); }} onAddPoll={async (p) => { setPolls(x => [p,...x]); await Backend.polls.add(p); }} onUpdatePoll={async (id, u) => { setPolls(x => x.map(p => p.id === id ? {...p, ...u}:p)); await Backend.polls.update(id, u); }} onDeletePoll={async (id) => { setPolls(x => x.filter(p => p.id !== id)); await Backend.polls.delete(id); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} onMarkNewsRead={async (id) => { const n = news.find(x => x.id === id); if (n) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? {...x, readBy: readers} : x)); await Backend.news.update(id, {readBy: readers}); } }} />;
+        break;
+      case AppRoute.LISTS:
+        PageComponent = <ListsPage shoppingItems={shoppingList} householdTasks={householdTasks} personalTasks={personalTasks} recipes={recipes} family={family} currentUser={currentUser} onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? {...i, checked: !i.checked} : i)); await Backend.shopping.update(id, {checked: !item.checked}); } }} onAddShopping={async (name) => { const i = { id: Date.now().toString(), name, checked: false }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }} onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }} onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium' }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }} onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { setHouseholdTasks(p => p.map(x => x.id === id ? {...x, done: !x.done} : x)); await Backend.householdTasks.update(id, {done: !t.done}); } } else { const t = personalTasks.find(x => x.id === id); if (t) { setPersonalTasks(p => p.map(x => x.id === id ? {...x, done: !x.done} : x)); await Backend.personalTasks.update(id, {done: !t.done}); } } }} onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium' }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }} onDeleteTask={async (id, type) => { if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }} onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }} onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }} onAddIngredientsToShopping={async (ings) => { const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); setShoppingList(p => [...p, ...items]); await addNotification('Einkauf', 'Zutaten hinzugefügt'); }} onAddMealToPlan={async (d, m, ings) => { const newM = { id: Math.random().toString(), day: d, mealName: m, ingredients: ings }; setMealPlan(p => [...p.filter(x => x.day !== d), newM]); await Backend.mealPlan.setAll([...mealPlan.filter(x => x.day !== d), newM]); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} />;
+        break;
+      case AppRoute.MEALS:
+        PageComponent = <MealsPage plan={mealPlan} requests={mealRequests} family={family} currentUser={currentUser} onUpdatePlan={updateMealPlan} onAddRequest={addMealRequest} onDeleteRequest={deleteMealRequest} onAddIngredientsToShopping={addIngredientsToShopping} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} recipes={recipes} onAddRecipe={addRecipe} onPlanGenerated={handlePlanGenerated} liquidGlass={false} />;
+        break;
+      case AppRoute.ACTIVITIES:
+        PageComponent = <ActivitiesPage feedbacks={feedbacks} polls={polls} family={family} currentUser={currentUser} onNavigate={setCurrentRoute} onUpdateFeedbacks={setFeedbacks} onUpdatePolls={setPolls} lang={language} />;
+        break;
+      case AppRoute.SETTINGS:
+        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} easterMode={easterMode} onToggleEasterMode={() => setEasterMode(!easterMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} lang={language} setLang={() => {}} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} />;
+        break;
+      default:
+        PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} />;
+    }
+
+    return (
+      <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
+        {renderEasterDecorations()}
+        <main className="flex-1 overflow-y-auto no-scrollbar relative">{PageComponent}</main>
+        <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${currentRoute === AppRoute.WEATHER ? (effectiveLiquidGlass ? 'bg-black/20 backdrop-blur-xl' : 'bg-slate-900') : (effectiveLiquidGlass ? 'bg-white/80 dark:bg-slate-900/90 backdrop-blur-md' : 'bg-white dark:bg-slate-900')}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} easterMode={effectiveEasterMode} liquidGlass={effectiveLiquidGlass} />
+        </div>
+        {showSecurityScreen && currentUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-gray-800 text-center">
+              <div className="text-blue-600 dark:text-blue-400 font-extrabold text-lg mb-2">Sicherheit geht vor</div>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                Ein Admin hat einen Sicherheits-Hinweis aktiviert. Bitte bestätige, dass du informiert bist.
+              </p>
+              <button onClick={acknowledgeSecurityScreen} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl shadow-lg transition">
+                Verstanden
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return renderContent();
 };
 
 export default App;

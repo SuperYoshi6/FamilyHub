@@ -8,6 +8,7 @@ export interface FamilyMember {
   password?: string;
   darkMode?: boolean;
   mustChangePassword?: boolean;
+  mustShowSecurityScreen?: boolean;
   fcmToken?: string;
 }
 

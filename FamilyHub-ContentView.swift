@@ -51,8 +51,4 @@ struct WebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         // leer lassen
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 9f6c1a9 (v3.2.1: Pixel-Perfect UI Fix (Header, Navigation & Notification Icons))

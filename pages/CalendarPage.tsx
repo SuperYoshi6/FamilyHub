@@ -87,7 +87,10 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     const newsFileInputRef = useRef<HTMLInputElement>(null);
     const [processingImage, setProcessingImage] = useState(false);
 
-    const publicNews = news.filter(n => !n.tag?.startsWith('PRIVATE:'));
+    const safeEvents = events || [];
+    const safeNews = news || [];
+
+    const publicNews = safeNews.filter(n => !n.tag?.startsWith('PRIVATE:'));
 
     // --- POLL STATE ---
     const [boardType, setBoardType] = useState<'news' | 'polls'>('news');
@@ -252,6 +255,102 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         const startOffset = firstDay === 0 ? 6 : firstDay - 1;
         return { year, month, daysInMonth, startOffset };
     };
+
+    const pad = (n: number) => n.toString().padStart(2, '0');
+
+    const formatToICSDateTime = (date: string, time?: string) => {
+        if (!date) return '';
+        if (!time) {
+            // All-day event (UID: Value Date)
+            return `${date.replace(/-/g, '')}`;
+        }
+        const [h, m] = time.split(':');
+        return `${date.replace(/-/g, '')}T${pad(Number(h))}${pad(Number(m))}00`;
+    };
+
+    const generateICS = () => {
+        const dtstamp = formatToICSDateTime(new Date().toISOString().split('T')[0], new Date().toTimeString().slice(0,5));
+
+        const lines = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'CALSCALE:GREGORIAN',
+            'PRODID:-//FamilyHub//DE',
+            'METHOD:PUBLISH',
+        ];
+
+        safeEvents.forEach((event) => {
+            const start = formatToICSDateTime(event.date, event.time);
+            const endDate = event.endDate || event.date;
+            const end = formatToICSDateTime(endDate, event.endTime || event.time);
+
+            if (!start) return;
+
+            const isAllDay = !event.time;
+            lines.push('BEGIN:VEVENT');
+            lines.push(`UID:${event.id}@familyhub`);
+            lines.push(`DTSTAMP:${dtstamp}`);
+            if (isAllDay) {
+                lines.push(`DTSTART;VALUE=DATE:${start}`);
+                lines.push(`DTEND;VALUE=DATE:${formatToICSDateTime(endDate)}`);
+            } else {
+                lines.push(`DTSTART:${start}`);
+                lines.push(`DTEND:${end}`);
+            }
+            lines.push(`SUMMARY:${event.title || 'Termin'}`);
+            if (event.location) lines.push(`LOCATION:${event.location}`);
+            if (event.description) lines.push(`DESCRIPTION:${event.description}`);
+            if (event.assignedTo?.length) lines.push(`CATEGORIES:${event.assignedTo.join(',')}`);
+            lines.push('END:VEVENT');
+        });
+
+        lines.push('END:VCALENDAR');
+
+        return lines.join('\r\n');
+    };
+
+    const exportCalendarAsICS = () => {
+        const icsBlob = new Blob([generateICS()], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(icsBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'familyhub-termine.ics';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const parseEventStartEnd = (event: CalendarEvent) => {
+        const toDateTime = (date: string, time?: string) => {
+            if (!date) return null;
+            if (!time) {
+                return new Date(`${date}T00:00:00`);
+            }
+            return new Date(`${date}T${time}:00`);
+        };
+
+        const start = toDateTime(event.date, event.time);
+        let end: Date | null;
+
+        if (event.endDate || event.endTime) {
+            end = toDateTime(event.endDate || event.date, event.endTime || event.time || '23:59');
+        } else if (event.time) {
+            const d = start ? new Date(start) : null;
+            if (d) {
+                d.setHours(d.getHours() + 1);
+                end = d;
+            } else {
+                end = null;
+            }
+        } else {
+            end = toDateTime(event.date, '23:59');
+        }
+
+        return { start, end };
+    };
+
+    // Kalender und ICS Export in einem
 
     const changeMonth = (delta: number) => {
         setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + delta, 1));
@@ -661,7 +760,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             </div>
 
             {activeTab === 'calendar' && (
-                <div className="px-4 mb-2 flex justify-center">
+                <div className="px-4 mb-2 flex justify-between items-center">
                     <div className={`${liquidGlass ? 'liquid-shimmer-card border-white/40 p-0.5 rounded-lg relative flex' : 'bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg flex'}`}>
                         {/* Slider Element for View Toggle - Liquid Only */}
                         {liquidGlass && (
@@ -680,6 +779,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                         <button onClick={() => setCalendarView('family')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(calendarView === 'family')}`}><Users size={12} className="mr-1" /> Familie</button>
                         <button onClick={() => setCalendarView('private')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(calendarView === 'private')}`}><User size={12} className="mr-1" /> Privat</button>
                     </div>
+                    <button onClick={exportCalendarAsICS} className="ml-3 inline-flex items-center text-xs font-bold bg-sky-600 text-white px-3 py-1.5 rounded-lg hover:bg-sky-500 transition shadow-sm active:scale-95">
+                        <FileText size={14} className="mr-1" /> Kalender Sync/Export
+                    </button>
                 </div>
             )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import { FamilyMember, CalendarEvent, MealPlan, AppRoute, SavedLocation, NewsItem } from '../types';
 import { Clock, ClipboardList, Utensils, ChevronRight, Sun, CheckCircle, CloudRain, Search, MapPin, Loader2, Info, X, Check, ArrowRight, Cloud, CloudFog, CloudSnow, CloudLightning, Moon, ShoppingCart, Calendar } from 'lucide-react';
@@ -32,8 +32,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const today = new Date().toISOString().split('T')[0];
 
   // Filter public news only (keine privaten Nachrichten)
-  const publicNews = news.filter(n => !n.tag?.startsWith('PRIVATE:'));
-  const unreadNews = publicNews.filter(n => !n.readBy?.includes(currentUser.id));
+  const publicNews = useMemo(() => news.filter(n => !n.tag?.startsWith('PRIVATE:')), [news]);
+  const unreadNews = useMemo(() => publicNews.filter(n => !(n.readBy || []).includes(currentUser.id)), [publicNews, currentUser.id]);
 
   // Filter events based on view mode
   const filteredEvents = events.filter(e => {
@@ -261,9 +261,23 @@ const Dashboard: React.FC<DashboardProps> = ({
       {selectedNews && (
         <div className="fixed inset-0 z-[1000] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-5">
             <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] overflow-hidden shadow-2xl animate-scale-in">
-                <div className="relative h-64">
-                    {selectedNews.image ? <img src={selectedNews.image} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-white/20"><Info size={80} /></div>}
-                    <button onClick={() => { setSelectedNews(null); setSelectedNewsStep(null); }} className="absolute top-6 right-6 p-2 bg-black/30 text-white rounded-full hover:bg-black/50 transition-colors"><X size={20}/></button>
+                <div className="relative h-64 bg-slate-100 dark:bg-slate-800">
+                    {selectedNews.image ? (
+                      <img 
+                        src={selectedNews.image} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&q=80&w=600';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-indigo-600 flex items-center justify-center text-white/20">
+                        <Info size={80} />
+                      </div>
+                    )}
+                    <button onClick={() => { setSelectedNews(null); setSelectedNewsStep(null); }} className="absolute top-6 right-6 p-2 bg-black/30 text-white rounded-full hover:bg-black/50 transition-colors backdrop-blur-md">
+                      <X size={20}/>
+                    </button>
                 </div>
                 <div className="p-8">
                     <div className="flex items-center gap-2 mb-4">
@@ -279,7 +293,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {selectedNewsStep === 'article' && (
                         <>
                             <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-8 max-h-64 overflow-y-auto pr-2 custom-scrollbar">{selectedNews.description}</p>
-                            <button onClick={() => { if (onMarkNewsRead) onMarkNewsRead(selectedNews.id); setSelectedNews(null); setSelectedNewsStep(null); }} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-green-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
+                            <button onClick={async () => { if (onMarkNewsRead) await onMarkNewsRead(selectedNews.id); setSelectedNews(null); setSelectedNewsStep(null); }} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-green-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
                                 <Check size={22} /> ALS GELESEN MARKIEREN
                             </button>
                         </>

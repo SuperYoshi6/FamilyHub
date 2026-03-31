@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FamilyMember, FeedbackItem, NewsItem } from '../types';
-import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, Edit, Bell, Lock, Database, Download, Activity, Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Home, Eye, Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, Edit, Bell, Lock, Database, Download, Activity, Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Home, Eye, EyeOff, Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
 import Logo from '../components/Logo';
@@ -23,6 +23,15 @@ interface SettingsPageProps {
     onToggleSwipe: () => void;
     christmasMode?: boolean;
     onToggleChristmasMode?: () => void;
+    easterMode?: boolean;
+    onToggleEasterMode?: () => void;
+    liquidGlass?: boolean;
+    onToggleLiquidGlass?: () => void;
+    globalEasterEnabled?: boolean;
+    onToggleGlobalEaster?: () => void;
+    globalLiquidGlassEnabled?: boolean;
+    onToggleGlobalLiquidGlass?: () => void;
+    onTriggerSecurityScreen?: (id: string) => void;
     lang: Language;
     setLang: (l: Language) => void;
     family?: FamilyMember[];
@@ -30,7 +39,7 @@ interface SettingsPageProps {
     allFeedbacks?: FeedbackItem[];
     onMarkFeedbackRead?: (ids: string[]) => void;
     onAddNews?: (item: NewsItem) => void;
-    onAddFamilyMember?: (name: string, role: 'parent' | 'child', mustChangePassword?: boolean) => Promise<FamilyMember | null>;
+    onAddFamilyMember?: (name: string, role: 'parent' | 'child', mustChangePassword?: boolean, password?: string) => Promise<FamilyMember | null>;
     onDeleteUser: (id: string) => void;
     news?: NewsItem[];
     onDeleteNews?: (id: string) => void;
@@ -63,7 +72,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
@@ -72,6 +81,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [showUrlInput, setShowUrlInput] = useState(false);
     const [urlInput, setUrlInput] = useState('');
     const [changePassword, setChangePassword] = useState('');
+    const [showChangePassword, setShowChangePassword] = useState(false);
+    const [avatarBroken, setAvatarBroken] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const adminFileInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +114,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     // Admin Add User States
     const [newUserName, setNewUserName] = useState('');
     const [newUserRole, setNewUserRole] = useState<'parent' | 'child'>('parent');
+    const [newUserPassword, setNewUserPassword] = useState('');
     const [isAddingUser, setIsAddingUser] = useState(false);
 
     // Admin Broadcast Notification States
@@ -111,6 +123,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [broadcastStatus, setBroadcastStatus] = useState<'idle'|'sending'|'sent'|'error'>('idle');
 
     const isAdmin = currentUser.role === 'admin';
+    const isEasterLocked = !isAdmin && globalEasterEnabled === false;
+    const isLiquidLocked = !isAdmin && globalLiquidGlassEnabled === false;
     const unreadFeedbacks: FeedbackItem[] = allFeedbacks?.filter(f => !f.read) || [];
     const unreadCount = unreadFeedbacks.length;
 
@@ -130,13 +144,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const handleSave = () => {
         const updates: Partial<FamilyMember> = { name, avatar: avatarUrl, color: selectedColor };
         if (changePassword.trim()) {
+            if (!isAdmin) {
+                alert("Nur Admins dürfen Passwörter setzen.");
+                return;
+            }
             if (changePassword.trim().length < 4) {
                 alert("Das Passwort muss mindestens 4 Zeichen lang sein.");
                 return;
             }
             updates.password = changePassword.trim();
+            updates.mustChangePassword = false;
+        }
+
+        if (onUpdateFamilyMember) {
+            onUpdateFamilyMember(currentUser.id, updates);
         }
         onUpdateUser(updates);
+
         if (changePassword.trim()) setChangePassword('');
         if (onClose) onClose();
     };
@@ -172,6 +196,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     const handleUrlSubmit = () => {
         if (urlInput.trim()) {
+            setAvatarBroken(false);
             setAvatarUrl(urlInput.trim());
             setShowUrlInput(false);
             setUrlInput('');
@@ -279,7 +304,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 alert("Das Passwort muss mindestens 4 Zeichen lang sein.");
                 return;
             }
-            onUpdateFamilyMember(targetUser.id, { password: tempPassword.trim() });
+            onUpdateFamilyMember(targetUser.id, { password: tempPassword.trim(), mustChangePassword: true, mustShowSecurityScreen: true });
             setActiveModal('none');
             setTargetUser(null);
             setTempPassword('');
@@ -290,9 +315,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const handleAddUserSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (newUserName.trim() && onAddFamilyMember) {
-            onAddFamilyMember(newUserName, newUserRole, isTempPassword);
+            if (isTempPassword && !newUserPassword.trim()) {
+                alert("Bitte geben Sie ein temporäres Passwort ein.");
+                return;
+            }
+            const password = isTempPassword ? newUserPassword.trim() : undefined;
+            onAddFamilyMember(newUserName, newUserRole, isTempPassword, password);
             setNewUserName('');
             setNewUserRole('parent');
+            setNewUserPassword('');
             setActiveModal('none');
             setIsTempPassword(false);
         }
@@ -360,7 +391,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         <Loader2 className="animate-spin text-blue-500" size={32} />
                                     </div>
                                 ) : (
-                                    <img src={avatarUrl} alt="Profil" className="w-full h-full object-cover" />
+                                    <img src={avatarBroken ? 'https://ui-avatars.com/api/?name=FamilyHub&background=000&color=fff' : avatarUrl} alt="Profil" className="w-full h-full object-cover" onError={() => setAvatarBroken(true)} />
                                 )}
                             </div>
                         </div>
@@ -385,6 +416,26 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">{t('settings.display_name', lang)}</label>
                             <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
+
+                        {isAdmin ? (
+                            <div className="relative">
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Passwort ändern</label>
+                                <input
+                                    type={showChangePassword ? 'text' : 'password'}
+                                    value={changePassword}
+                                    onChange={(e) => setChangePassword(e.target.value)}
+                                    placeholder="Neues Passwort"
+                                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                />
+                                <button type="button" onClick={() => setShowChangePassword(!showChangePassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
+                                    {showChangePassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Passwortänderungen können nur vom Admin durchgeführt werden.
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">{t('settings.your_color', lang)}</label>
@@ -464,100 +515,228 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 </div>
                             </>
                         )}
+
+                        {/* 5. Easter Mode (Global) */}
+                        {onToggleEasterMode && (
+                            <>
+                                <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                                <div className="flex items-center justify-between py-2">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="bg-pink-100 dark:bg-pink-900/30 p-2 rounded-full text-pink-600 dark:text-pink-400">
+                                            <Egg size={20} />
+                                        </div>
+                                        <span className="font-bold text-gray-800 dark:text-white">Ostermodus</span>
+                                    </div>
+                                    <button onClick={() => { if (!isEasterLocked) onToggleEasterMode(); }} disabled={isEasterLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${easterMode ? 'bg-pink-500' : 'bg-gray-300'} ${isEasterLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${easterMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                                {isEasterLocked && (
+                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 ml-12">Vom Admin deaktiviert</div>
+                                )}
+                            </>
+                        )}
+
+                        {/* 6. Liquid Glass Mode (Interactive) */}
+                        {onToggleLiquidGlass && (
+                            <>
+                                <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                                <div className="flex items-center justify-between py-2">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600 dark:text-blue-400">
+                                            <Droplets size={20} />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-gray-800 dark:text-white leading-none">Liquid Glass</span>
+                                            <span className="text-[10px] text-gray-500 mt-0.5">Glaseffekte & Gesten</span>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => { if (!isLiquidLocked) onToggleLiquidGlass(); }} disabled={isLiquidLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${liquidGlass ? 'bg-blue-500' : 'bg-gray-300'} ${isLiquidLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${liquidGlass ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                                {isLiquidLocked && (
+                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 ml-12">Vom Admin deaktiviert</div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </section>
 
-                {/* Family Management (Admin Only) */}
-                {currentUser.role === 'admin' && family && (
+                {/* Admin Panel (Admin Only) */}
+                {currentUser.role === 'admin' && (
                     <section className="space-y-4">
                         <div className="flex justify-between items-end px-1">
-                            <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('settings.family_management', lang)}</h2>
-                            <span className="text-[10px] text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full font-bold">Admin Bereich</span>
+                            <h2 className="text-sm font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Admin Panel</h2>
+                            <span className="text-[10px] text-white bg-red-600 dark:bg-red-500 px-2 py-0.5 rounded-full font-bold">Sicherheitsmodus</span>
                         </div>
-                        <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800`}>
-                            {/* Add User Button Row */}
-                            <button
-                                onClick={() => setActiveModal('add-user')}
-                                className="w-full flex items-center justify-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition text-blue-600 dark:text-blue-400 font-bold text-sm"
-                            >
-                                <UserPlus size={18} className="mr-2" /> Nutzer hinzufügen
-                            </button>
-
-                            {family.filter(f => f.id !== currentUser.id && f.role !== 'admin').map(member => (
-                                <div key={member.id} className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <img src={member.avatar} className="w-8 h-8 rounded-full" />
-                                        <span className="font-medium text-gray-800 dark:text-white">{member.name}</span>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <button
-                                            onClick={() => openEditModal(member)}
-                                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
-                                            title="Bearbeiten"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleResetClick(member)}
-                                            className="text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 dark:hover:bg-red-900/30 transition flex items-center"
-                                        >
-                                            <KeyRound size={12} className="mr-1.5" />
-                                            Passwort
-                                        </button>
+                        <div className="p-3 rounded-xl border border-red-400 bg-red-100 dark:bg-red-950/60 dark:border-red-700 text-red-800 dark:text-red-200 mb-3">
+                            <strong>Achtung:</strong> Dieser Bereich ist kritisch. Bearbeite Nutzer/Passwörter nur, wenn du wirklich weißt, was du tust.
+                        </div>
+                        <div className="rounded-2xl shadow-lg border border-red-500/40 overflow-hidden bg-red-50/40 dark:bg-red-900/40">
+                            {/* Global Feature Gates */}
+                            {(onToggleGlobalEaster || onToggleGlobalLiquidGlass) && (
+                                <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                                        <Layout size={16} className="mr-2 text-blue-500" />
+                                        Feature-Freigaben
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {onToggleGlobalEaster && (
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-2">
+                                                    <div className="bg-pink-100 dark:bg-pink-900/30 p-2 rounded-full text-pink-600 dark:text-pink-400">
+                                                        <Egg size={16} />
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Ostermodus für alle</span>
+                                                </div>
+                                                <button onClick={onToggleGlobalEaster} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalEasterEnabled ? 'bg-pink-500' : 'bg-gray-300'}`}>
+                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalEasterEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+                                        )}
+                                        {onToggleGlobalLiquidGlass && (
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-2">
+                                                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600 dark:text-blue-400">
+                                                        <Droplets size={16} />
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Liquid Glass für alle</span>
+                                                </div>
+                                                <button onClick={onToggleGlobalLiquidGlass} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalLiquidGlassEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalLiquidGlassEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                            ))}
-                            {family.filter(f => f.id !== currentUser.id && f.role !== 'admin').length === 0 && (
-                                <div className="p-4 text-center text-gray-400 text-sm italic">Keine anderen Nutzer.</div>
                             )}
-                        </div>
-                    </section>
-                )}
 
-                {/* Admin Broadcast (Admin only) */}
-                {isAdmin && (
-                    <section className="space-y-4">
-                        <div className="flex justify-between items-end px-1">
-                            <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Admin Broadcast</h2>
-                            <span className="text-[10px] text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full font-bold">Nur Admins</span>
-                        </div>
-                        <div className="rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800 p-4">
-                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Titel</label>
-                            <input
-                                type="text"
-                                value={broadcastTitle}
-                                onChange={(e) => setBroadcastTitle(e.target.value)}
-                                className="w-full mt-1 mb-2 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm"
-                            />
-                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Nachricht</label>
-                            <textarea
-                                value={broadcastMessage}
-                                onChange={(e) => setBroadcastMessage(e.target.value)}
-                                rows={3}
-                                className="w-full mt-1 mb-3 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm"
-                            />
-                            <button
-                                onClick={async () => {
-                                    if (broadcastMessage.trim().length === 0) {
-                                        alert('Bitte Nachricht eingeben.');
-                                        return;
-                                    }
-                                    setBroadcastStatus('sending');
-                                    try {
-                                        await onSendAdminNotification?.(broadcastTitle, broadcastMessage);
-                                        setBroadcastStatus('sent');
-                                    } catch (err) {
-                                        console.error(err);
-                                        setBroadcastStatus('error');
-                                    }
-                                }}
-                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
-                            >
-                                <Send size={16} /> Broadcast senden
-                            </button>
-                            {broadcastStatus === 'sending' && <p className="text-xs text-blue-500 mt-2">Sende Broadcast…</p>}
-                            {broadcastStatus === 'sent' && <p className="text-xs text-green-500 mt-2">Broadcast gesendet.</p>}
-                            {broadcastStatus === 'error' && <p className="text-xs text-red-500 mt-2">Fehler beim Versand.</p>}
+                            {/* Family Management Sub-Section */}
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                                    <Users size={16} className="mr-2 text-blue-500" />
+                                    Nutzer-Verwaltung
+                                </h3>
+                                <div className="space-y-3">
+                                    {/* Add User Button */}
+                                    <button
+                                        onClick={() => setActiveModal('add-user')}
+                                        className="w-full flex items-center justify-center p-3 rounded-xl border-2 border-dashed border-blue-200 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition text-blue-600 dark:text-blue-400 font-bold text-sm"
+                                    >
+                                        <UserPlus size={18} className="mr-2" /> Neuen Nutzer hinzufügen
+                                    </button>
+
+                                    {/* Existing Users */}
+                                    {family && family.filter(f => f.id !== currentUser.id && f.role !== 'admin').map(member => (
+                                        <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                                            <div className="flex items-center space-x-3">
+                                                <img src={member.avatar} className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-600" />
+                                                <span className="font-medium text-gray-800 dark:text-white">{member.name}</span>
+                                            </div>
+                                            <div className="flex space-x-2">
+                                                {onTriggerSecurityScreen && (
+                                                    <button
+                                                        onClick={() => onTriggerSecurityScreen(member.id)}
+                                                        className="p-2 rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
+                                                        title="Sicherheits-Screen beim nächsten Login"
+                                                    >
+                                                        <Shield size={16} />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => openEditModal(member)}
+                                                    className="p-2 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
+                                                    title="Bearbeiten"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleResetClick(member)}
+                                                    className="text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-2 rounded-lg font-bold hover:bg-red-100 dark:hover:bg-red-900/30 transition flex items-center"
+                                                >
+                                                    <KeyRound size={12} className="mr-1.5" />
+                                                    Passwort
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {family && family.filter(f => f.id !== currentUser.id && f.role !== 'admin').length === 0 && (
+                                        <div className="text-center py-4 text-gray-400 text-sm italic">Keine anderen Nutzer vorhanden.</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Admin Broadcast Sub-Section */}
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                                    <Bell size={16} className="mr-2 text-green-500" />
+                                    Broadcast-Nachricht
+                                </h3>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 block mb-1">Titel</label>
+                                        <input
+                                            type="text"
+                                            value={broadcastTitle}
+                                            onChange={(e) => setBroadcastTitle(e.target.value)}
+                                            placeholder="z.B. Update verfügbar!"
+                                            className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 block mb-1">Nachricht</label>
+                                        <textarea
+                                            value={broadcastMessage}
+                                            onChange={(e) => setBroadcastMessage(e.target.value)}
+                                            placeholder="Ihre Broadcast-Nachricht..."
+                                            rows={3}
+                                            className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            if (broadcastMessage.trim().length === 0) {
+                                                alert('Bitte Nachricht eingeben.');
+                                                return;
+                                            }
+                                            setBroadcastStatus('sending');
+                                            try {
+                                                await onSendAdminNotification?.(broadcastTitle, broadcastMessage);
+                                                setBroadcastStatus('sent');
+                                                setTimeout(() => setBroadcastStatus('idle'), 3000);
+                                            } catch (err) {
+                                                console.error(err);
+                                                setBroadcastStatus('error');
+                                                setTimeout(() => setBroadcastStatus('idle'), 3000);
+                                            }
+                                        }}
+                                        disabled={broadcastStatus === 'sending'}
+                                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 transition disabled:opacity-50"
+                                    >
+                                        <Send size={16} />
+                                        {broadcastStatus === 'sending' ? 'Wird gesendet...' : 'Broadcast senden'}
+                                    </button>
+                                    {broadcastStatus === 'sent' && <p className="text-xs text-green-600 mt-2 flex items-center"><Check size={14} className="mr-1" /> Broadcast erfolgreich gesendet!</p>}
+                                    {broadcastStatus === 'error' && <p className="text-xs text-red-600 mt-2">Fehler beim Versand. Bitte erneut versuchen.</p>}
+                                </div>
+                            </div>
+
+                            {/* Admin Feedback Sub-Section */}
+                            <div className="p-4">
+                                <button onClick={openAdminFeedback} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition bg-yellow-50/50 dark:bg-yellow-900/10">
+                                    <div className="flex items-center space-x-3">
+                                        <div className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 p-2 rounded-full">
+                                            <Inbox size={18} />
+                                        </div>
+                                        <span className="font-bold text-gray-800 dark:text-white">Feedback-Posteingang</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {unreadCount > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>}
+                                        <ChevronRight size={18} className="text-gray-400" />
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </section>
                 )}
@@ -568,26 +747,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     <section className="space-y-4">
                         <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">{t('settings.info_help', lang)}</h2>
                         <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden bg-white dark:bg-gray-800`}>
-                            {isAdmin ? (
-                                <button onClick={openAdminFeedback} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-yellow-900/20 transition bg-yellow-50/50 dark:bg-yellow-900/10">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 p-2 rounded-full"><Inbox size={18} /></div>
-                                        <span className="font-bold text-gray-800 dark:text-white">Admin Posteingang</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {unreadCount > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>}
-                                        <ChevronRight size={18} className="text-gray-400" />
-                                    </div>
-                                </button>
-                            ) : (
-                                <button onClick={() => setActiveModal('feedback')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 p-2 rounded-full"><MessageSquare size={18} /></div>
-                                        <span className="font-medium text-gray-800 dark:text-white">Feedback</span>
-                                    </div>
-                                    <ChevronRight size={18} className="text-gray-400" />
-                                </button>
-                            )}
+                            <button onClick={() => setActiveModal('feedback')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
+                                <div className="flex items-center space-x-3">
+                                    <div className="bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 p-2 rounded-full"><MessageSquare size={18} /></div>
+                                    <span className="font-medium text-gray-800 dark:text-white">Feedback</span>
+                                </div>
+                                <ChevronRight size={18} className="text-gray-400" />
+                            </button>
 
                             <button onClick={() => setActiveModal('about')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
                                 <div className="flex items-center space-x-3">
@@ -830,8 +996,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             {activeModal === 'reset-confirm' && targetUser && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
                     <div className={`${modalBgClass} w-full max-w-sm rounded-2xl shadow-2xl p-6 relative ${modalBorderClass}`}>
-                        <h3 className={`text-lg font-bold ${titleClass} mb-2`}>{t('settings.reset_passwords', lang)}?</h3>
-                        <p className={`text-gray-600 dark:text-gray-300 mb-6`}>{t('settings.reset_confirm', lang).replace('{name}', targetUser.name)}</p>
+                        <h3 className={`text-lg font-bold ${titleClass} mb-2`}>{t('Passwort zurücksetzen', lang)}?</h3>
+                        <p className={`text-gray-600 dark:text-gray-300 mb-6`}>{t('Passwort zurücksetzen bestätigen', lang).replace('{name}', targetUser.name)}</p>
                         <input
                             type="password"
                             value={tempPassword}
@@ -964,6 +1130,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isTempPassword ? 'right-1' : 'left-1'}`}></div>
                                 </button>
                             </div>
+                            {isTempPassword && (
+                                <input
+                                    type="password"
+                                    value={newUserPassword}
+                                    onChange={(e) => setNewUserPassword(e.target.value)}
+                                    placeholder="Einfaches Passwort (z.B. 1234)"
+                                    className={`w-full rounded-xl p-3 text-sm outline-none font-bold bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
+                                />
+                            )}
                             <button
                                 type="submit"
                                 disabled={!newUserName.trim() || isAddingUser}

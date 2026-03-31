@@ -244,7 +244,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
             </form>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {recipes.map(recipe => {
+                {(recipes || []).map(recipe => {
                     const isExpanded = expandedRecipeId === recipe.id;
                     return (
                         <div key={recipe.id} className={`rounded-xl overflow-hidden border flex flex-col bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700`}>

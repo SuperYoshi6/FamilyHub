@@ -8,6 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
+    <link rel="manifest" href="./manifest.json">
     <title>FamilyHub</title>
     <script type="text/javascript">
       // Single Page Apps for GitHub Pages
@@ -96,9 +97,15 @@
                 '94%': { opacity: '0' }
               },
               liquidWobble: {
-                '0%, 100%': { transform: 'rotate(0deg)' },
-                '25%': { transform: 'rotate(-1.5deg)' },
-                '75%': { transform: 'rotate(1.5deg)' }
+                '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
+                '25%': { transform: 'scale(1.05) rotate(-1deg)' },
+                '75%': { transform: 'scale(1.05) rotate(1deg)' }
+              },
+              'easter-fall': {
+                '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '0' },
+                '10%': { opacity: '1' },
+                '90%': { opacity: '1' },
+                '100%': { transform: 'translateY(110vh) rotate(360deg)', opacity: '0' }
               }
             }
           }
@@ -109,6 +116,48 @@
     <style>
       /* Global Reset */
       * { margin: 0; padding: 0; box-sizing: border-box; }
+      
+      /* Liquid Glass Refinements */
+      .liquid-shimmer-card {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 40px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+      }
+      .dark .liquid-shimmer-card {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* Nav Wobble Bubble */
+      .nav-wobble-bubble {
+        position: absolute;
+        height: 80%;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.2));
+        border-radius: 20px;
+        z-index: 0;
+        pointer-events: none;
+        will-change: left, width, transform;
+        transition: width 0.3s ease, left 0.35s ease, transform 0.15s ease;
+      }
+      .dark .nav-wobble-bubble {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(139, 92, 246, 0.3));
+      }
+
+      /* Legibility Helpers */
+      .glass-text-glow {
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 2px rgba(255, 255, 255, 1);
+      }
+      .dark .glass-text-glow {
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 1);
+      }
+
+      @keyframes easter-sway {
+        0%, 100% { transform: translateX(-10px); }
+        50% { transform: translateX(10px); }
+      }
       
       /* Disable selection globally for app-like feel */
       html, body {
@@ -134,9 +183,10 @@
         background-color: #f3f4f6;
         transition: background-color 0.5s ease, color 0.5s ease;
         padding-bottom: env(safe-area-inset-bottom);
-        /* Hardware Acceleration Hint */
-        transform: translateZ(0); 
-        will-change: background-color;
+      }
+
+      #root {
+        min-height: 100vh;
       }
       
       header.sticky {
@@ -188,6 +238,6 @@
 </head>
   <body class="transition-colors duration-300">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>

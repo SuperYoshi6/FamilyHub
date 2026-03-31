@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS family (
     avatar TEXT,
     color TEXT,
     role TEXT CHECK (role IN ('parent', 'child', 'admin')),
-    password TEXT
+    password TEXT,
+    fcm_token TEXT,
+    must_change_password BOOLEAN DEFAULT FALSE,
+    must_show_security_screen BOOLEAN DEFAULT FALSE
 );
 
 -- Table: events

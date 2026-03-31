@@ -178,6 +178,8 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'family') {
             if ('darkMode' in payload) { payload.dark_mode = payload.darkMode; delete payload.darkMode; }
             if ('mustChangePassword' in payload) { payload.must_change_password = payload.mustChangePassword; delete payload.mustChangePassword; }
+            if ('mustShowSecurityScreen' in payload) { payload.must_show_security_screen = payload.mustShowSecurityScreen; delete payload.mustShowSecurityScreen; }
+            if ('fcmToken' in payload) { payload.fcm_token = payload.fcmToken; delete payload.fcmToken; }
         }
 
         return payload;
@@ -215,6 +217,8 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'family') {
             if ('dark_mode' in item) { item.darkMode = item.dark_mode; delete item.dark_mode; }
             if ('must_change_password' in item) { item.mustChangePassword = item.must_change_password; delete item.must_change_password; }
+            if ('must_show_security_screen' in item) { item.mustShowSecurityScreen = item.must_show_security_screen; delete item.must_show_security_screen; }
+            if ('fcm_token' in item) { item.fcmToken = item.fcm_token; delete item.fcm_token; }
         }
         if (this.table === 'notifications') {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
@@ -235,6 +239,38 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         return item as T;
     }
 
+    private async pushLocalToSupabase(localData: T[]): Promise<void> {
+        if (!supabase || localData.length === 0) return;
+
+        let payloadItems: any[] = localData.map(item => this.sanitize(item));
+
+        if (this.table === 'feedback') {
+            // For feedback, enforce foreign key integrity on user_id, but do not warn in production-like mode.
+            const userIds = Array.from(new Set(payloadItems.map(f => f.user_id).filter((id: any) => !!id)));
+            if (userIds.length > 0) {
+                const { data: familyRows } = await supabase.from('family').select('id').in('id', userIds);
+                const validIds = familyRows ? familyRows.map((r: any) => r.id) : [];
+                payloadItems = payloadItems.filter((f: any) => validIds.includes(f.user_id));
+                if (payloadItems.length === 0) {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
+        try {
+            const { error } = await supabase.from(this.table).upsert(payloadItems);
+            if (error) {
+                // Ignore conflicts that can happen from FK constraints or duplicate IDs.
+                return;
+            }
+            return;
+        } catch (err) {
+            console.error(`[Supabase] Fallback sync exception (${this.table}):`, err);
+        }
+    }
+
     async getAll(): Promise<T[]> {
         // Try Supabase first
         if (supabase) {
@@ -248,7 +284,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                     // This can happen with intermittent connectivity / delayed sync.
                     const localData = await this.localFallback.getAll();
                     if (mapped.length === 0 && localData.length > 0) {
-                        console.debug(`[Supabase] Received 0 items for ${this.table}, but local cache has ${localData.length}. Keeping local data.`);
+                        // Keep local cache in this case; avoid Supabase write conflicts.
                         return localData;
                     }
 
@@ -332,7 +368,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
                     if (ids.length > 0) {
                         // 1. Delete items that are NOT in the new list
-                        const { error: deleteError } = await supabase.from(this.table).delete().not('id', 'in', ids);
+                        const { error: deleteError } = await supabase.from(this.table).delete().not('id', 'in', `(${ids.join(',')})`);
                         if (deleteError) {
                             console.warn(`[Supabase] Bulk delete failed (${this.table}):`, deleteError.message);
                         }

@@ -1,8 +1,15 @@
 import React from 'react';
-import { Smartphone, Download, Globe, Shield, Calendar, ShoppingCart, Utensils } from 'lucide-react';
+import { Smartphone, Download, Globe, Shield, Bell, Droplets, Database } from 'lucide-react';
 import Logo from '../components/Logo';
+import { AppRoute } from '../types';
+import { Language } from '../services/translations';
 
-const LandingPage: React.FC = () => {
+interface LandingPageProps {
+    onNavigate: (route: AppRoute) => void;
+    lang: Language;
+}
+
+const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-gray-900 dark:text-white font-sans selection:bg-blue-100 dark:selection:bg-blue-900/40">
             {/* Header */}
@@ -28,13 +35,13 @@ const LandingPage: React.FC = () => {
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
-                        Version 1.0.0 (3.0.4) • Jetzt noch schneller
+                        Version 1.0.0 • Jetzt bereit fuer den Alltag
                     </div>
                     <h1 className="text-7xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.85] animate-slide-up">
                         Das Herz eures<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Zuhauses.</span>
                     </h1>
                     <p className="max-w-2xl mx-auto text-xl text-slate-500 dark:text-slate-400 mb-14 animate-slide-up animation-delay-300 leading-relaxed font-medium">
-                        Die intelligente Plattform für eure Familie. Einkaufslisten, Kalender und Essenspläne – perfekt synchronisiert auf allen Geräten.
+                        Die intelligente Plattform fuer eure Familie. Modernes Liquid-Design, Supabase Sync mit Offline-Fallback und klare Admin-Sicherheit.
                     </p>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-6 animate-slide-up animation-delay-500">
                         <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="w-full md:w-auto bg-blue-600 text-white px-12 py-6 rounded-3xl text-xl font-bold hover:bg-blue-700 hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-1 transition-all active:scale-95 text-center">
@@ -61,7 +68,7 @@ const LandingPage: React.FC = () => {
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Android (APK)</div>
-                                        <div className="text-[10px] text-orange-500 font-bold uppercase tracking-widest mt-0.5">Vollversion v3.0.4</div>
+                                        <div className="text-[10px] text-orange-500 font-bold uppercase tracking-widest mt-0.5">Vollversion v1.0.0</div>
                                     </div>
                                 </a>
                                 <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
@@ -97,25 +104,71 @@ const LandingPage: React.FC = () => {
                 <div className="max-w-6xl mx-auto">
                     <div className="grid md:grid-cols-3 gap-12">
                         <div className="space-y-4">
-                            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center">
-                                <ShoppingCart size={30} />
+                            <div className="w-14 h-14 bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center">
+                                <Droplets size={30} />
                             </div>
-                            <h3 className="text-2xl font-black">Einkaufslisten</h3>
-                            <p className="text-gray-500 dark:text-gray-400">Vergesst nie wieder was. In Echtzeit synchronisierte Listen für alle Familienmitglieder.</p>
+                            <h3 className="text-2xl font-black">Liquid Glass UI</h3>
+                            <p className="text-gray-500 dark:text-gray-400">Elegantes Glas-Design mit Light/Dark Mode und ruhiger Ansicht ohne Wobble, wenn deaktiviert.</p>
                         </div>
                         <div className="space-y-4">
-                            <div className="w-14 h-14 bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center">
-                                <Calendar size={30} />
+                            <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center">
+                                <Database size={30} />
                             </div>
-                            <h3 className="text-2xl font-black">Familienkalender</h3>
-                            <p className="text-gray-500 dark:text-gray-400">Termine für alle im Überblick. Mit intelligenten Benachrichtigungen direkt aufs Handy.</p>
+                            <h3 className="text-2xl font-black">Supabase Sync</h3>
+                            <p className="text-gray-500 dark:text-gray-400">Live-Sync mit LocalStorage-Fallback. Laeuft stabil auch offline.</p>
                         </div>
                         <div className="space-y-4">
                             <div className="w-14 h-14 bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center">
-                                <Utensils size={30} />
+                                <Shield size={30} />
                             </div>
-                            <h3 className="text-2xl font-black">Essensplaner</h3>
-                            <p className="text-gray-500 dark:text-gray-400">Plant eure Woche, speichert Rezepte und schickt Essenswünsche direkt an die Eltern.</p>
+                            <h3 className="text-2xl font-black">Admin-Sicherheit</h3>
+                            <p className="text-gray-500 dark:text-gray-400">Passwort-Reset nur durch Admin, plus Sicherheits-Screen beim naechsten Login.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            {/* Changelog Section */}
+            <section className="py-20 bg-slate-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-6">
+                <div className="max-w-4xl mx-auto">
+                    <div className="flex items-center gap-4 mb-10">
+                        <div className="h-12 w-1.5 bg-blue-600 rounded-full"></div>
+                        <h2 className="text-4xl font-black tracking-tight">Was ist neu? <span className="text-blue-600">v1.0.0</span></h2>
+                    </div>
+                    <div className="grid gap-6">
+                        <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl">
+                                    <Droplets size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-xl mb-2">Liquid Glass UI</h4>
+                                    <p className="text-gray-500 dark:text-gray-400 leading-relaxed font-medium">Neues Glas-Design mit Light/Dark Mode. Ohne Liquid-Modus gibt es eine ruhige, klare Navigation.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                                    <Bell size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-xl mb-2">Stundliche Wetter-Updates</h4>
+                                    <p className="text-gray-500 dark:text-gray-400 leading-relaxed font-medium">Die stündliche Wetter-Benachrichtigung bleibt aktiv, auch wenn die App geschlossen ist.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 rounded-xl">
+                                    <Shield size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="font-bold text-xl mb-2">Admin Only Security</h4>
+                                    <p className="text-gray-500 dark:text-gray-400 leading-relaxed font-medium">Passwort-Reset nur durch Admin und optionaler Sicherheits-Screen beim naechsten Login.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

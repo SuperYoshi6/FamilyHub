@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { supabase } from './backend';
 
 // THIS WILL BE UPDATED ONCE USER PROVIDES THE CONFIG
@@ -14,10 +14,24 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+let messaging: ReturnType<typeof getMessaging> | null = null;
+
+isSupported().then((supported) => {
+  if (supported) {
+    messaging = getMessaging(app);
+  } else {
+    console.warn('Firebase Messaging is not supported in this browser.');
+  }
+}).catch(console.error);
 
 export const requestFirebaseToken = async (userId: string) => {
   try {
+    const supported = await isSupported();
+    if (!supported || !messaging) {
+      console.warn('FCM is not supported in this browser.');
+      return null;
+    }
+
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       // Get registration token
@@ -44,6 +58,7 @@ export const requestFirebaseToken = async (userId: string) => {
 };
 
 export const onMessageListener = (callback: (payload: any) => void) => {
+  if (!messaging) return () => {};
   return onMessage(messaging, (payload) => {
     console.log('Message received in foreground:', payload);
     callback(payload);

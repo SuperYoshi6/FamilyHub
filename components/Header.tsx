@@ -12,8 +12,11 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ title, currentUser, onProfileClick }) => {
   return (
     <header
-      className="sticky top-0 z-40 px-4 pb-3 flex justify-between items-center transition-all duration-500 border-b shadow-sm bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-gray-100 dark:border-gray-800"
-      style={{ top: 0, paddingTop: 'max(env(safe-area-inset-top), 0px)' }}
+      className="sticky top-0 z-40 px-4 pb-3 flex justify-between items-center transition-all duration-500 border-b shadow-sm bg-white dark:bg-slate-900 border-gray-100 dark:border-gray-800"
+      style={{ 
+        marginTop: '-1px', 
+        paddingTop: 'calc(1px + env(safe-area-inset-top, 0px))' 
+      }}
     >
       <div className="flex items-center space-x-3">
         <div>
