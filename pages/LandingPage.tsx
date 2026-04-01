@@ -80,7 +80,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Desktop Build</div>
                                     </div>
                                 </a>
-                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift.zip" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
                                     <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 rounded-xl flex items-center justify-center text-pink-500">
                                         <Smartphone size={24} />
                                     </div>
