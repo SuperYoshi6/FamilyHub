@@ -321,6 +321,43 @@ const App: React.FC = () => {
     Backend.appSettings.update('global', payload as any);
   }, [loadingData, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled]);
 
+  const applyAppSettings = (settingsRow: any) => {
+    if (!settingsRow) return;
+    setMaintenanceMode(!!settingsRow.maintenance_mode);
+    setMaintenanceStart(settingsRow.maintenance_start || '');
+    setMaintenanceEnd(settingsRow.maintenance_end || '');
+    setDisabledTabs(settingsRow.disabled_tabs || {});
+    if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
+    if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
+  };
+
+  useEffect(() => {
+    if (loadingData) return;
+
+    const fetchAndApply = async () => {
+      const all = await Backend.appSettings.getAll();
+      if (all && all.length > 0) applyAppSettings(all[0]);
+    };
+
+    const interval = setInterval(fetchAndApply, POLLING_INTERVAL);
+
+    let realtimeChannel: any = null;
+    if (supabase) {
+      realtimeChannel = supabase
+        .channel('app_settings_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, (payload: any) => {
+          const row = payload.new || payload.old;
+          if (row) applyAppSettings(row);
+        })
+        .subscribe();
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (realtimeChannel) supabase?.removeChannel(realtimeChannel);
+    };
+  }, [loadingData]);
+
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       CapacitorApp.addListener('backButton', () => {
