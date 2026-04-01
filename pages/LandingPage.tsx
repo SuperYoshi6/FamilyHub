@@ -284,7 +284,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                     </div>
                     <div className="flex space-x-6 text-sm font-medium text-gray-500">
                         <a href="https://github.com/SuperYoshi6/FamilyHub" className="hover:text-blue-500 transition-colors">GitHub</a>
-                        <a href="#" className="hover:text-blue-500 transition-colors">Privacy</a>
+                        <a href="https://github.com/SuperYoshi6/FamilyHub/blob/main/PRIVACY.md" className="hover:text-blue-500 transition-colors">Privacy</a>
                     </div>
                 </div>
             </footer>
