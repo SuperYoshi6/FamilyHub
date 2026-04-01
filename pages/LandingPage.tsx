@@ -243,7 +243,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
                                                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
-                                                <p className="flex-1 text-xs font-medium italic">Lade <span className="underline decoration-pink-400">Swift Playground</span>.</p>
+                                                <p className="flex-1 text-xs font-medium italic">
+  Lade 
+  <a 
+    href="https://apps.apple.com/de/app/swift-playground/id908519492"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="underline decoration-pink-400 ml-1 hover:text-blue-200 transition-colors"
+  >
+    Swift Playground
+  </a>.
+</p>
                                             </div>
                                             <div className="flex items-start gap-3">
                                                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
@@ -284,8 +294,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                     </div>
                     <div className="flex space-x-6 text-sm font-medium text-gray-500">
                         <a href="https://github.com/SuperYoshi6/FamilyHub" className="hover:text-blue-500 transition-colors">GitHub</a>
-                        <a href="https://github.com/SuperYoshi6/FamilyHub/blob/main/PRIVACY.md" className="hover:text-blue-500 transition-colors">Privacy</a>
-                    </div>
+            </div>
                 </div>
             </footer>
         </div>
