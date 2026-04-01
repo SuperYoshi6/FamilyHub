@@ -826,24 +826,22 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             </div>
 
             {activeTab === 'calendar' && (
-                <div className="px-4 mb-2 flex justify-between items-center">
-                    <div className={`${liquidGlass ? 'liquid-shimmer-card border-white/40 p-0.5 rounded-lg relative flex' : 'bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg flex'} items-center gap-1`}>
-                        {/* Slider Element for View Toggle - Liquid Only */}
+                <div className="px-4 mb-2">
+                    <div className={`${getTabContainerClass()} relative`}>
                         {liquidGlass && (
                             <div
                                 className={getSliderClass()}
                                 style={{
                                     top: '2px', bottom: '2px',
-                                    left: `${activeViewIndex * 40}%`,
-                                    width: '40%'
+                                    left: `${activeViewIndex * 50}%`,
+                                    width: '50%'
                                 }}
                             >
                                 <div className={getSliderInnerClass()} />
                             </div>
                         )}
-
-                        <button onClick={() => setCalendarView('family')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(calendarView === 'family')}`}><Users size={12} className="mr-1" /> Familie</button>
-                        <button onClick={() => setCalendarView('private')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(calendarView === 'private')}`}><User size={12} className="mr-1" /> Privat</button>
+                        <button onClick={() => setCalendarView('family')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all z-10 ${getBtnClass(calendarView === 'family')}`}><Users size={14} className="mr-1" /> Familie</button>
+                        <button onClick={() => setCalendarView('private')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all z-10 ${getBtnClass(calendarView === 'private')}`}><User size={14} className="mr-1" /> Privat</button>
                     </div>
                 </div>
             )}

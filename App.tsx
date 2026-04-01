@@ -581,7 +581,7 @@ const App: React.FC = () => {
     if (!currentUser) return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex flex-col items-center justify-center p-6 relative">
         <div className="text-center mb-10 flex flex-col items-center">
-          <div className="mb-6 active:scale-95 transition-transform cursor-pointer drop-shadow-xl" onClick={handleLogoClick}><Logo size={110} /></div>
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-[30px] shadow-xl mb-6 active:scale-95 transition-transform cursor-pointer" onClick={handleLogoClick}><Logo size={80} /></div>
           <h1 className="text-4xl font-extrabold text-gray-800 dark:text-white mb-2 tracking-tight">FamilyHub</h1>
           <p className="text-gray-500 dark:text-gray-400 font-medium">{t('login.welcome', language)}</p>
         </div>
