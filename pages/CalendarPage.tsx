@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import { CalendarEvent, FamilyMember, NewsItem, Poll } from '../types';
-import { MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User } from 'lucide-react';
+import { MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Share2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -296,11 +296,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             'CALSCALE:GREGORIAN',
             'PRODID:-//FamilyHub//DE',
             'METHOD:PUBLISH',
-            `X-WR-CALNAME:FamilyHub`,
+            `X-WR-CALNAME:FamilyHub ${calendarView === 'private' ? 'Privat' : 'Familie'}`,
             `X-WR-TIMEZONE:${tz}`,
         ];
 
-        safeEvents.forEach((event) => {
+        filteredEvents.forEach((event) => {
             const start = formatToICSDateTime(event.date, event.time);
             const endDate = event.endDate || event.date;
             const end = formatToICSDateTime(endDate, event.endTime || event.time);
@@ -333,7 +333,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
     const exportCalendarAsICS = () => {
         const icsBlob = new Blob([generateICS()], { type: 'text/calendar;charset=utf-8' });
-        const file = new File([icsBlob], 'familyhub-termine.ics', { type: 'text/calendar' });
+        const filename = `familyhub-${calendarView === 'private' ? 'privat' : 'familie'}.ics`;
+        const file = new File([icsBlob], filename, { type: 'text/calendar' });
         const canShare = typeof navigator !== 'undefined' && !!navigator.share && (!!navigator.canShare ? navigator.canShare({ files: [file] }) : true);
 
         const url = URL.createObjectURL(icsBlob);
@@ -342,21 +343,21 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                 try {
                     const data = generateICS();
                     await Filesystem.writeFile({
-                        path: 'familyhub-termine.ics',
+                        path: filename,
                         data: toBase64(data),
                         directory: Directory.Cache,
                     });
-                    const fileUri = await Filesystem.getUri({ path: 'familyhub-termine.ics', directory: Directory.Cache });
+                    const fileUri = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
                     await Share.share({
-                        title: 'FamilyHub Kalender',
-                        text: 'FamilyHub Termine',
+                        title: `FamilyHub Kalender (${calendarView === 'private' ? 'Privat' : 'Familie'})`,
+                        text: 'FamilyHub Termine exportieren',
                         url: fileUri.uri,
                     });
                 } catch (e) {
                     // fallback to web download
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'familyhub-termine.ics';
+                    a.download = filename;
                     a.target = '_blank';
                     document.body.appendChild(a);
                     a.click();
@@ -367,16 +368,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             return;
         }
         if (canShare) {
-            navigator.share({ files: [file], title: 'FamilyHub Kalender', text: 'FamilyHub Termine' }).catch(() => {});
+            navigator.share({ files: [file], title: `FamilyHub Kalender (${calendarView === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
             return;
         }
         if (navigator.share) {
-            navigator.share({ url, title: 'FamilyHub Kalender', text: 'FamilyHub Termine' }).catch(() => {});
+            navigator.share({ url, title: `FamilyHub Kalender (${calendarView === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
         }
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'familyhub-termine.ics';
+        a.download = filename;
         a.target = '_blank';
         document.body.appendChild(a);
         a.click();
@@ -435,7 +436,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                 <div className={`flex justify-between items-center p-4 border-b ${liquidGlass ? 'border-white/20 bg-white/10' : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800'}`}>
                     <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition"><ChevronLeft size={20} /></button>
                     <span className={`font-bold text-lg capitalize ${liquidGlass ? 'text-slate-800 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{monthName}</span>
-                    <button onClick={() => changeMonth(1)} className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition"><ChevronRight size={20} /></button>
+                    <div className="flex items-center gap-1">
+                        <button onClick={() => changeMonth(1)} className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition"><ChevronRight size={20} /></button>
+                        <button
+                            onClick={exportCalendarAsICS}
+                            title="Termine in Samsung/Google Kalender exportieren"
+                            className={`p-2 rounded-full transition active:scale-90 ${liquidGlass ? 'hover:bg-white/20 text-slate-700 dark:text-white' : 'hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}
+                        >
+                            <Share2 size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className={`grid grid-cols-7 border-b ${liquidGlass ? 'border-white/20 bg-white/5' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-700'}`}>
