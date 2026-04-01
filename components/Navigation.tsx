@@ -10,9 +10,10 @@ interface NavigationProps {
     christmasMode?: boolean;
     easterMode?: boolean;
     liquidGlass?: boolean;
+    enableSwipe?: boolean;
 }
 
-const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, easterMode, liquidGlass }) => {
+const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, easterMode, liquidGlass, enableSwipe }) => {
     const isWeather = currentRoute === AppRoute.WEATHER;
     const navRef = useRef<HTMLElement>(null);
     
@@ -40,7 +41,8 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
         const rect = navRef.current?.getBoundingClientRect();
         if (rect) {
             const x = ((e.clientX - rect.left) / rect.width) * 100;
-            setDragX(x - itemWidthPercent / 2);
+            const clamped = Math.max(0, Math.min(100 - itemWidthPercent, x - itemWidthPercent / 2));
+            setDragX(clamped);
             lastX.current = e.clientX;
             lastTime.current = Date.now();
         }
@@ -52,7 +54,8 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
         const rect = navRef.current?.getBoundingClientRect();
         if (rect) {
             const x = ((e.clientX - rect.left) / rect.width) * 100;
-            setDragX(x - itemWidthPercent / 2);
+            const clamped = Math.max(0, Math.min(100 - itemWidthPercent, x - itemWidthPercent / 2));
+            setDragX(clamped);
             
             // Calculate velocity for "stretch" effect
             const now = Date.now();
@@ -119,7 +122,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
 
             {navItems.map((item) => {
                 const isActive = currentRoute === item.route;
-                const activeBg = !liquidGlass && isActive ? 'bg-blue-100/80 dark:bg-blue-900/30' : '';
+                const activeBg = !liquidGlass && easterMode && isActive ? 'bg-pink-100/70 dark:bg-pink-900/30' : '';
                 let textColor = '';
 
                 if (easterMode) {
@@ -139,7 +142,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                         key={item.route}
                         type="button"
                         onClick={() => onNavigate(item.route)}
-                        className={`relative flex flex-col items-center justify-center w-full space-y-1 transition-all duration-300 z-10 pointer-events-auto rounded-xl py-1 ${textColor} ${activeBg}`}
+                        className={`relative flex flex-col items-center justify-center w-full space-y-1 transition-all duration-300 z-10 pointer-events-auto ${textColor} ${activeBg}`}
                         style={{ width: `${itemWidthPercent}%` }}
                     >
                         <item.icon size={isActive ? 28 : 24} className="transition-all duration-300" />

@@ -151,6 +151,18 @@ CREATE TABLE IF NOT EXISTS notifications (
     author_id TEXT REFERENCES family(id)
 );
 
+-- Table: app_settings (global singleton)
+CREATE TABLE IF NOT EXISTS app_settings (
+    id TEXT PRIMARY KEY,
+    maintenance_mode BOOLEAN DEFAULT FALSE,
+    maintenance_start TIMESTAMPTZ,
+    maintenance_end TIMESTAMPTZ,
+    disabled_tabs JSONB DEFAULT '{}'::jsonb,
+    global_easter_enabled BOOLEAN DEFAULT TRUE,
+    global_liquid_glass_enabled BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable RLS on all tables (Optional but recommended)
 -- ALTER TABLE family ENABLE ROW LEVEL SECURITY;
 -- ... etc

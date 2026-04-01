@@ -1,4 +1,4 @@
-import { FamilyMember, CalendarEvent, ShoppingItem, Task, MealPlan, MealRequest, SavedLocation, Recipe, NewsItem, FeedbackItem, Poll, AppNotification } from "../types";
+import { FamilyMember, CalendarEvent, ShoppingItem, Task, MealPlan, MealRequest, SavedLocation, Recipe, NewsItem, FeedbackItem, Poll, AppNotification, AppSettings } from "../types";
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // --- INITIAL DATA MOCKS (Fallback) ---
@@ -15,6 +15,17 @@ const INITIAL_FAMILY: FamilyMember[] = [
 const INITIAL_EVENTS: CalendarEvent[] = [];
 const INITIAL_SHOPPING: ShoppingItem[] = [];
 const INITIAL_TASKS: Task[] = [];
+const INITIAL_SETTINGS: AppSettings[] = [
+    {
+        id: 'global',
+        maintenance_mode: false,
+        maintenance_start: null,
+        maintenance_end: null,
+        disabled_tabs: {},
+        global_easter_enabled: true,
+        global_liquid_glass_enabled: true,
+    }
+];
 
 // --- INITIAL NEWS (Empty) ---
 export const INITIAL_NEWS: NewsItem[] = [];
@@ -402,7 +413,8 @@ const TABLE_MAPPING: Record<string, string> = {
     'fh_recipes': 'recipes',
     'fh_weather_favs': 'weather_favs',
     'fh_feedback': 'feedback',
-    'fh_notifications': 'notifications'
+    'fh_notifications': 'notifications',
+    'fh_app_settings': 'app_settings'
 };
 
 const createCollection = <T extends { id: string }>(key: string, defaultVal: T[]) => {
@@ -430,4 +442,5 @@ export const Backend = {
     weatherFavorites: createCollection<SavedLocation>('fh_weather_favs', []),
     feedback: createCollection<FeedbackItem>('fh_feedback', []),
     notifications: createCollection<AppNotification>('fh_notifications', []),
+    appSettings: createCollection<AppSettings>('fh_app_settings', INITIAL_SETTINGS),
 };

@@ -52,6 +52,21 @@ CREATE POLICY "family_delete_admin_only" ON public.family
     (SELECT role FROM public.family WHERE id = auth.uid()) = 'admin'
   );
 
+-- App Settings: read for all, write for admin only
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "app_settings_read_all" ON public.app_settings
+  FOR SELECT USING (true);
+
+CREATE POLICY "app_settings_write_admin" ON public.app_settings
+  FOR UPDATE
+  USING ((SELECT role FROM public.family WHERE id = auth.uid()) = 'admin')
+  WITH CHECK ((SELECT role FROM public.family WHERE id = auth.uid()) = 'admin');
+
+CREATE POLICY "app_settings_insert_admin" ON public.app_settings
+  FOR INSERT
+  WITH CHECK ((SELECT role FROM public.family WHERE id = auth.uid()) = 'admin');
+
 -- Notes and recommendations:
 -- - These policies assume that admin accounts exist as rows in the same family table and that their role column is set to 'admin'.
 -- - If your admin users are represented differently (e.g. external list or JWT claims), replace the (SELECT role FROM public.family WHERE id = auth.uid()) checks with the appropriate expression (e.g. a custom claim check: current_setting('jwt.claims.role') = 'admin' or auth.role() checks).

@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import { CalendarEvent, FamilyMember, NewsItem, Poll } from '../types';
 import { MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { compressImage } from '../services/imageUtils';
 
 interface CalendarPageProps {
@@ -257,6 +260,21 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     };
 
     const pad = (n: number) => n.toString().padStart(2, '0');
+    const addDays = (dateStr: string, days: number) => {
+        const d = new Date(`${dateStr}T00:00:00`);
+        d.setDate(d.getDate() + days);
+        return d.toISOString().split('T')[0];
+    };
+    const toBase64 = (input: string) => {
+        return btoa(unescape(encodeURIComponent(input)));
+    };
+    const escapeICS = (val: string) => {
+        return val
+            .replace(/\\/g, '\\\\')
+            .replace(/\n/g, '\\n')
+            .replace(/,/g, '\\,')
+            .replace(/;/g, '\\;');
+    };
 
     const formatToICSDateTime = (date: string, time?: string) => {
         if (!date) return '';
@@ -270,6 +288,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
     const generateICS = () => {
         const dtstamp = formatToICSDateTime(new Date().toISOString().split('T')[0], new Date().toTimeString().slice(0,5));
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin';
 
         const lines = [
             'BEGIN:VCALENDAR',
@@ -277,6 +296,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             'CALSCALE:GREGORIAN',
             'PRODID:-//FamilyHub//DE',
             'METHOD:PUBLISH',
+            `X-WR-CALNAME:FamilyHub`,
+            `X-WR-TIMEZONE:${tz}`,
         ];
 
         safeEvents.forEach((event) => {
@@ -292,14 +313,15 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             lines.push(`DTSTAMP:${dtstamp}`);
             if (isAllDay) {
                 lines.push(`DTSTART;VALUE=DATE:${start}`);
-                lines.push(`DTEND;VALUE=DATE:${formatToICSDateTime(endDate)}`);
+                const endExclusive = addDays(endDate, 1);
+                lines.push(`DTEND;VALUE=DATE:${formatToICSDateTime(endExclusive)}`);
             } else {
-                lines.push(`DTSTART:${start}`);
-                lines.push(`DTEND:${end}`);
+                lines.push(`DTSTART;TZID=${tz}:${start}`);
+                lines.push(`DTEND;TZID=${tz}:${end}`);
             }
-            lines.push(`SUMMARY:${event.title || 'Termin'}`);
-            if (event.location) lines.push(`LOCATION:${event.location}`);
-            if (event.description) lines.push(`DESCRIPTION:${event.description}`);
+            lines.push(`SUMMARY:${escapeICS(event.title || 'Termin')}`);
+            if (event.location) lines.push(`LOCATION:${escapeICS(event.location)}`);
+            if (event.description) lines.push(`DESCRIPTION:${escapeICS(event.description)}`);
             if (event.assignedTo?.length) lines.push(`CATEGORIES:${event.assignedTo.join(',')}`);
             lines.push('END:VEVENT');
         });
@@ -311,13 +333,57 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
     const exportCalendarAsICS = () => {
         const icsBlob = new Blob([generateICS()], { type: 'text/calendar;charset=utf-8' });
+        const file = new File([icsBlob], 'familyhub-termine.ics', { type: 'text/calendar' });
+        const canShare = typeof navigator !== 'undefined' && !!navigator.share && (!!navigator.canShare ? navigator.canShare({ files: [file] }) : true);
+
         const url = URL.createObjectURL(icsBlob);
+        if (Capacitor.isNativePlatform()) {
+            (async () => {
+                try {
+                    const data = generateICS();
+                    await Filesystem.writeFile({
+                        path: 'familyhub-termine.ics',
+                        data: toBase64(data),
+                        directory: Directory.Cache,
+                    });
+                    const fileUri = await Filesystem.getUri({ path: 'familyhub-termine.ics', directory: Directory.Cache });
+                    await Share.share({
+                        title: 'FamilyHub Kalender',
+                        text: 'FamilyHub Termine',
+                        url: fileUri.uri,
+                    });
+                } catch (e) {
+                    // fallback to web download
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'familyhub-termine.ics';
+                    a.target = '_blank';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.location.href = url;
+                }
+            })();
+            return;
+        }
+        if (canShare) {
+            navigator.share({ files: [file], title: 'FamilyHub Kalender', text: 'FamilyHub Termine' }).catch(() => {});
+            return;
+        }
+        if (navigator.share) {
+            navigator.share({ url, title: 'FamilyHub Kalender', text: 'FamilyHub Termine' }).catch(() => {});
+        }
+
         const a = document.createElement('a');
         a.href = url;
         a.download = 'familyhub-termine.ics';
+        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        if (typeof window !== 'undefined') {
+            window.location.href = url;
+        }
         URL.revokeObjectURL(url);
     };
 
@@ -761,15 +827,15 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
             {activeTab === 'calendar' && (
                 <div className="px-4 mb-2 flex justify-between items-center">
-                    <div className={`${liquidGlass ? 'liquid-shimmer-card border-white/40 p-0.5 rounded-lg relative flex' : 'bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg flex'}`}>
+                    <div className={`${liquidGlass ? 'liquid-shimmer-card border-white/40 p-0.5 rounded-lg relative flex' : 'bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg flex'} items-center gap-1`}>
                         {/* Slider Element for View Toggle - Liquid Only */}
                         {liquidGlass && (
                             <div
                                 className={getSliderClass()}
                                 style={{
                                     top: '2px', bottom: '2px',
-                                    left: `${activeViewIndex * 50}%`,
-                                    width: '50%'
+                                    left: `${activeViewIndex * 40}%`,
+                                    width: '40%'
                                 }}
                             >
                                 <div className={getSliderInnerClass()} />
@@ -779,9 +845,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                         <button onClick={() => setCalendarView('family')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(calendarView === 'family')}`}><Users size={12} className="mr-1" /> Familie</button>
                         <button onClick={() => setCalendarView('private')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(calendarView === 'private')}`}><User size={12} className="mr-1" /> Privat</button>
                     </div>
-                    <button onClick={exportCalendarAsICS} className="ml-3 inline-flex items-center text-xs font-bold bg-sky-600 text-white px-3 py-1.5 rounded-lg hover:bg-sky-500 transition shadow-sm active:scale-95">
-                        <FileText size={14} className="mr-1" /> Kalender Sync/Export
-                    </button>
                 </div>
             )}
 
@@ -920,4 +983,4 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     );
 };
 
-export default CalendarPage;
+export default React.memo(CalendarPage);

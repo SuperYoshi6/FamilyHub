@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { FamilyMember, FeedbackItem, NewsItem } from '../types';
-import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, Edit, Bell, Lock, Database, Download, Activity, Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Home, Eye, EyeOff, Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg } from 'lucide-react';
+import { FamilyMember, FeedbackItem, NewsItem, AppRoute } from '../types';
+import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, Edit, Bell, Lock, Database, Download, Activity, Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Home, Eye, EyeOff, Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
 import Logo from '../components/Logo';
@@ -32,6 +32,14 @@ interface SettingsPageProps {
     globalLiquidGlassEnabled?: boolean;
     onToggleGlobalLiquidGlass?: () => void;
     onTriggerSecurityScreen?: (id: string) => void;
+    disabledTabs?: Record<string, boolean>;
+    onToggleTabDisabled?: (route: AppRoute) => void;
+    maintenanceMode?: boolean;
+    onToggleMaintenance?: () => void;
+    maintenanceStart?: string;
+    maintenanceEnd?: string;
+    onChangeMaintenanceStart?: (value: string) => void;
+    onChangeMaintenanceEnd?: (value: string) => void;
     lang: Language;
     setLang: (l: Language) => void;
     family?: FamilyMember[];
@@ -72,7 +80,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
@@ -100,7 +108,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     // Admin Action States
     const [targetUser, setTargetUser] = useState<FamilyMember | null>(null);
-    const [tempPassword, setTempPassword] = useState('');
 
     // Admin Edit User States
     const [editTargetUser, setEditTargetUser] = useState<FamilyMember | null>(null);
@@ -120,11 +127,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     // Admin Broadcast Notification States
     const [broadcastTitle, setBroadcastTitle] = useState('Update verfügbar!');
     const [broadcastMessage, setBroadcastMessage] = useState('Wir haben ein Update oder eine Wartung. Bitte prüfen.');
-    const [broadcastStatus, setBroadcastStatus] = useState<'idle'|'sending'|'sent'|'error'>('idle');
+    const [broadcastStatus, setBroadcastStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
     const isAdmin = currentUser.role === 'admin';
     const isEasterLocked = !isAdmin && globalEasterEnabled === false;
     const isLiquidLocked = !isAdmin && globalLiquidGlassEnabled === false;
+    const tabOptions = [
+        { route: AppRoute.WEATHER, label: 'Wetter', icon: Droplets },
+        { route: AppRoute.CALENDAR, label: 'Kalender', icon: Calendar },
+        { route: AppRoute.MEALS, label: 'Mahlzeiten', icon: Utensils },
+        { route: AppRoute.LISTS, label: 'Listen', icon: ShoppingCart },
+        { route: AppRoute.ACTIVITIES, label: 'Aktivitäten', icon: Activity },
+    ];
     const unreadFeedbacks: FeedbackItem[] = allFeedbacks?.filter(f => !f.read) || [];
     const unreadCount = unreadFeedbacks.length;
 
@@ -205,7 +219,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     const handleResetClick = (member: FamilyMember) => {
         setTargetUser(member);
-        setTempPassword('');
         setActiveModal('reset-confirm');
     };
 
@@ -258,8 +271,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     const saveUserEdit = () => {
         if (!editTargetUser || !onUpdateFamilyMember) return;
-        onUpdateFamilyMember(editTargetUser.id, { 
-            name: editName, 
+        onUpdateFamilyMember(editTargetUser.id, {
+            name: editName,
             avatar: editAvatarUrl,
             mustChangePassword: isTempPassword
         });
@@ -299,16 +312,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     };
 
     const confirmReset = () => {
-        if (targetUser && onUpdateFamilyMember && tempPassword.trim()) {
-            if (tempPassword.trim().length < 4) {
-                alert("Das Passwort muss mindestens 4 Zeichen lang sein.");
-                return;
-            }
-            onUpdateFamilyMember(targetUser.id, { password: tempPassword.trim(), mustChangePassword: true, mustShowSecurityScreen: true });
+        if (targetUser && onResetPassword) {
+            onResetPassword(targetUser);
             setActiveModal('none');
             setTargetUser(null);
-            setTempPassword('');
-            alert("Passwort wurde gesetzt.");
+            alert("Reset aktiviert. Nutzer setzt sein Passwort beim nächsten Login.");
         }
     };
 
@@ -425,7 +433,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     value={changePassword}
                                     onChange={(e) => setChangePassword(e.target.value)}
                                     placeholder="Neues Passwort"
-                                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <button type="button" onClick={() => setShowChangePassword(!showChangePassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
                                     {showChangePassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -433,7 +441,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             </div>
                         ) : (
                             <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Passwortänderungen können nur vom Admin durchgeführt werden.
+
                             </div>
                         )}
 
@@ -609,6 +617,77 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Tab Locks + Maintenance */}
+                            {onToggleTabDisabled && disabledTabs && (
+                                <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                                        <Lock size={16} className="mr-2 text-blue-500" />
+                                        Tabs sperren
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {tabOptions.map((t) => {
+                                            const Icon = t.icon;
+                                            const isClosed = !!disabledTabs[t.route];
+                                            return (
+                                                <div key={t.route} className="flex items-center justify-between">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-600 dark:text-slate-300">
+                                                            <Icon size={16} />
+                                                        </div>
+                                                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t.label}</span>
+                                                    </div>
+                                                    <button onClick={() => onToggleTabDisabled(t.route)} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${isClosed ? 'bg-red-500' : 'bg-gray-300'}`}>
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${isClosed ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Gesperrte Tabs zeigen den Hinweis: „Der Admin hat diesen Tab vorübergehend geschlossen“.</div>
+
+                                    {onToggleMaintenance && (
+                                        <div className="pt-4 mt-4 border-t border-gray-100 dark:border-gray-700">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-2">
+                                                    <Wrench size={16} className="text-yellow-600" />
+                                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Wartungsmodus</span>
+                                                </div>
+                                                <button onClick={onToggleMaintenance} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${maintenanceMode ? 'bg-yellow-500' : 'bg-gray-300'}`}>
+                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${maintenanceMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                </button>
+                                            </div>
+                                            {maintenanceMode && (onChangeMaintenanceStart || onChangeMaintenanceEnd) && (
+                                                <div className="mt-3 grid grid-cols-1 gap-3">
+                                                    {onChangeMaintenanceStart && (
+                                                        <div>
+                                                            <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Start (optional)</label>
+                                                            <input
+                                                                type="datetime-local"
+                                                                value={maintenanceStart || ''}
+                                                                onChange={(e) => onChangeMaintenanceStart(e.target.value)}
+                                                                className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    {onChangeMaintenanceEnd && (
+                                                        <div>
+                                                            <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Ende (optional)</label>
+                                                            <input
+                                                                type="datetime-local"
+                                                                value={maintenanceEnd || ''}
+                                                                onChange={(e) => onChangeMaintenanceEnd(e.target.value)}
+                                                                className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Nutzer sehen nur Wartung + Update-Download.</div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -997,17 +1076,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
                     <div className={`${modalBgClass} w-full max-w-sm rounded-2xl shadow-2xl p-6 relative ${modalBorderClass}`}>
                         <h3 className={`text-lg font-bold ${titleClass} mb-2`}>{t('Passwort zurücksetzen', lang)}?</h3>
-                        <p className={`text-gray-600 dark:text-gray-300 mb-6`}>{t('Passwort zurücksetzen bestätigen', lang).replace('{name}', targetUser.name)}</p>
-                        <input
-                            type="password"
-                            value={tempPassword}
-                            onChange={(e) => setTempPassword(e.target.value)}
-                            placeholder="Neues Passwort"
-                            className={`w-full rounded-xl p-3 mb-4 text-sm outline-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
-                        />
+                        <p className={`text-gray-600 dark:text-gray-300 mb-6`}>Der Nutzer kann sich noch mit seinem aktuellen Passwort anmelden und muss danach ein neues setzen.</p>
                         <div className="flex space-x-3">
                             <button onClick={() => setActiveModal('none')} className={`flex-1 py-3 rounded-xl font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300`}>Abbrechen</button>
-                            <button onClick={confirmReset} disabled={!tempPassword.trim()} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold shadow-lg disabled:opacity-50">Zurücksetzen</button>
+                            <button onClick={confirmReset} className="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold shadow-lg">Reset aktivieren</button>
                         </div>
                     </div>
                 </div>
@@ -1061,7 +1133,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                         <div className="flex items-center justify-between mb-6 px-2">
                             <span className="text-sm font-medium">Temporäres Passwort</span>
-                            <button 
+                            <button
                                 onClick={() => setIsTempPassword(!isTempPassword)}
                                 className={`w-12 h-6 rounded-full transition-colors relative ${isTempPassword ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
                             >
@@ -1070,9 +1142,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                         </div>
 
                         <div className="flex space-x-2">
-                            <button 
+                            <button
                                 onClick={() => {
-                                    if(confirm(`Benutzer ${editTargetUser.name} wirklich löschen?`)) {
+                                    if (confirm(`Benutzer ${editTargetUser.name} wirklich löschen?`)) {
                                         onDeleteUser(editTargetUser.id);
                                         setActiveModal('none');
                                     }
@@ -1122,7 +1194,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                             <div className="flex items-center justify-between mb-2 px-2">
                                 <span className="text-sm font-medium">Temporäres Passwort</span>
-                                <button 
+                                <button
                                     type="button"
                                     onClick={() => setIsTempPassword(!isTempPassword)}
                                     className={`w-12 h-6 rounded-full transition-colors relative ${isTempPassword ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}

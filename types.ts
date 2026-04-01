@@ -68,6 +68,16 @@ export interface AppNotification {
   authorId?: string;
 }
 
+export interface AppSettings {
+  id: string;
+  maintenance_mode: boolean;
+  maintenance_start?: string | null;
+  maintenance_end?: string | null;
+  disabled_tabs?: Record<string, boolean>;
+  global_easter_enabled?: boolean;
+  global_liquid_glass_enabled?: boolean;
+}
+
 export interface ShoppingItem {
   id: string;
   name: string;
@@ -166,6 +176,7 @@ export interface HourlyForecast {
   time: string[];
   temperature_2m: number[];
   weather_code: number[];
+  precipitation_probability?: number[];
 }
 
 export interface WeatherData {
@@ -194,6 +205,7 @@ export interface WeatherData {
     time: string[];
     temperature_2m: number[];
     weather_code: number[];
+    precipitation_probability?: number[];
   }
 }
 

@@ -238,7 +238,11 @@ const Dashboard: React.FC<DashboardProps> = ({
            </div>
            <div className="space-y-4">
               {sortedEvents.length > 0 ? sortedEvents.map(event => (
-                <div key={event.id} className="p-5 rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center border-l-8 border-l-blue-500">
+                <button
+                  key={event.id}
+                  onClick={() => onNavigate(AppRoute.CALENDAR)}
+                  className="w-full text-left p-5 rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center border-l-8 border-l-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-[0.99]"
+                >
                    <div className="flex-1">
                       <h4 className="font-bold text-slate-800 dark:text-white text-lg">{event.title}</h4>
                       <div className="flex items-center text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">
@@ -246,7 +250,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                    </div>
                    <ArrowRight className="text-slate-200" size={18}/>
-                </div>
+                </button>
               )) : (
                 <div className="py-12 flex flex-col items-center justify-center space-y-3 opacity-40">
                    <Calendar size={48} strokeWidth={1} className="text-slate-400" />

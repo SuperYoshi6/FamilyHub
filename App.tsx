@@ -54,8 +54,18 @@ const hashCode = (str: string): number => {
 };
 
 // --- APP VERSION CONFIGURATION ---
-const CURRENT_APP_VERSION = "1.0.0 (4.4.6)";
+const CURRENT_APP_VERSION = "1.0.0";
+const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
 const POLLING_INTERVAL = 30000;
+const DEFAULT_APP_SETTINGS = {
+  id: 'global',
+  maintenance_mode: false,
+  maintenance_start: null,
+  maintenance_end: null,
+  disabled_tabs: {},
+  global_easter_enabled: true,
+  global_liquid_glass_enabled: true,
+};
 
 const App: React.FC = () => {
   // --- 1. Global State Hooks ---
@@ -80,6 +90,17 @@ const App: React.FC = () => {
   const [liquidGlass, setLiquidGlass] = useLocalSetting<boolean>('fh_liquidglass', true);
   const [globalEasterEnabled, setGlobalEasterEnabled] = useLocalSetting<boolean>('fh_global_easter_enabled', true);
   const [globalLiquidGlassEnabled, setGlobalLiquidGlassEnabled] = useLocalSetting<boolean>('fh_global_liquidglass_enabled', true);
+  const [maintenanceMode, setMaintenanceMode] = useLocalSetting<boolean>('fh_maintenance_mode', false);
+  const [maintenanceStart, setMaintenanceStart] = useLocalSetting<string>('fh_maintenance_start', '');
+  const [maintenanceEnd, setMaintenanceEnd] = useLocalSetting<string>('fh_maintenance_end', '');
+  const [nowTs, setNowTs] = useState(Date.now());
+  const [disabledTabs, setDisabledTabs] = useLocalSetting<Record<string, boolean>>('fh_disabled_tabs', {
+    [AppRoute.WEATHER]: false,
+    [AppRoute.CALENDAR]: false,
+    [AppRoute.MEALS]: false,
+    [AppRoute.LISTS]: false,
+    [AppRoute.ACTIVITIES]: false,
+  });
   const language: Language = 'de';
   const [currentUser, setCurrentUser] = useState<FamilyMember | null>(null);
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(() => {
@@ -105,10 +126,17 @@ const App: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [showSecurityScreen, setShowSecurityScreen] = useState(false);
+  const [showPasswordResetScreen, setShowPasswordResetScreen] = useState(false);
+  const [resetPasswordInput, setResetPasswordInput] = useState('');
+  const [resetPasswordConfirm, setResetPasswordConfirm] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState('');
 
   // --- 3. Refs ---
   const processedNotificationsRef = useRef<Set<string>>(new Set());
   const lastPollTimeRef = useRef<number>(Date.now());
+  const swipeStartX = useRef<number | null>(null);
+  const swipeStartY = useRef<number | null>(null);
 
   // --- 4. Helper Logic (Non-Conditional) ---
   const regularFamily = family.filter(f => f.role !== 'admin');
@@ -118,6 +146,27 @@ const App: React.FC = () => {
   const allowLiquidGlassForUser = currentUser ? (currentUser.role === 'admin' || globalLiquidGlassEnabled) : globalLiquidGlassEnabled;
   const effectiveEasterMode = allowEasterForUser ? easterMode : false;
   const effectiveLiquidGlass = allowLiquidGlassForUser ? liquidGlass : false;
+  const tabOrder: AppRoute[] = [AppRoute.DASHBOARD, AppRoute.WEATHER, AppRoute.CALENDAR, AppRoute.MEALS, AppRoute.LISTS];
+  const isTabClosedForUser = (route: AppRoute) => {
+    if (!currentUser || currentUser.role === 'admin') return false;
+    return !!disabledTabs[route];
+  };
+  const formatCountdown = (target: string) => {
+    if (!target) return null;
+    const ms = new Date(target).getTime() - nowTs;
+    if (Number.isNaN(ms) || ms <= 0) return null;
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${h}h ${m}m ${s}s`;
+  };
+  const maintenanceActive = () => {
+    if (!maintenanceMode) return false;
+    const startOk = !maintenanceStart || nowTs >= new Date(maintenanceStart).getTime();
+    const endOk = !maintenanceEnd || nowTs <= new Date(maintenanceEnd).getTime();
+    return startOk && endOk;
+  };
 
   const shouldFireNotification = (title: string, message: string) => {
     const key = `${title}:${message}`;
@@ -184,16 +233,27 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadAll = async () => {
       try {
-        const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData] = await Promise.all([
+        const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData, appSettings] = await Promise.all([
           Backend.family.getAll(), Backend.events.getAll(), Backend.news.getAll(), Backend.shopping.getAll(),
           Backend.householdTasks.getAll(), Backend.personalTasks.getAll(), Backend.mealPlan.getAll(),
           Backend.mealRequests.getAll(), Backend.weatherFavorites.getAll(), Backend.recipes.getAll(),
-          Backend.feedback.getAll(), Backend.polls.getAll()
+          Backend.feedback.getAll(), Backend.polls.getAll(), Backend.appSettings.getAll()
         ]);
         setFamily(fam); setEvents(ev); setNews(newsData); setShoppingList(shop);
         setHouseholdTasks(house); setPersonalTasks(pers); setMealPlan(meals);
         setMealRequests(reqs); setWeatherFavorites(weath); setRecipes(rec);
         setFeedbacks(fbs); setPolls(pollsData);
+        const settingsRow = appSettings && appSettings.length > 0 ? appSettings[0] : null;
+        if (settingsRow) {
+          setMaintenanceMode(!!settingsRow.maintenance_mode);
+          setMaintenanceStart(settingsRow.maintenance_start || '');
+          setMaintenanceEnd(settingsRow.maintenance_end || '');
+          setDisabledTabs(settingsRow.disabled_tabs || {});
+          if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
+          if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
+        } else {
+          await Backend.appSettings.add(DEFAULT_APP_SETTINGS as any);
+        }
       } finally { setLoadingData(false); }
     };
     loadAll();
@@ -226,6 +286,40 @@ const App: React.FC = () => {
       setShowSecurityScreen(true);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser?.mustChangePassword) {
+      setShowPasswordResetScreen(true);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!maintenanceMode) return;
+    const timer = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [maintenanceMode]);
+
+  useEffect(() => {
+    if (!maintenanceMode || !maintenanceEnd) return;
+    const endMs = new Date(maintenanceEnd).getTime();
+    if (!Number.isNaN(endMs) && nowTs > endMs) {
+      setMaintenanceMode(false);
+    }
+  }, [maintenanceMode, maintenanceEnd, nowTs]);
+
+  useEffect(() => {
+    if (loadingData) return;
+    const payload = {
+      id: 'global',
+      maintenance_mode: maintenanceMode,
+      maintenance_start: maintenanceStart || null,
+      maintenance_end: maintenanceEnd || null,
+      disabled_tabs: disabledTabs || {},
+      global_easter_enabled: globalEasterEnabled,
+      global_liquid_glass_enabled: globalLiquidGlassEnabled,
+    };
+    Backend.appSettings.update('global', payload as any);
+  }, [loadingData, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -286,9 +380,22 @@ const App: React.FC = () => {
   const addFamilyMember = async (m: FamilyMember) => { setFamily(p => [...p, m]); await Backend.family.add(m); };
   const deleteUser = async (id: string) => { setFamily(p => p.filter(x => x.id !== id)); await Backend.family.delete(id); };
   const deleteNews = async (id: string) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); };
-  const resetMemberPassword = async (id: string) => {
-    await Backend.family.update(id, { password: '', mustChangePassword: true, mustShowSecurityScreen: true });
-    setFamily(p => p.map(m => m.id === id ? { ...m, password: '', mustChangePassword: true, mustShowSecurityScreen: true } : m));
+  const resetMemberPassword = async (member: FamilyMember) => {
+    await Backend.family.update(member.id, { mustChangePassword: true });
+    setFamily(p => p.map(m => m.id === member.id ? { ...m, mustChangePassword: true } : m));
+    if (currentUser?.role === 'admin') {
+      const logItem: NewsItem = {
+        id: Date.now().toString(),
+        title: 'Passwort-Reset aktiviert',
+        description: `Reset für ${member.name} wurde aktiviert.`,
+        tag: `PRIVATE:${currentUser.id}`,
+        createdAt: new Date().toISOString(),
+        authorId: currentUser.id,
+        readBy: [],
+      };
+      setNews(p => [logItem, ...p]);
+      await Backend.news.add(logItem);
+    }
   };
   const markNewsRead = async (id: string) => { const n = news.find(x => x.id === id); if (n && currentUser) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? {...x, readBy: readers} : x)); await Backend.news.update(id, {readBy: readers}); } };
   const sendAdminBroadcast = async (title: string, msg: string) => { await addNotification(title, msg); };
@@ -303,35 +410,39 @@ const App: React.FC = () => {
     setCurrentUser(prev => prev ? { ...prev, mustShowSecurityScreen: false } : prev);
     setShowSecurityScreen(false);
   };
+  const handlePasswordResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    const nextPass = resetPasswordInput.trim();
+    if (nextPass.length < 4) {
+      setResetPasswordError('Passwort muss mindestens 4 Zeichen lang sein');
+      return;
+    }
+    if (nextPass !== resetPasswordConfirm.trim()) {
+      setResetPasswordError('Passwörter stimmen nicht überein');
+      return;
+    }
+    await Backend.family.update(currentUser.id, { password: nextPass, mustChangePassword: false, mustShowSecurityScreen: false });
+    setFamily(p => p.map(m => m.id === currentUser.id ? { ...m, password: nextPass, mustChangePassword: false, mustShowSecurityScreen: false } : m));
+    setCurrentUser(prev => prev ? { ...prev, password: nextPass, mustChangePassword: false, mustShowSecurityScreen: false } : prev);
+    setResetPasswordInput('');
+    setResetPasswordConfirm('');
+    setResetPasswordError('');
+    setShowPasswordResetScreen(false);
+  };
 
   const handleLogoClick = () => { if (logoClickCount + 1 >= 5) { setShowAdminLogin(true); setLogoClickCount(0); } else setLogoClickCount(p => p+1); };
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginUser || !passwordInput.trim()) return;
 
-    if (loginStep === 'set-pass' || loginUser.mustChangePassword) {
-      const newPassword = passwordInput.trim();
-      if (newPassword.length < 4) {
-        setLoginError('Passwort muss mindestens 4 Zeichen lang sein');
-        return;
-      }
-
-      // Update family member password and deprecate forced reset flag
-      await Backend.family.update(loginUser.id, { password: newPassword, mustChangePassword: false });
-      const updatedUser = { ...loginUser, password: newPassword, mustChangePassword: false };
-      setCurrentUser(updatedUser);
-      setFamily((prev) => prev.map((f) => (f.id === updatedUser.id ? updatedUser : f)));
-      localStorage.setItem('fh_session_user', updatedUser.id);
-      setLoginError('');
-      setLoginStep('enter-pass');
-      setPasswordInput('');
-      return;
-    }
-
     if (passwordInput === loginUser.password) {
       setCurrentUser(loginUser);
       localStorage.setItem('fh_session_user', loginUser.id);
       setLoginError('');
+      if (loginUser.mustChangePassword) {
+        setShowPasswordResetScreen(true);
+      }
     } else {
       setLoginError(t('login.wrong_pass', language));
     }
@@ -349,14 +460,42 @@ const App: React.FC = () => {
     setLoginUser(member);
     setPasswordInput('');
     setLoginError('');
-    if (member.mustChangePassword) {
-      setLoginStep('set-pass');
-      setLoginError('Admin verlangt Passwortänderung. Bitte neues Passwort setzen.');
-    } else {
-      setLoginStep(member.password ? 'enter-pass' : 'set-pass');
-    }
+    setLoginStep('enter-pass');
   };
   const handleLogout = () => { localStorage.removeItem('fh_session_user'); setCurrentUser(null); setCurrentRoute(AppRoute.DASHBOARD); setLoginStep('select'); setLoginUser(null); };
+
+  const getNextSwipeRoute = (direction: 1 | -1) => {
+    const currentIndex = tabOrder.indexOf(currentRoute);
+    if (currentIndex === -1) return currentRoute;
+    for (let i = 1; i <= tabOrder.length; i++) {
+      const idx = (currentIndex + direction * i + tabOrder.length) % tabOrder.length;
+      const candidate = tabOrder[idx];
+      if (!isTabClosedForUser(candidate)) return candidate;
+    }
+    return currentRoute;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!enableSwipe) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('input, textarea, select, button')) return;
+    const t = e.touches[0];
+    swipeStartX.current = t.clientX;
+    swipeStartY.current = t.clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!enableSwipe) return;
+    if (swipeStartX.current === null || swipeStartY.current === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swipeStartX.current;
+    const dy = t.clientY - swipeStartY.current;
+    swipeStartX.current = null;
+    swipeStartY.current = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
+    const nextRoute = dx < 0 ? getNextSwipeRoute(1) : getNextSwipeRoute(-1);
+    if (nextRoute !== currentRoute) setCurrentRoute(nextRoute);
+  };
 
   const toggleWeatherFavorite = async (loc: SavedLocation) => {
     if (!currentUser) return;
@@ -464,8 +603,8 @@ const App: React.FC = () => {
             <div className="bg-red-900 w-full max-w-sm rounded-3xl p-8 relative border border-red-400 shadow-2xl">
               <div className="text-center mb-4">
                 <ShieldAlert size={36} className="text-yellow-300 mx-auto" />
-                <h2 className="text-xl font-black text-white mt-2">SYSTEMÜBERSCHREITUNG</h2>
-                <p className="text-xs text-red-200 mt-1">Admin-Modus aktiviert. Bitte Admin-Passwort eingeben.</p>
+                <h2 className="text-lg font-black text-white mt-2 leading-tight">SYSTEMÜBERSCHREITUNG</h2>
+                <p className="text-[11px] text-red-200 mt-1 leading-snug">Admin-Modus aktiviert. Bitte Admin-Passwort eingeben.</p>
               </div>
               <form onSubmit={handleAdminLoginSubmit}>
                 <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 text-center text-white outline-none" />
@@ -477,6 +616,45 @@ const App: React.FC = () => {
         )}
       </div>
     );
+
+    if (currentUser && currentUser.role !== 'admin' && maintenanceActive()) {
+      const countdown = formatCountdown(maintenanceEnd);
+      return (
+        <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
+            Wartungsarbeiten
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">Wir sind kurz offline</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-2">Der Admin führt Wartungsarbeiten durch. Bitte warte oder lade das Update.</p>
+          {countdown && (
+            <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-4">Endet in {countdown}</div>
+          )}
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button onClick={() => window.open(APK_DOWNLOAD_LINK, '_blank')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition">
+              Update herunterladen
+            </button>
+            <button onClick={handleLogout} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold px-6 py-3 rounded-2xl shadow-sm transition">
+              Abmelden
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (currentUser && isTabClosedForUser(currentRoute)) {
+      return (
+        <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
+          <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
+            Hinweis
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">Der Admin hat diesen Tab vorübergehend geschlossen</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">Bitte versuche es später erneut oder wechsle zurück zum Dashboard.</p>
+          <button onClick={() => setCurrentRoute(AppRoute.DASHBOARD)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition">
+            Zum Dashboard
+          </button>
+        </div>
+      );
+    }
 
     let PageComponent;
     switch (currentRoute) {
@@ -496,18 +674,18 @@ const App: React.FC = () => {
         PageComponent = <ActivitiesPage feedbacks={feedbacks} polls={polls} family={family} currentUser={currentUser} onNavigate={setCurrentRoute} onUpdateFeedbacks={setFeedbacks} onUpdatePolls={setPolls} lang={language} />;
         break;
       case AppRoute.SETTINGS:
-        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={setCurrentUser} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} easterMode={easterMode} onToggleEasterMode={() => setEasterMode(!easterMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} lang={language} setLang={() => {}} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} />;
+        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} easterMode={easterMode} onToggleEasterMode={() => setEasterMode(!easterMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => setMaintenanceMode(!maintenanceMode)} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => {}} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} />;
         break;
       default:
         PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} />;
     }
 
     return (
-      <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
+      <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {renderEasterDecorations()}
         <main className="flex-1 overflow-y-auto no-scrollbar relative">{PageComponent}</main>
         <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${currentRoute === AppRoute.WEATHER ? (effectiveLiquidGlass ? 'bg-black/20 backdrop-blur-xl' : 'bg-slate-900') : (effectiveLiquidGlass ? 'bg-white/80 dark:bg-slate-900/90 backdrop-blur-md' : 'bg-white dark:bg-slate-900')}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} easterMode={effectiveEasterMode} liquidGlass={effectiveLiquidGlass} />
+          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} easterMode={effectiveEasterMode} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} />
         </div>
         {showSecurityScreen && currentUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -519,6 +697,54 @@ const App: React.FC = () => {
               <button onClick={acknowledgeSecurityScreen} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl shadow-lg transition">
                 Verstanden
               </button>
+            </div>
+          </div>
+        )}
+        {showPasswordResetScreen && currentUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-gray-800 text-center">
+              <div className="text-blue-600 dark:text-blue-400 font-extrabold text-lg mb-2">Sicherheit geht vor</div>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                Bitte setze jetzt ein neues Passwort.
+              </p>
+              <form onSubmit={handlePasswordResetSubmit} className="space-y-3">
+                <div className="relative">
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
+                    value={resetPasswordInput}
+                    onChange={(e) => { setResetPasswordInput(e.target.value); setResetPasswordError(''); }}
+                    placeholder="Neues Passwort"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-center text-base outline-none dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
+                    value={resetPasswordConfirm}
+                    onChange={(e) => { setResetPasswordConfirm(e.target.value); setResetPasswordError(''); }}
+                    placeholder="Passwort bestätigen"
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-center text-base outline-none dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {resetPasswordError && <p className="text-red-500 text-xs font-bold">{resetPasswordError}</p>}
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl shadow-lg transition">
+                  Passwort speichern
+                </button>
+              </form>
             </div>
           </div>
         )}

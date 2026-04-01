@@ -374,16 +374,23 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
 
     // --- Helper Components ---
 
-    const SectionHeader = ({ title, index, onClick }: { title: string, index: number, onClick: () => void }) => {
+    const SectionHeader = ({ title, note, index, onClick }: { title: string, note?: string, index: number, onClick: () => void }) => {
         const isSelected = selectedSwapSectionIndex === index;
         return (
             <div
                 onClick={onClick}
                 className={`flex justify-between items-center mb-3 px-3 py-1.5 cursor-pointer transition-all rounded-lg select-none ${isSelected ? 'bg-white/20 ring-1 ring-white/50' : 'hover:bg-white/10 group'}`}
             >
-                <h3 className={`text-left text-xs font-bold uppercase tracking-wider flex items-center drop-shadow-sm ${sectionTitleClass}`}>
-                    {title}
-                </h3>
+                <div className="flex items-center gap-2">
+                    <h3 className={`text-left text-xs font-bold uppercase tracking-wider flex items-center drop-shadow-sm ${sectionTitleClass}`}>
+                        {title}
+                    </h3>
+                    {note && (
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-blue-200/80">
+                            {note}
+                        </span>
+                    )}
+                </div>
                 {isSelected ? (
                     <div className="flex items-center space-x-1 animate-pulse">
                         <span className="text-[10px] font-bold text-yellow-300 uppercase">Verschieben...</span>
@@ -404,9 +411,10 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         const hourlySlice = data.hourly.time.slice(currentHourIndex, currentHourIndex + 25);
         const tempSlice = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 25);
         const codeSlice = data.hourly.weather_code.slice(currentHourIndex, currentHourIndex + 25);
+        const rainSlice = (data.hourly.precipitation_probability || []).slice(currentHourIndex, currentHourIndex + 25);
 
         return (
-            <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? (liquidGlass ? 'animate-wobble' : 'scale-[0.98] opacity-80') : ''}`}>
+            <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
                 <SectionHeader title="Stündlich" index={index} onClick={() => handleSectionClick(index)} />
                 <div className={`${glassClass} rounded-3xl p-5 shadow-sm`}>
                     <div className="flex overflow-x-auto gap-6 pb-2 scrollbar-hide">
@@ -419,6 +427,9 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                                     <span className="text-xs font-medium opacity-80 whitespace-nowrap">{isNow ? 'Jetzt' : `${hour}:00`}</span>
                                     {getSmallWeatherIcon(codeSlice[i] || 0)}
                                     <span className="font-bold text-lg">{Math.round(tempSlice[i] || 0)}°</span>
+                                    <span className="text-[10px] font-semibold text-blue-200/80 flex items-center gap-1">
+                                        <Umbrella size={10} /> {rainSlice[i] ?? 0}%
+                                    </span>
                                 </div>
                             )
                         })}
@@ -429,12 +440,13 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     };
 
     const renderDaily = (index: number) => (
-        <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? (liquidGlass ? 'animate-wobble' : 'scale-[0.98] opacity-80') : ''}`}>
-            <SectionHeader title="7-Tage Trend" index={index} onClick={() => handleSectionClick(index)} />
+        <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
+            <SectionHeader title="7-Tage Trend" note="Regenwahrscheinlichkeit" index={index} onClick={() => handleSectionClick(index)} />
             <div className={`${glassClass} rounded-3xl p-5 space-y-4 shadow-sm`}>
-                {data?.daily.time.map((dayStr, i) => {
-                    const min = Math.round(data.daily.temperature_2m_min[i]);
-                    const max = Math.round(data.daily.temperature_2m_max[i]);
+                    {data?.daily.time.map((dayStr, i) => {
+                        const min = Math.round(data.daily.temperature_2m_min[i]);
+                        const max = Math.round(data.daily.temperature_2m_max[i]);
+                        const rainChance = data.daily.precipitation_probability_max ? Math.round(data.daily.precipitation_probability_max[i] || 0) : null;
                     const rangeMin = -5;
                     const rangeMax = 35;
                     const totalRange = rangeMax - rangeMin;
@@ -461,6 +473,11 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                                 </div>
                                 <span className="w-6 text-left font-bold text-xs">{max}°</span>
                             </div>
+                            {rainChance !== null && (
+                                <div className="w-16 text-right text-[10px] font-bold text-blue-200/90 flex items-center justify-end gap-1">
+                                    <Umbrella size={11} /> {rainChance}%
+                                </div>
+                            )}
                         </div>
                     );
                 })}
@@ -508,7 +525,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     };
 
     const renderDetails = (index: number) => (
-        <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? (liquidGlass ? 'animate-wobble' : 'scale-[0.98] opacity-80') : ''}`}>
+        <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
             <SectionHeader title="Details" index={index} onClick={() => handleSectionClick(index)} />
             <div className="grid grid-cols-2 gap-3 w-full">
                 {metrics.map((metric, idx) => {
@@ -531,7 +548,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                               ${glassClass} 
                               p-4 rounded-3xl flex flex-col items-start 
                               relative overflow-hidden cursor-pointer transition-all active:scale-95 select-none
-                              ${isSelected ? (liquidGlass ? 'animate-wobble ring-2 ring-yellow-400' : 'ring-2 ring-yellow-400 shadow-lg scale-[0.98]') : 'hover:bg-white/5'}
+                              ${isSelected ? (liquidGlass ? 'ring-2 ring-yellow-400 shadow-lg scale-[0.98]' : 'ring-2 ring-yellow-400 shadow-lg scale-[0.98]') : 'hover:bg-white/5'}
                           `}
                         >
                             <div className="flex justify-between w-full mb-3">
@@ -693,4 +710,6 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     );
 };
 
-export default WeatherPage;
+export default React.memo(WeatherPage);
+
+
