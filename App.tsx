@@ -137,6 +137,7 @@ const App: React.FC = () => {
   const lastPollTimeRef = useRef<number>(Date.now());
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
+  const isApplyingFromSupabase = useRef(false);
 
   // --- 4. Helper Logic (Non-Conditional) ---
   const regularFamily = family.filter(f => f.role !== 'admin');
@@ -308,7 +309,7 @@ const App: React.FC = () => {
   }, [maintenanceMode, maintenanceEnd, nowTs]);
 
   useEffect(() => {
-    if (loadingData) return;
+    if (loadingData || isApplyingFromSupabase.current) return;
     const payload = {
       id: 'global',
       maintenance_mode: maintenanceMode,
@@ -323,12 +324,14 @@ const App: React.FC = () => {
 
   const applyAppSettings = (settingsRow: any) => {
     if (!settingsRow) return;
+    isApplyingFromSupabase.current = true;
     setMaintenanceMode(!!settingsRow.maintenance_mode);
     setMaintenanceStart(settingsRow.maintenance_start || '');
     setMaintenanceEnd(settingsRow.maintenance_end || '');
     setDisabledTabs(settingsRow.disabled_tabs || {});
     if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
     if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
+    setTimeout(() => { isApplyingFromSupabase.current = false; }, 200);
   };
 
   useEffect(() => {
@@ -414,7 +417,23 @@ const App: React.FC = () => {
   const addFeedback = async (f: FeedbackItem) => { setFeedbacks(p => [...p, f]); await Backend.feedback.add(f); };
   const markFeedbacksRead = async (ids: string[]) => { setFeedbacks(p => p.map(f => ids.includes(f.id) ? {...f, read: true} : f)); for(const id of ids) await Backend.feedback.update(id, {read: true}); };
   const addNews = async (n: NewsItem) => { setNews(p => [n, ...p]); await Backend.news.add(n); };
-  const addFamilyMember = async (m: FamilyMember) => { setFamily(p => [...p, m]); await Backend.family.add(m); };
+  const addFamilyMember = async (name: string, role: 'parent' | 'child', mustChangePassword?: boolean, password?: string): Promise<FamilyMember | null> => {
+    const colorOptions = ['bg-red-100 text-red-700', 'bg-orange-100 text-orange-700', 'bg-green-100 text-green-700', 'bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700', 'bg-pink-100 text-pink-700', 'bg-teal-100 text-teal-700', 'bg-indigo-100 text-indigo-700'];
+    const color = colorOptions[Math.floor(Math.random() * colorOptions.length)];
+    const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&bold=true`;
+    const newMember: FamilyMember = {
+      id: Date.now().toString(),
+      name,
+      avatar,
+      color,
+      role,
+      password: password || undefined,
+      mustChangePassword: mustChangePassword || false,
+    };
+    setFamily(p => [...p, newMember]);
+    await Backend.family.add(newMember);
+    return newMember;
+  };
   const deleteUser = async (id: string) => { setFamily(p => p.filter(x => x.id !== id)); await Backend.family.delete(id); };
   const deleteNews = async (id: string) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); };
   const resetMemberPassword = async (member: FamilyMember) => {

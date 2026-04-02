@@ -54,8 +54,11 @@ const getBigWeatherIcon = (code: number, isDay: number = 1) => {
     return <Sun size={80} className="text-yellow-400" />;
 };
 
-const getSmallWeatherIcon = (code: number) => {
-    if (code === 0) return <Sun size={20} className="text-yellow-400" />;
+const getSmallWeatherIcon = (code: number, isDay: number = 1) => {
+    if (code === 0) {
+        if (!isDay) return <Moon size={20} className="text-blue-200" />;
+        return <Sun size={20} className="text-yellow-400" />;
+    }
     if (code >= 1 && code <= 3) return <Cloud size={20} className="text-gray-400" />;
     if (code >= 45 && code <= 48) return <CloudFog size={20} className="text-gray-400" />;
     if (code >= 51 && code <= 67) return <CloudRain size={20} className="text-blue-400" />;
@@ -413,6 +416,18 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         const codeSlice = data.hourly.weather_code.slice(currentHourIndex, currentHourIndex + 25);
         const rainSlice = (data.hourly.precipitation_probability || []).slice(currentHourIndex, currentHourIndex + 25);
 
+        const sunrise0 = data.daily.sunrise?.[0] ? new Date(data.daily.sunrise[0]).getTime() : 0;
+        const sunset0 = data.daily.sunset?.[0] ? new Date(data.daily.sunset[0]).getTime() : 0;
+        const sunrise1 = data.daily.sunrise?.[1] ? new Date(data.daily.sunrise[1]).getTime() : 0;
+        const sunset1 = data.daily.sunset?.[1] ? new Date(data.daily.sunset[1]).getTime() : 0;
+
+        const getHourIsDay = (timeStr: string): number => {
+            const ts = new Date(timeStr).getTime();
+            if (sunrise0 && sunset0 && ts >= sunrise0 && ts <= sunset0) return 1;
+            if (sunrise1 && sunset1 && ts >= sunrise1 && ts <= sunset1) return 1;
+            return 0;
+        };
+
         return (
             <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
                 <SectionHeader title="Stündlich" index={index} onClick={() => handleSectionClick(index)} />
@@ -422,10 +437,11 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                             const date = new Date(t);
                             const hour = date.getHours();
                             const isNow = i === 0;
+                            const hourIsDay = getHourIsDay(t);
                             return (
                                 <div key={i} className="flex flex-col items-center space-y-3 min-w-[3rem]">
                                     <span className="text-xs font-medium opacity-80 whitespace-nowrap">{isNow ? 'Jetzt' : `${hour}:00`}</span>
-                                    {getSmallWeatherIcon(codeSlice[i] || 0)}
+                                    {getSmallWeatherIcon(codeSlice[i] || 0, hourIsDay)}
                                     <span className="font-bold text-lg">{Math.round(tempSlice[i] || 0)}°</span>
                                     <span className="text-[10px] font-semibold text-blue-200/80 flex items-center gap-1">
                                         <Umbrella size={10} /> {rainSlice[i] ?? 0}%
@@ -441,12 +457,11 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
 
     const renderDaily = (index: number) => (
         <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
-            <SectionHeader title="7-Tage Trend" note="Regenwahrscheinlichkeit" index={index} onClick={() => handleSectionClick(index)} />
+            <SectionHeader title="7-Tage Trend" index={index} onClick={() => handleSectionClick(index)} />
             <div className={`${glassClass} rounded-3xl p-5 space-y-4 shadow-sm`}>
                     {data?.daily.time.map((dayStr, i) => {
                         const min = Math.round(data.daily.temperature_2m_min[i]);
                         const max = Math.round(data.daily.temperature_2m_max[i]);
-                        const rainChance = data.daily.precipitation_probability_max ? Math.round(data.daily.precipitation_probability_max[i] || 0) : null;
                     const rangeMin = -5;
                     const rangeMax = 35;
                     const totalRange = rangeMax - rangeMin;
@@ -473,11 +488,6 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                                 </div>
                                 <span className="w-6 text-left font-bold text-xs">{max}°</span>
                             </div>
-                            {rainChance !== null && (
-                                <div className="w-16 text-right text-[10px] font-bold text-blue-200/90 flex items-center justify-end gap-1">
-                                    <Umbrella size={11} /> {rainChance}%
-                                </div>
-                            )}
                         </div>
                     );
                 })}

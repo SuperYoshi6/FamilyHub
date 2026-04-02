@@ -83,7 +83,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification
 }) => {
     const [name, setName] = useState(currentUser.name);
-    const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar);
+    const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e293b&color=fff&bold=true`);
     const [selectedColor, setSelectedColor] = useState(currentUser.color);
     const [generatingAvatar, setGeneratingAvatar] = useState(false);
     const [showUrlInput, setShowUrlInput] = useState(false);
@@ -399,7 +399,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         <Loader2 className="animate-spin text-blue-500" size={32} />
                                     </div>
                                 ) : (
-                                    <img src={avatarBroken ? 'https://ui-avatars.com/api/?name=FamilyHub&background=000&color=fff' : avatarUrl} alt="Profil" className="w-full h-full object-cover" onError={() => setAvatarBroken(true)} />
+                                    <img src={avatarBroken ? `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1e293b&color=fff&bold=true` : (avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=1e293b&color=fff&bold=true`)} alt="Profil" className="w-full h-full object-cover" onError={() => setAvatarBroken(true)} />
                                 )}
                             </div>
                         </div>
