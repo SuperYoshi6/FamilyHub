@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FamilyMember, FeedbackItem, NewsItem, AppRoute } from '../types';
-import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, Edit, Bell, Lock, Database, Download, Activity, Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Home, Eye, EyeOff, Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
 import Logo from '../components/Logo';
@@ -478,18 +478,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             </div>
                         </button>
 
-                        {/* Landing Page Link */}
-                        <button onClick={() => onNavigate ? onNavigate(AppRoute.LANDING) : window.location.href = '/install'} className="flex items-center justify-between w-full py-2 group">
-                            <div className="flex items-center space-x-3">
-                                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600 dark:text-blue-400">
-                                    <Home size={20} />
-                                </div>
-                                <span className="font-bold text-gray-800 dark:text-white">Landing Page / Installation</span>
-                            </div>
-                            <ChevronRight size={20} className="text-gray-400 group-hover:text-blue-500 transition" />
-                        </button>
-
-                        <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
 
                         {/* 2. Dark Mode */}
                         <div className="flex items-center justify-between py-2">
