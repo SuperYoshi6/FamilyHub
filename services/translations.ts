@@ -1,5 +1,5 @@
 
-import { AppRoute } from "../types";
+
 
 export type Language = 'de' | 'en';
 
@@ -83,6 +83,12 @@ const translations = {
     },
     header: {
       logged_in_as: 'Angemeldet als',
+    },
+    maintenance: {
+      title: 'Wartungsarbeiten',
+      description: 'Die App wird gerade aktualisiert. Bitte versuche es später erneut.',
+      download_update: 'Update herunterladen',
+      active_error: 'Wartungsmodus aktiv. Login nur für Administratoren.',
     }
   },
   en: {
@@ -153,6 +159,12 @@ const translations = {
     },
     header: {
       logged_in_as: 'Signed in as',
+    },
+    maintenance: {
+      title: 'Maintenance',
+      description: 'The app is currently being updated. Please try again later.',
+      download_update: 'Download Update',
+      active_error: 'Maintenance mode active. Login only for administrators.',
     }
   }
 };

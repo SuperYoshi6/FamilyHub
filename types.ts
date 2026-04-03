@@ -180,6 +180,8 @@ export interface HourlyForecast {
 }
 
 export interface WeatherData {
+  utc_offset_seconds: number;
+  timezone: string;
   current: {
     temperature_2m: number;
     wind_speed_10m: number;

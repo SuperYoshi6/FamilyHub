@@ -56,6 +56,7 @@ const hashCode = (str: string): number => {
 // --- APP VERSION CONFIGURATION ---
 const CURRENT_APP_VERSION = "1.0.0";
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
+const EXE_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub-setup.exe";
 const POLLING_INTERVAL = 30000;
 const DEFAULT_APP_SETTINGS = {
   id: 'global',
@@ -65,6 +66,14 @@ const DEFAULT_APP_SETTINGS = {
   disabled_tabs: {},
   global_easter_enabled: true,
   global_liquid_glass_enabled: true,
+};
+
+const formatForDateTimeLocal = (isoString: string | null) => {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return isoString.slice(0, 16);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
 const App: React.FC = () => {
@@ -137,7 +146,7 @@ const App: React.FC = () => {
   const lastPollTimeRef = useRef<number>(Date.now());
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
-  const isApplyingFromSupabase = useRef(false);
+  const lastSentPayloadRef = useRef<string>('');
 
   // --- 4. Helper Logic (Non-Conditional) ---
   const regularFamily = family.filter(f => f.role !== 'admin');
@@ -164,9 +173,22 @@ const App: React.FC = () => {
   };
   const maintenanceActive = () => {
     if (!maintenanceMode) return false;
-    const startOk = !maintenanceStart || nowTs >= new Date(maintenanceStart).getTime();
-    const endOk = !maintenanceEnd || nowTs <= new Date(maintenanceEnd).getTime();
-    return startOk && endOk;
+    
+    const now = nowTs;
+    
+    // If start time is set, we must be after it
+    if (maintenanceStart && maintenanceStart.trim() !== '') {
+      const startTs = new Date(maintenanceStart).getTime();
+      if (!isNaN(startTs) && now < startTs) return false;
+    }
+
+    // If end time is set, we must be before it
+    if (maintenanceEnd && maintenanceEnd.trim() !== '') {
+      const endTs = new Date(maintenanceEnd).getTime();
+      if (!isNaN(endTs) && now > endTs) return false;
+    }
+
+    return true;
   };
 
   const shouldFireNotification = (title: string, message: string) => {
@@ -309,29 +331,46 @@ const App: React.FC = () => {
   }, [maintenanceMode, maintenanceEnd, nowTs]);
 
   useEffect(() => {
-    if (loadingData || isApplyingFromSupabase.current) return;
+    if (loadingData) return;
+    
+    if (currentUser?.role !== 'admin') {
+      return;
+    }
+
     const payload = {
       id: 'global',
       maintenance_mode: maintenanceMode,
-      maintenance_start: maintenanceStart || null,
-      maintenance_end: maintenanceEnd || null,
+      maintenance_start: maintenanceStart ? new Date(maintenanceStart).toISOString() : null,
+      maintenance_end: maintenanceEnd ? new Date(maintenanceEnd).toISOString() : null,
       disabled_tabs: disabledTabs || {},
       global_easter_enabled: globalEasterEnabled,
       global_liquid_glass_enabled: globalLiquidGlassEnabled,
     };
-    Backend.appSettings.update('global', payload as any);
-  }, [loadingData, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled]);
+    
+    const payloadStr = JSON.stringify(payload);
+    if (payloadStr === lastSentPayloadRef.current) return;
+    lastSentPayloadRef.current = payloadStr;
+    
+    // Use a small timeout to debounce and ensure we don't fire too many requests
+    const timeout = setTimeout(() => {
+      Backend.appSettings.update('global', payload as any);
+    }, 500);
+    
+    return () => clearTimeout(timeout);
+  }, [loadingData, currentUser, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled]);
 
   const applyAppSettings = (settingsRow: any) => {
     if (!settingsRow) return;
-    isApplyingFromSupabase.current = true;
     setMaintenanceMode(!!settingsRow.maintenance_mode);
-    setMaintenanceStart(settingsRow.maintenance_start || '');
-    setMaintenanceEnd(settingsRow.maintenance_end || '');
-    setDisabledTabs(settingsRow.disabled_tabs || {});
+    setMaintenanceStart(formatForDateTimeLocal(settingsRow.maintenance_start));
+    setMaintenanceEnd(formatForDateTimeLocal(settingsRow.maintenance_end));
+    setDisabledTabs(prev => {
+      const next = settingsRow.disabled_tabs || {};
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
+    });
     if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
     if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
-    setTimeout(() => { isApplyingFromSupabase.current = false; }, 200);
   };
 
   useEffect(() => {
@@ -349,7 +388,7 @@ const App: React.FC = () => {
       realtimeChannel = supabase
         .channel('app_settings_changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, (payload: any) => {
-          const row = payload.new || payload.old;
+          const row = (payload.new && payload.new.id) ? payload.new : ((payload.old && payload.old.id) ? payload.old : null);
           if (row) applyAppSettings(row);
         })
         .subscribe();
@@ -492,6 +531,11 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!loginUser || !passwordInput.trim()) return;
 
+    if (maintenanceActive() && loginUser.role !== 'admin') {
+      setLoginError(t('maintenance.active_error', language));
+      return;
+    }
+
     if (passwordInput === loginUser.password) {
       setCurrentUser(loginUser);
       localStorage.setItem('fh_session_user', loginUser.id);
@@ -503,10 +547,16 @@ const App: React.FC = () => {
       setLoginError(t('login.wrong_pass', language));
     }
   };
-  const handleAdminLoginSubmit = (e: React.FormEvent) => {
+  const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminPasswordInput === 'admin005') {
-      const admin = family.find(f => f.role === 'admin') || { id: 'admin_user', name: 'Administrator', role: 'admin' } as FamilyMember;
+      const admin = family.find(f => f.role === 'admin') || { id: 'admin_user', name: 'Administrator', role: 'admin', avatar: 'https://ui-avatars.com/api/?name=Admin&background=ef4444&color=fff&bold=true', color: '#ef4444', password: 'admin' } as FamilyMember;
+      
+      if (!family.find(f => f.id === admin.id)) {
+        await Backend.family.add(admin);
+        setFamily(prev => [...prev, admin]);
+      }
+
       setCurrentUser(admin);
       localStorage.setItem('fh_session_user', admin.id);
       setShowAdminLogin(false);
@@ -597,6 +647,59 @@ const App: React.FC = () => {
 
     if (currentRoute === AppRoute.LANDING) return <LandingPage onNavigate={setCurrentRoute} lang={language} />;
 
+    if (maintenanceActive() && currentUser?.role !== 'admin' && !showAdminLogin) {
+      const countdown = formatCountdown(maintenanceEnd);
+      
+      const getUpdateInfo = () => {
+        const ua = navigator.userAgent.toLowerCase();
+        if (ua.includes('android')) return { link: APK_DOWNLOAD_LINK, label: 'Android Update (.apk)' };
+        if (ua.includes('win')) return { link: EXE_DOWNLOAD_LINK, label: 'Windows Update (.exe)' };
+        if (ua.includes('iphone') || ua.includes('ipad')) return { link: '/', label: 'iOS Update (PWA)' };
+        return { link: APK_DOWNLOAD_LINK, label: t('maintenance.download_update', language) };
+      };
+      const updateInfo = getUpdateInfo();
+
+      return (
+        <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center p-6 text-center relative">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-[30px] shadow-xl mb-6 active:scale-95 transition-transform cursor-pointer" onClick={handleLogoClick}><Logo size={80} /></div>
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
+            {t('maintenance.title', language)}
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">{t('maintenance.title', language)}</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-2">{t('maintenance.description', language)}</p>
+          {countdown && (
+            <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-4">Endet in {countdown}</div>
+          )}
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button onClick={() => window.open(updateInfo.link, '_blank')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition">
+              {updateInfo.label}
+            </button>
+            {currentUser && (
+              <button onClick={handleLogout} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold px-6 py-3 rounded-2xl shadow-sm transition">
+                {t('settings.logout', language)}
+              </button>
+            )}
+          </div>
+          {showAdminLogin && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-red-950/95 backdrop-blur-[4px]">
+              <div className="bg-red-900 w-full max-w-sm rounded-3xl p-8 relative border border-red-400 shadow-2xl">
+                <div className="text-center mb-4">
+                  <ShieldAlert size={36} className="text-yellow-300 mx-auto" />
+                  <h2 className="text-lg font-black text-white mt-2 leading-tight">SYSTEMÜBERSCHREITUNG</h2>
+                  <p className="text-[11px] text-red-200 mt-1 leading-snug">Admin-Modus aktiviert. Bitte Admin-Passwort eingeben.</p>
+                </div>
+                <form onSubmit={handleAdminLoginSubmit}>
+                  <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 text-center text-white outline-none" />
+                  <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl mt-6 uppercase">Zutritt</button>
+                </form>
+                <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-red-100"><X size={20} /></button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (!currentUser) return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex flex-col items-center justify-center p-6 relative">
         <div className="text-center mb-10 flex flex-col items-center">
@@ -605,7 +708,15 @@ const App: React.FC = () => {
           <p className="text-gray-500 dark:text-gray-400 font-medium">{t('login.welcome', language)}</p>
         </div>
         <div className="w-full max-w-md grid grid-cols-2 gap-4">
-          {family.filter(f => f.role !== 'admin').map(member => (
+          {family.filter(f => f.role !== 'admin').sort((a, b) => {
+            const order = ['Mama', 'Papa', 'Tim', 'Jan'];
+            const idxA = order.indexOf(a.name);
+            const idxB = order.indexOf(b.name);
+            if (idxA === -1 && idxB === -1) return a.name.localeCompare(b.name);
+            if (idxA === -1) return 1;
+            if (idxB === -1) return -1;
+            return idxA - idxB;
+          }).map(member => (
             <button key={member.id} onClick={() => handleUserSelect(member)} className="relative bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center hover:scale-105 active:scale-95 transition-all">
               <img src={member.avatar} className="w-16 h-16 rounded-full object-cover mb-3" />
               <span className="font-bold text-gray-800 dark:text-gray-200">{member.name}</span>
@@ -673,30 +784,6 @@ const App: React.FC = () => {
       </div>
     );
 
-    if (currentUser && currentUser.role !== 'admin' && maintenanceActive()) {
-      const countdown = formatCountdown(maintenanceEnd);
-      return (
-        <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
-            Wartungsarbeiten
-          </div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">Wir sind kurz offline</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-2">Der Admin führt Wartungsarbeiten durch. Bitte warte oder lade das Update.</p>
-          {countdown && (
-            <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-4">Endet in {countdown}</div>
-          )}
-          <div className="flex flex-col gap-3 w-full max-w-xs">
-            <button onClick={() => window.open(APK_DOWNLOAD_LINK, '_blank')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition">
-              Update herunterladen
-            </button>
-            <button onClick={handleLogout} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold px-6 py-3 rounded-2xl shadow-sm transition">
-              Abmelden
-            </button>
-          </div>
-        </div>
-      );
-    }
-
     if (currentUser && isTabClosedForUser(currentRoute)) {
       return (
         <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
@@ -730,7 +817,13 @@ const App: React.FC = () => {
         PageComponent = <ActivitiesPage feedbacks={feedbacks} polls={polls} family={family} currentUser={currentUser} onNavigate={setCurrentRoute} onUpdateFeedbacks={setFeedbacks} onUpdatePolls={setPolls} lang={language} />;
         break;
       case AppRoute.SETTINGS:
-        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} easterMode={easterMode} onToggleEasterMode={() => setEasterMode(!easterMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => setMaintenanceMode(!maintenanceMode)} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => {}} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} />;
+        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} easterMode={easterMode} onToggleEasterMode={() => setEasterMode(!easterMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
+  const newVal = !maintenanceMode;
+  setMaintenanceMode(newVal);
+  if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
+    setMaintenanceEnd('');
+  }
+}} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => {}} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onNavigate={setCurrentRoute} />;
         break;
       default:
         PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} />;

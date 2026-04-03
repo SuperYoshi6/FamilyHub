@@ -11,10 +11,12 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
+    "tauri:icons": "tauri icon",
     "cap:sync": "vite build && npx cap sync",
     "cap:open": "npx cap open android",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@capacitor/app": "^6.0.0",

@@ -166,6 +166,11 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
         }
 
+        if (this.table === 'meal_plans') {
+            if ('mealName' in payload) { payload.meal_name = payload.mealName; delete payload.mealName; }
+            if ('recipeHint' in payload) { payload.recipe_hint = payload.recipeHint; delete payload.recipeHint; }
+        }
+
         if (this.table === 'notifications') {
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
@@ -221,6 +226,10 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }
             if ('user_name' in item) { item.userName = item.user_name; delete item.user_name; }
             if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+        }
+        if (this.table === 'meal_plans') {
+            if ('meal_name' in item) { item.mealName = item.meal_name; delete item.meal_name; }
+            if ('recipe_hint' in item) { item.recipeHint = item.recipe_hint; delete item.recipe_hint; }
         }
         if (this.table === 'weather_favs') {
             if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }
@@ -337,8 +346,16 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             try {
                 const payload = this.sanitize(updates);
                 if (Object.keys(payload).length > 0) {
-                    const { error } = await supabase.from(this.table).update(payload).eq('id', id);
-                    if (error) console.error(`[Supabase] Update sync error (${this.table}):`, error.message);
+                    if (this.table === 'app_settings') {
+                        const { error } = await supabase.from(this.table).upsert({ id, ...payload });
+                        if (error) console.error(`[Supabase] Upsert error (${this.table}):`, error.message);
+                    } else {
+                        const { error } = await supabase.from(this.table).update(payload).eq('id', id);
+                        if (error) {
+                            const isNetworkError = error.message === 'Failed to fetch' || error.message?.includes('network');
+                            console.error(`[Supabase] ${isNetworkError ? 'Network' : 'Sync'} error (${this.table}):`, error.message);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error(`[Supabase] Update network error (${this.table}):`, err);

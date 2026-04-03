@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { WeatherMetric, WeatherData, SavedLocation } from '../types';
 import { fetchWeather, getWeatherDescription, searchCity } from '../services/weather';
-import { Sun, CloudRain, Wind, Droplets, Thermometer, MapPinOff, ArrowLeft, Cloud, CloudSnow, CloudLightning, CloudFog, Moon, Umbrella, Calendar, Eye, Gauge, Sunrise, Sunset, Search, MapPin, Loader2, Star, ArrowRightLeft, ArrowUp, ArrowDown, Navigation, GripHorizontal } from 'lucide-react';
+import { Sun, CloudRain, Wind, Droplets, Thermometer, MapPinOff, ArrowLeft, Cloud, CloudSnow, CloudLightning, CloudFog, Moon, Umbrella, Calendar, Eye, Gauge, Sunrise, Sunset, Search, MapPin, Loader2, Star, ArrowRightLeft, ArrowUp, ArrowDown, Navigation, GripHorizontal, Clock } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 
@@ -198,6 +198,29 @@ const WeatherEffects: React.FC<{ code: number; isDay: number }> = ({ code, isDay
             )}
             {isThunder && <div className="absolute inset-0 bg-white/30 animate-thunder mix-blend-overlay z-10"></div>}
             {isClear && isDay === 1 && <div className="absolute -top-20 right-0 w-[500px] h-[500px] bg-yellow-400/20 rounded-full blur-3xl animate-pulse-slow"></div>}
+        </div>
+    );
+};
+
+const LocationClock = ({ utcOffsetSeconds, isSnowyBg, liquidGlass }: { utcOffsetSeconds: number, isSnowyBg: boolean, liquidGlass: boolean }) => {
+    const [timeStr, setTimeStr] = useState('');
+
+    useEffect(() => {
+        const updateTime = () => {
+            const localDate = new Date(Date.now() + utcOffsetSeconds * 1000);
+            const h = localDate.getUTCHours().toString().padStart(2, '0');
+            const m = localDate.getUTCMinutes().toString().padStart(2, '0');
+            setTimeStr(`${h}:${m}`);
+        };
+        updateTime();
+        const interval = setInterval(updateTime, 10000);
+        return () => clearInterval(interval);
+    }, [utcOffsetSeconds]);
+
+    return (
+        <div className={`text-[10px] font-medium opacity-80 flex items-center justify-center mt-0.5 ${isSnowyBg && !liquidGlass ? 'text-slate-700' : 'text-white'}`}>
+            <Clock size={10} className="mr-1" />
+            {timeStr} Ortszeit
         </div>
     );
 };
@@ -410,7 +433,13 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
 
     const renderHourly = (index: number) => {
         if (!data) return null;
-        const currentHourIndex = new Date().getHours();
+        
+        const localDate = new Date(Date.now() + data.utc_offset_seconds * 1000);
+        const isoString = localDate.toISOString();
+        const currentHourStr = isoString.slice(0, 13) + ":00";
+        let currentHourIndex = data.hourly.time.findIndex(t => t === currentHourStr);
+        if (currentHourIndex === -1) currentHourIndex = 0;
+
         const hourlySlice = data.hourly.time.slice(currentHourIndex, currentHourIndex + 25);
         const tempSlice = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 25);
         const codeSlice = data.hourly.weather_code.slice(currentHourIndex, currentHourIndex + 25);
@@ -471,8 +500,11 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                     return (
                         <div key={i} className="flex items-center justify-between text-sm">
                             <span className="w-20 font-medium text-left">{getDayName(dayStr, i)}</span>
-                            <div className="flex justify-center w-8">
+                            <div className="flex flex-col items-center justify-center w-12">
                                 {getSmallWeatherIcon(data.daily.weather_code[i])}
+                                <span className="text-[9px] font-semibold text-blue-200/80 flex items-center gap-0.5 leading-none mt-1">
+                                    <Umbrella size={8} /> {data.daily.precipitation_probability_max?.[i] ?? 0}%
+                                </span>
                             </div>
                             <div className="flex-1 flex items-center gap-2 px-2">
                                 <span className="w-6 text-right opacity-80 text-xs">{min}°</span>
@@ -595,9 +627,12 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                     <ArrowLeft size={24} />
                 </button>
 
-                <div className="flex-1 min-w-0 flex items-center justify-center space-x-1 mx-2 bg-white/10 rounded-full py-1.5 px-3 backdrop-blur-sm">
-                    <MapPin size={12} className="opacity-70 flex-shrink-0" />
-                    <span className="font-semibold tracking-wide uppercase text-sm opacity-90 truncate">{locationName}</span>
+                <div className="flex-1 min-w-0 flex flex-col items-center justify-center mx-2 bg-white/10 rounded-2xl py-1.5 px-3 backdrop-blur-sm">
+                    <div className="flex items-center space-x-1">
+                        <MapPin size={12} className="opacity-70 flex-shrink-0" />
+                        <span className="font-semibold tracking-wide uppercase text-sm opacity-90 truncate">{locationName}</span>
+                    </div>
+                    {data && <LocationClock utcOffsetSeconds={data.utc_offset_seconds} isSnowyBg={isSnowyBg} liquidGlass={liquidGlass} />}
                 </div>
 
                 <div className="flex space-x-1 flex-shrink-0">

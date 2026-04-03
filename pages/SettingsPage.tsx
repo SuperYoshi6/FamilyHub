@@ -56,6 +56,7 @@ interface SettingsPageProps {
     onResetPassword?: (member: FamilyMember) => void;
     onMarkNewsRead?: (id: string) => void;
     onSendAdminNotification?: (title: string, message: string) => void;
+    onNavigate?: (route: AppRoute) => void;
 }
 
 const EXPANDED_COLORS = [
@@ -80,7 +81,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onNavigate
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e293b&color=fff&bold=true`);
@@ -475,6 +476,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 {myMessages.length > 0 && <span className="bg-indigo-500 text-white text-xs font-bold px-2 py-0.5 rounded-full mr-2">{myMessages.length}</span>}
                                 <ChevronRight size={20} className="text-gray-400 group-hover:text-indigo-500 transition" />
                             </div>
+                        </button>
+
+                        {/* Landing Page Link */}
+                        <button onClick={() => onNavigate ? onNavigate(AppRoute.LANDING) : window.location.href = '/install'} className="flex items-center justify-between w-full py-2 group">
+                            <div className="flex items-center space-x-3">
+                                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600 dark:text-blue-400">
+                                    <Home size={20} />
+                                </div>
+                                <span className="font-bold text-gray-800 dark:text-white">Landing Page / Installation</span>
+                            </div>
+                            <ChevronRight size={20} className="text-gray-400 group-hover:text-blue-500 transition" />
                         </button>
 
                         <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Smartphone, Download, Globe, Shield, Bell, Droplets, Database } from 'lucide-react';
+import { Smartphone, Download, Globe, Shield, Bell, Droplets, Database, Monitor } from 'lucide-react';
 import Logo from '../components/Logo';
 import { AppRoute } from '../types';
 import { Language } from '../services/translations';
@@ -22,7 +22,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                     <nav className="hidden md:flex space-x-8 text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                         <a href="#features" className="hover:text-blue-500 transition-colors">Features</a>
                         <a href="#install" className="hover:text-blue-500 transition-colors">Installieren</a>
-                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Im Web starten</a>
+                        <button onClick={() => onNavigate(AppRoute.DASHBOARD)} className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Im Web starten</button>
                     </nav>
                 </div>
             </header>
@@ -44,9 +44,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                         Die intelligente Plattform fuer eure Familie. Modernes Liquid-Design, Supabase Sync mit Offline-Fallback und klare Admin-Sicherheit.
                     </p>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-6 animate-slide-up animation-delay-500">
-                        <a href="https://SuperYoshi6.github.io/FamilyHub/app" className="w-full md:w-auto bg-blue-600 text-white px-12 py-6 rounded-3xl text-xl font-bold hover:bg-blue-700 hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-1 transition-all active:scale-95 text-center">
+                        <button onClick={() => onNavigate(AppRoute.DASHBOARD)} className="w-full md:w-auto bg-blue-600 text-white px-12 py-6 rounded-3xl text-xl font-bold hover:bg-blue-700 hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-1 transition-all active:scale-95 text-center">
                             Im Web starten 🌐
-                        </a>
+                        </button>
                         <div className="relative group w-full md:w-auto">
                             <button className="w-full md:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-12 py-6 rounded-3xl text-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all active:scale-95 flex items-center justify-center gap-3 shadow-xl shadow-slate-200/50 dark:shadow-none">
                                 <Download size={24} /> Installieren
@@ -71,13 +71,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <div className="text-[10px] text-orange-500 font-bold uppercase tracking-widest mt-0.5">Vollversion v1.0.0</div>
                                     </div>
                                 </a>
-                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.exe" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
-                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700/60 rounded-xl flex items-center justify-center text-slate-600">
-                                        <Smartphone size={24} />
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub-setup.exe" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
+                                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center text-blue-500">
+                                        <Monitor size={24} />
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Windows (.exe)</div>
-                                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Desktop Build</div>
+                                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-widest mt-0.5">Desktop App</div>
                                     </div>
                                 </a>
                                 <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swiftpm.zip" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
@@ -237,6 +237,27 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
 
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
+                                            <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm"><Monitor size={16} /></div>
+                                            <h4 className="font-black uppercase tracking-widest text-xs">Windows (.exe)</h4>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
+                                                <p className="flex-1 text-xs font-medium italic">Lade die <span className="underline decoration-blue-400">.exe</span> Datei herunter.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
+                                                <p className="flex-1 text-xs font-medium italic">Führe die Datei aus und folge dem Setup.</p>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
+                                                <p className="flex-1 text-xs font-medium italic">Falls Windows Defender warnt, klicke auf "Trotzdem ausführen".</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-pink-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
                                             <h4 className="font-black uppercase tracking-widest text-xs">iOS (Swift)</h4>
                                         </div>
@@ -268,7 +289,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                 </div>
 
                                 <a 
-                                    href="https://SuperYoshi6.github.io/FamilyHub/app" 
+                                    href="#install" 
+                                    onClick={(e) => { e.preventDefault(); onNavigate(AppRoute.DASHBOARD); }}
                                     className="inline-flex items-center gap-2 bg-white text-blue-600 px-8 py-4 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform"
                                 >
                                     <Globe size={20} /> App im Browser öffnen
