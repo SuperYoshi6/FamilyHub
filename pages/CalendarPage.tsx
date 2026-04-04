@@ -31,9 +31,6 @@ interface CalendarPageProps {
     onNotificationClick?: () => void;
     easterEnabled?: boolean;
 }
-
-type Tab = 'calendar' | 'news';
-
 const CalendarPage: React.FC<CalendarPageProps> = ({
     events, news, polls, family, currentUser,
     onAddEvent, onUpdateEvent, onDeleteEvent,
@@ -42,28 +39,58 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     onProfileClick, initialTab = 'calendar', liquidGlass = false,
     unreadNotifications = 0, onNotificationClick, easterEnabled = false
 }) => {
-    // Tab State with Persistence
-    const [activeTab, setActiveTab] = useState<Tab>(() => {
-        // Check if we have a persisted tab, but prefer prop if explicitly different from default?
-        // Actually, standard behavior for "remembering" is to check storage.
-        const saved = localStorage.getItem('fh_calendar_tab');
-        if (saved === 'calendar' || saved === 'news') return saved;
-        return initialTab;
+    // Main Tab Categories (calendar | board)
+    const [activeTab, setActiveTab] = useState<'calendar' | 'board'>(() => {
+        const saved = localStorage.getItem('fh_calendar_main_tab');
+        if (saved === 'calendar' || saved === 'board') return saved;
+        return initialTab === 'news' ? 'board' : 'calendar';
     });
 
-    const [calendarView, setCalendarView] = useState<'family' | 'private'>(() => {
-        const saved = localStorage.getItem('fh_calendar_view');
-        if (saved === 'family' || saved === 'private') return saved;
-        return 'family';
+    // Sub-filters
+    const [calendarFilter, setCalendarFilter] = useState<'all' | 'private'>(() => {
+        const saved = localStorage.getItem('fh_calendar_filter');
+        return (saved === 'all' || saved === 'private') ? saved : 'all';
+    });
+
+    const [boardFilter, setBoardFilter] = useState<'news' | 'polls'>(() => {
+        const saved = localStorage.getItem('fh_board_filter');
+        return (saved === 'news' || saved === 'polls') ? saved : 'news';
     });
 
     useEffect(() => {
-        localStorage.setItem('fh_calendar_tab', activeTab);
+        localStorage.setItem('fh_calendar_main_tab', activeTab);
     }, [activeTab]);
 
     useEffect(() => {
-        localStorage.setItem('fh_calendar_view', calendarView);
-    }, [calendarView]);
+        localStorage.setItem('fh_calendar_filter', calendarFilter);
+    }, [calendarFilter]);
+
+    useEffect(() => {
+        localStorage.setItem('fh_board_filter', boardFilter);
+    }, [boardFilter]);
+
+    // Swipe Navigation Logic
+    const touchStartX = useRef<number | null>(null);
+    const mainTabsOrder: ('calendar' | 'board')[] = ['calendar', 'board'];
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (touchStartX.current === null) return;
+        const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+        touchStartX.current = null;
+
+        if (Math.abs(deltaX) > 70) {
+            const currentIndex = mainTabsOrder.indexOf(activeTab);
+            if (deltaX > 0 && currentIndex > 0) {
+                setActiveTab(mainTabsOrder[currentIndex - 1]);
+            } else if (deltaX < 0 && currentIndex < mainTabsOrder.length - 1) {
+                setActiveTab(mainTabsOrder[currentIndex + 1]);
+            }
+        }
+    };
 
     // Calendar State
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -102,8 +129,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
 
-    // --- POLL STATE ---
-    const [boardType, setBoardType] = useState<'news' | 'polls'>('news');
     const [showPollForm, setShowPollForm] = useState(false);
     const [pollQuestion, setPollQuestion] = useState('');
     const [pollDesc, setPollDesc] = useState('');
@@ -117,7 +142,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
     // Filter events before grouping
     const filteredEvents = events.filter(e => {
-        if (calendarView === 'private') {
+        if (calendarFilter === 'private') {
             return e.assignedTo.includes(currentUser.id);
         }
         return true;
@@ -140,7 +165,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     }, {} as Record<string, CalendarEvent[]>);
 
     const activeTabIndex = activeTab === 'calendar' ? 0 : 1;
-    const activeViewIndex = calendarView === 'family' ? 0 : 1;
+    const activeViewIndex = calendarFilter === 'all' ? 0 : 1;
 
     // --- Helpers ---
     const getTabContainerClass = () => {
@@ -303,7 +328,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             'CALSCALE:GREGORIAN',
             'PRODID:-//FamilyHub//DE',
             'METHOD:PUBLISH',
-            `X-WR-CALNAME:FamilyHub ${calendarView === 'private' ? 'Privat' : 'Familie'}`,
+            `X-WR-CALNAME:FamilyHub ${calendarFilter === 'private' ? 'Privat' : 'Familie'}`,
             `X-WR-TIMEZONE:${tz}`,
         ];
 
@@ -340,7 +365,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
     const exportCalendarAsICS = () => {
         const icsBlob = new Blob([generateICS()], { type: 'text/calendar;charset=utf-8' });
-        const filename = `familyhub-${calendarView === 'private' ? 'privat' : 'familie'}.ics`;
+        const filename = `familyhub-${calendarFilter === 'private' ? 'private' : 'family'}.ics`;
         const file = new File([icsBlob], filename, { type: 'text/calendar' });
         const canShare = typeof navigator !== 'undefined' && !!navigator.share && (!!navigator.canShare ? navigator.canShare({ files: [file] }) : true);
 
@@ -356,7 +381,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                     });
                     const fileUri = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
                     await Share.share({
-                        title: `FamilyHub Kalender (${calendarView === 'private' ? 'Privat' : 'Familie'})`,
+                        title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`,
                         text: 'FamilyHub Termine exportieren',
                         url: fileUri.uri,
                     });
@@ -375,11 +400,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             return;
         }
         if (canShare) {
-            navigator.share({ files: [file], title: `FamilyHub Kalender (${calendarView === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
+            navigator.share({ files: [file], title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
             return;
         }
         if (navigator.share) {
-            navigator.share({ url, title: `FamilyHub Kalender (${calendarView === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
+            navigator.share({ url, title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
         }
 
         const a = document.createElement('a');
@@ -431,6 +456,14 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     };
 
     // --- Renderers ---
+    const renderCalendar = () => {
+        return (
+            <div className="space-y-6">
+                {renderMonthView()}
+            </div>
+        );
+    };
+
     const renderMonthView = () => {
         const { year, month, daysInMonth, startOffset } = getMonthData(currentMonth);
         const monthName = currentMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
@@ -585,20 +618,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     const renderNewsBoard = () => {
         return (
             <div className="animate-fade-in space-y-6">
-                <div className="flex justify-center mb-6">
-                    <SlidingTabs 
-                        tabs={[
-                            { id: 'news', label: 'News', icon: FileText },
-                            { id: 'polls', label: 'Umfragen', icon: Users }
-                        ]}
-                        activeTabId={boardType}
-                        onTabChange={(id) => setBoardType(id as 'news' | 'polls')}
-                        liquidGlass={liquidGlass}
-                        className="w-48"
-                    />
-                </div>
 
-                {boardType === 'news' ? (
+                {boardFilter === 'news' ? (
                     <>
                         {!showNewsForm && (
                             <div className="flex justify-center">
@@ -676,9 +697,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                             </div>
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                 );
+                             })}
+                         </div>
                     </>
                 ) : (
                     <>
@@ -843,40 +864,65 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                 title={activeTab === 'calendar' ? 'Kalender' : 'Pinnwand'}
                 currentUser={currentUser}
                 onProfileClick={onProfileClick}
+                liquidGlass={liquidGlass}
                 unreadNotifications={unreadNotifications}
                 onNotificationClick={onNotificationClick}
             />
 
-            {/* Main Tabs */}
-            <div className="px-4 mt-2 mb-2">
-                <SlidingTabs 
-                    tabs={[
-                        { id: 'calendar', label: 'Termine', icon: CalendarIcon },
-                        { id: 'news', label: 'Pinnwand', icon: Layout }
-                    ]}
-                    activeTabId={activeTab}
-                    onTabChange={(id) => setActiveTab(id as Tab)}
-                    liquidGlass={liquidGlass}
-                />
-            </div>
-
-            {activeTab === 'calendar' && (
-                <div className="px-4 mb-2">
+            <main className="p-4 md:p-6 pb-24">
+                {/* Tab 1: Haupttabs – komplett außerhalb der Swipe-Zone */}
+                <div className="mb-4">
                     <SlidingTabs 
                         tabs={[
-                            { id: 'family', label: 'Familie', icon: Users },
-                            { id: 'private', label: 'Privat', icon: User }
+                            { id: 'calendar', label: 'Kalender', icon: CalendarIcon },
+                            { id: 'board', label: 'Pinnwand', icon: Layout }
                         ]}
-                        activeTabId={calendarView}
-                        onTabChange={(id) => setCalendarView(id as 'family' | 'private')}
+                        activeTabId={activeTab}
+                        onTabChange={(id) => setActiveTab(id as 'calendar' | 'board')}
                         liquidGlass={liquidGlass}
+                        className="w-full"
                     />
                 </div>
-            )}
 
-            <div className="p-4 relative min-h-[calc(100vh-140px)]">
-                {activeTab === 'calendar' && renderMonthView()}
-                {activeTab === 'news' && renderNewsBoard()}
+                {/* Tab 2: Sub-Filter – ebenfalls außerhalb der Swipe-Zone */}
+                <div className="mb-4">
+                    {activeTab === 'calendar' ? (
+                        <SlidingTabs
+                            tabs={[
+                                { id: 'all', label: 'Familie', icon: Users },
+                                { id: 'private', label: 'Privat', icon: User }
+                            ]}
+                            activeTabId={calendarFilter}
+                            onTabChange={(id) => setCalendarFilter(id as 'all' | 'private')}
+                            liquidGlass={liquidGlass}
+                            className="w-full"
+                        />
+                    ) : (
+                        <SlidingTabs
+                            tabs={[
+                                { id: 'news', label: 'News', icon: FileText },
+                                { id: 'polls', label: 'Umfragen', icon: Layout }
+                            ]}
+                            activeTabId={boardFilter}
+                            onTabChange={(id) => setBoardFilter(id as 'news' | 'polls')}
+                            liquidGlass={liquidGlass}
+                            className="w-full"
+                        />
+                    )}
+                </div>
+
+                {/* Nur der Inhalt ist swipeable – keine Tabs drin */}
+                <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                    {activeTab === 'calendar' ? (
+                        <div key={calendarFilter} className="animate-fade-in">
+                            {renderCalendar()}
+                        </div>
+                    ) : (
+                        <div key={boardFilter} className="animate-fade-in">
+                            {renderNewsBoard()}
+                        </div>
+                    )}
+                </div>
 
                 {/* Calendar Detail Modal */}
                 {selectedDate && activeTab === 'calendar' && (
@@ -1004,7 +1050,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                         </div>
                     </div>
                 )}
-            </div>
+            </main>
         </>
     );
 };

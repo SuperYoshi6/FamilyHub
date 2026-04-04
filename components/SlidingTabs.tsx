@@ -83,6 +83,8 @@ const SlidingTabs: React.FC<SlidingTabsProps> = ({ tabs, activeTabId, onTabChang
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
+            onTouchStart={(e) => { if (liquidGlass) e.stopPropagation(); }}
+            onTouchEnd={(e) => { if (liquidGlass) e.stopPropagation(); }}
             className={`p-1 rounded-xl flex relative select-none touch-none overflow-hidden ${className} ${liquidGlass ? 'bg-white/10 backdrop-blur-md border border-white/20' : 'bg-gray-100 dark:bg-gray-800'}`}
         >
             {/* Sliding Bubble */}

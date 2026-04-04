@@ -903,7 +903,7 @@ const App: React.FC = () => {
       <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {renderEasterDecorations()}
         <main className="flex-1 overflow-y-auto no-scrollbar relative">{PageComponent}</main>
-        <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${currentRoute === AppRoute.WEATHER ? (effectiveLiquidGlass ? 'bg-transparent' : 'bg-slate-900') : (effectiveLiquidGlass ? 'bg-transparent' : 'bg-white dark:bg-slate-900')}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 bg-white dark:bg-slate-900 ${effectiveLiquidGlass ? 'bg-transparent' : ''}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} easterMode={effectiveEasterMode} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} />
         </div>
         {showSecurityScreen && currentUser && (
