@@ -4,7 +4,7 @@ import { supabase } from './backend';
 
 // THIS WILL BE UPDATED ONCE USER PROVIDES THE CONFIG
 const firebaseConfig = {
-  apiKey: "AIzaSyC51OaW48B5gx0k-nGYnMpaBMqc_tSfgy4",
+  apiKey: "AIzaSyBbfFwbszHY1GOr6nhEXiAgo4MuHMofvQs",
   authDomain: "familyhub-notification.firebaseapp.com",
   projectId: "familyhub-notification",
   storageBucket: "familyhub-notification.firebasestorage.app",
@@ -36,9 +36,9 @@ export const requestFirebaseToken = async (userId: string) => {
     if (permission === 'granted') {
       // Get registration token
       const token = await getToken(messaging, { 
-        vapidKey: 'BIgEPoYf40tmS_NSHskx6uqp8zHP94xPK0xc2el5F0LdG_kXK0Sj9cC6oafFJSPIXMoze98NbXitRpIGTYbcOZs'
+        vapidKey: 'BC0NJwKk4sV6MN7rkHFXZD0mDdCuDPmnTEl_ecM0erwohcVesZKPOZQuiYhuEMtV_mvuGvrK-6jToJKUqbibR6k'
       });
-      
+
       if (token) {
         console.log('FCM Token received:', token);
         // Save token to Supabase
@@ -46,19 +46,23 @@ export const requestFirebaseToken = async (userId: string) => {
           .from('family')
           .update({ fcm_token: token })
           .eq('id', userId);
-          
+
         if (error) console.error('Error saving FCM token:', error);
         return token;
       }
     }
-  } catch (error) {
-    console.error('An error occurred while retrieving token.', error);
+  } catch (error: any) {
+    if (error.message?.includes('messaging/token-subscribe-failed') || error.message?.includes('401')) {
+      console.error('FCM 401 Unauthorized: This usually means the VAPID key in fcm.ts does not match your Firebase project or the Cloud Messaging API is not enabled.');
+    } else {
+      console.error('An error occurred while retrieving token.', error);
+    }
   }
   return null;
 };
 
 export const onMessageListener = (callback: (payload: any) => void) => {
-  if (!messaging) return () => {};
+  if (!messaging) return () => { };
   return onMessage(messaging, (payload) => {
     console.log('Message received in foreground:', payload);
     callback(payload);

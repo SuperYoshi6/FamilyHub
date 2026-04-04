@@ -1,32 +1,40 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "FamilyHub",
-  "version": "1.0.0",
-  "identifier": "com.familyhub.app",
-  "build": {
-    "beforeBuildCommand": "npm run build",
-    "beforeDevCommand": "npm run dev",
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173"
+  "package": {
+    "productName": "FamilyHub",
+    "version": "1.0.0"
   },
-  "app": {
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "distDir": "../dist",
+    "devPath": "http://localhost:5173"
+  },
+  "tauri": {
+    "bundle": {
+      "active": true,
+      "targets": "all",
+      "identifier": "com.familyhub.app",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ]
+    },
+    "allowlist": {
+      "all": true
+    },
     "windows": [
       {
         "title": "FamilyHub",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "resizable": true
       }
-    ]
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
+    ],
+    "security": {
+      "csp": null
+    }
   }
 }

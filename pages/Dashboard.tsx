@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
+import SlidingTabs from '../components/SlidingTabs';
 import { FamilyMember, CalendarEvent, MealPlan, AppRoute, SavedLocation, NewsItem } from '../types';
 import { Clock, ClipboardList, Utensils, ChevronRight, Sun, CheckCircle, CloudRain, Search, MapPin, Loader2, Info, X, Check, ArrowRight, Cloud, CloudFog, CloudSnow, CloudLightning, Moon, ShoppingCart, Calendar } from 'lucide-react';
 import { fetchWeather, getWeatherDescription } from '../services/weather';
@@ -20,11 +21,12 @@ interface DashboardProps {
   onUpdateWeatherLocation: (loc: { lat: number, lng: number, name: string }) => void;
   news: NewsItem[];
   onMarkNewsRead?: (id: string) => void;
+  liquidGlass?: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
   family, currentUser, events, shoppingCount, openTaskCount = 0, todayMeal, onNavigate, onProfileClick, lang, weatherFavorites = [],
-  currentWeatherLocation, onUpdateWeatherLocation, news, onMarkNewsRead
+  currentWeatherLocation, onUpdateWeatherLocation, news, onMarkNewsRead, liquidGlass
 }) => {
   const [calendarView, setCalendarView] = useState<'family' | 'private'>('family');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
@@ -121,8 +123,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const greeting = getGreetingData();
 
-  const getBtnClass = (isActive: boolean) => isActive ? "bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white" : "text-slate-500 dark:text-slate-400";
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <Header 
@@ -133,7 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <main className="p-5 space-y-5 max-w-2xl mx-auto">
 
         {/* 1. Greeting Card (Enhanced Dynamic Gradient) */}
-        <div className={`bg-gradient-to-br ${getWeatherGradient(weatherCode, isDay)} rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden active:scale-[0.98] transition-transform`}>
+        <div className={`bg-gradient-to-br ${getWeatherGradient(weatherCode, isDay)} rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden active:scale-[0.98] transition-transform ${liquidGlass ? 'liquid-shimmer-card' : ''}`}>
           <div className="relative z-10">
             <h2 className="text-4xl font-extrabold tracking-tight mb-2">{greeting.main}</h2>
             <p className="text-blue-100/90 text-lg font-medium italic">{greeting.sub} {currentUser.name}</p>
@@ -148,7 +148,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         {/* 2. Weather Widget (Reverted to v2.0.6 Style) */}
         <button
           onClick={() => onNavigate(AppRoute.WEATHER)}
-          className="w-full bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group active:scale-[0.98] outline-none"
+          className={`w-full ${liquidGlass ? 'liquid-shimmer-card rounded-[2rem]' : 'bg-white dark:bg-slate-900 rounded-[2rem]'} p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group active:scale-[0.98] outline-none`}
         >
           <div className="flex items-center space-x-6">
             <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-500 shadow-inner">
@@ -181,7 +181,7 @@ const Dashboard: React.FC<DashboardProps> = ({
              </div>
              <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1">
                 {unreadNews.map(n => (
-                  <button key={n.id} onClick={() => { setSelectedNews(n); setSelectedNewsStep('preview'); }} className="flex-shrink-0 w-64 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden text-left hover:scale-[1.02] transition-all">
+                  <button key={n.id} onClick={() => { setSelectedNews(n); setSelectedNewsStep('preview'); }} className={`flex-shrink-0 w-64 ${liquidGlass ? 'liquid-shimmer-card rounded-3xl pb-1' : 'bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800'} overflow-hidden text-left hover:scale-[1.02] transition-all`}>
                       {n.image && <img src={n.image} className="w-full h-32 object-cover" />}
                       <div className="p-5">
                           <span className="text-[10px] uppercase font-black text-blue-500 mb-2 block tracking-widest">Wichtig</span>
@@ -196,7 +196,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* 3. Action Grid (2 columns) */}
         <div className="grid grid-cols-2 gap-5">
-          <button onClick={() => onNavigate(AppRoute.LISTS)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start transition hover:bg-slate-50 dark:hover:bg-slate-800/50 group active:scale-95">
+          <button onClick={() => onNavigate(AppRoute.LISTS)} className={`${liquidGlass ? 'liquid-shimmer-card rounded-[2rem]' : 'bg-white dark:bg-slate-900 rounded-[2rem]'} p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start transition hover:bg-slate-50 dark:hover:bg-slate-800/50 group active:scale-95`}>
              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
                <ShoppingCart className="text-orange-500" size={24} />
              </div>
@@ -204,7 +204,7 @@ const Dashboard: React.FC<DashboardProps> = ({
              <p className="text-[12px] text-slate-400 mt-1">{shoppingCount === 0 ? 'Alles erledigt' : `${shoppingCount} Artikel`}</p>
           </button>
 
-          <button onClick={() => onNavigate(AppRoute.MEALS)} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start transition hover:bg-slate-50 dark:hover:bg-slate-800/50 group active:scale-95">
+          <button onClick={() => onNavigate(AppRoute.MEALS)} className={`${liquidGlass ? 'liquid-shimmer-card rounded-[2rem]' : 'bg-white dark:bg-slate-900 rounded-[2rem]'} p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-start transition hover:bg-slate-50 dark:hover:bg-slate-800/50 group active:scale-95`}>
              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
                <Utensils className="text-green-500" size={24} />
              </div>
@@ -214,7 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         {/* 4. Tasks Row (Full Width) */}
-        <button onClick={() => onNavigate(AppRoute.LISTS)} className="w-full bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 group transition-all active:scale-95">
+        <button onClick={() => onNavigate(AppRoute.LISTS)} className={`w-full ${liquidGlass ? 'liquid-shimmer-card rounded-[2rem]' : 'bg-white dark:bg-slate-900 rounded-[2rem]'} p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 group transition-all active:scale-95`}>
            <div className="flex items-center space-x-5">
              <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-2xl group-hover:rotate-12 transition-transform">
                <CheckCircle className="text-purple-500" size={28} />
@@ -231,17 +231,23 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="pt-4">
            <div className="flex justify-between items-center mb-6 px-1">
               <h3 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Termine heute</h3>
-              <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
-                <button onClick={() => setCalendarView('family')} className={`px-4 py-1.5 rounded-lg text-xs font-black transition ${getBtnClass(calendarView === 'family')}`}>ALLE</button>
-                <button onClick={() => setCalendarView('private')} className={`px-4 py-1.5 rounded-lg text-xs font-black transition ${getBtnClass(calendarView === 'private')}`}>MEINE</button>
-              </div>
+               <SlidingTabs 
+                  tabs={[
+                    { id: 'family', label: 'ALLE' },
+                    { id: 'private', label: 'MEINE' }
+                  ]}
+                  activeTabId={calendarView}
+                  onTabChange={(id) => setCalendarView(id as 'family' | 'private')}
+                  liquidGlass={liquidGlass}
+                  className="w-32"
+               />
            </div>
            <div className="space-y-4">
               {sortedEvents.length > 0 ? sortedEvents.map(event => (
                 <button
                   key={event.id}
                   onClick={() => onNavigate(AppRoute.CALENDAR)}
-                  className="w-full text-left p-5 rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center border-l-8 border-l-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-[0.99]"
+                  className={`w-full text-left p-5 rounded-[2rem] border ${liquidGlass ? 'liquid-shimmer-card border-white/20' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'} flex items-center border-l-8 border-l-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-[0.99]`}
                 >
                    <div className="flex-1">
                       <h4 className="font-bold text-slate-800 dark:text-white text-lg">{event.title}</h4>

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
+import SlidingTabs from '../components/SlidingTabs';
 import { CalendarEvent, FamilyMember, NewsItem, Poll } from '../types';
-import { MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Share2 } from 'lucide-react';
+import { MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Share2, Pin } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -28,6 +29,7 @@ interface CalendarPageProps {
     liquidGlass?: boolean;
     unreadNotifications?: number;
     onNotificationClick?: () => void;
+    easterEnabled?: boolean;
 }
 
 type Tab = 'calendar' | 'news';
@@ -38,7 +40,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     onAddNews, onUpdateNews, onDeleteNews,
     onAddPoll, onUpdatePoll, onDeletePoll,
     onProfileClick, initialTab = 'calendar', liquidGlass = false,
-    unreadNotifications = 0, onNotificationClick
+    unreadNotifications = 0, onNotificationClick, easterEnabled = false
 }) => {
     // Tab State with Persistence
     const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -93,7 +95,12 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     const safeEvents = events || [];
     const safeNews = news || [];
 
-    const publicNews = safeNews.filter(n => !n.tag?.startsWith('PRIVATE:'));
+    const publicNews = [...safeNews]
+        .filter(n => !n.tag?.startsWith('PRIVATE:'))
+        .sort((a, b) => {
+            if (a.pinned !== b.pinned) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
 
     // --- POLL STATE ---
     const [boardType, setBoardType] = useState<'news' | 'polls'>('news');
@@ -579,17 +586,26 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         return (
             <div className="animate-fade-in space-y-6">
                 <div className="flex justify-center mb-6">
-                    <div className={`${liquidGlass ? 'liquid-shimmer-card border-white/40 p-0.5 rounded-lg relative flex' : 'bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg flex'}`}>
-                        <button onClick={() => setBoardType('news')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(boardType === 'news')}`}><FileText size={12} className="mr-1" /> News</button>
-                        <button onClick={() => setBoardType('polls')} className={`flex items-center px-4 py-1.5 rounded-md text-xs font-bold transition space-x-1 z-10 ${getBtnClass(boardType === 'polls')}`}><Users size={12} className="mr-1" /> Umfragen</button>
-                    </div>
+                    <SlidingTabs 
+                        tabs={[
+                            { id: 'news', label: 'News', icon: FileText },
+                            { id: 'polls', label: 'Umfragen', icon: Users }
+                        ]}
+                        activeTabId={boardType}
+                        onTabChange={(id) => setBoardType(id as 'news' | 'polls')}
+                        liquidGlass={liquidGlass}
+                        className="w-48"
+                    />
                 </div>
 
                 {boardType === 'news' ? (
                     <>
                         {!showNewsForm && (
                             <div className="flex justify-center">
-                                <button onClick={() => setShowNewsForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 hover:bg-indigo-700 transition active:scale-95">
+                                <button 
+                                    onClick={() => setShowNewsForm(true)} 
+                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 transition active:scale-95`}
+                                >
                                     <Plus size={20} /> <span>News erstellen</span>
                                 </button>
                             </div>
@@ -620,7 +636,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                              <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
                                          )}
                                      </div>
-                                     <button type="submit" disabled={!newsTitle.trim() || processingImage} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50">Veröffentlichen</button>
+                                     <button type="submit" disabled={!newsTitle.trim() || processingImage} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50`}>Veröffentlichen</button>
                                  </form>
                              </div>
                          )}
@@ -638,7 +654,18 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                     {item.tag && <span className="text-xs font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-md mb-2 inline-block">{item.tag}</span>}
                                                     <h3 className={`font-bold text-lg leading-tight ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{item.title}</h3>
                                                 </div>
-                                                <button onClick={() => onDeleteNews(item.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>
+                                                <div className="flex items-center gap-1">
+                                                    {(currentUser.role === 'admin' || currentUser.role === 'parent') && (
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); onUpdateNews?.(item.id, { pinned: !item.pinned }) }} 
+                                                            className={`p-1.5 rounded-lg transition ${item.pinned ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40' : 'text-gray-300 hover:text-indigo-500'}`}
+                                                            title={item.pinned ? "Abpinnen" : "Anpinnen"}
+                                                        >
+                                                            <Pin size={16} className={item.pinned ? "fill-current rotate-45" : ""} />
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => onDeleteNews(item.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>
+                                                </div>
                                             </div>
                                             {item.description && <p className={`text-sm mb-4 whitespace-pre-line ${liquidGlass ? 'text-slate-700 dark:text-gray-300' : 'text-gray-600 dark:text-gray-300'}`}>{item.description}</p>}
                                             <div className="flex items-center justify-between pt-2 border-t border-gray-100/50 dark:border-gray-700">
@@ -657,7 +684,10 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                     <>
                         {!showPollForm && (
                             <div className="flex justify-center">
-                                <button onClick={() => setShowPollForm(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 hover:bg-indigo-700 transition active:scale-95">
+                                <button 
+                                    onClick={() => setShowPollForm(true)} 
+                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 transition active:scale-95`}
+                                >
                                     <Plus size={20} /> <span>Umfrage erstellen</span>
                                 </button>
                             </div>
@@ -713,7 +743,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         <label htmlFor="multiVote" className="text-xs font-medium cursor-pointer">Mehrfachauswahl erlauben</label>
                                     </div>
 
-                                    <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50">Umfrage starten</button>
+                                    <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50`}>Umfrage starten</button>
                                 </form>
                             </div>
                         )}
@@ -817,42 +847,30 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                 onNotificationClick={onNotificationClick}
             />
 
-            {/* Slider Tabs - Main */}
+            {/* Main Tabs */}
             <div className="px-4 mt-2 mb-2">
-                <div className={getTabContainerClass()}>
-                    {/* Slider Element - Liquid Only */}
-                    {liquidGlass && (
-                        <div
-                            className={getSliderClass()}
-                            style={{ left: `${activeTabIndex * 50}%`, width: '50%' }}
-                        >
-                            <div className={getSliderInnerClass()} />
-                        </div>
-                    )}
-
-                    <button onClick={() => setActiveTab('calendar')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all z-10 ${getBtnClass(activeTab === 'calendar')}`}><CalendarIcon size={14} /> <span>Termine</span></button>
-                    <button onClick={() => setActiveTab('news')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all z-10 ${getBtnClass(activeTab === 'news')}`}><Layout size={14} /> <span>Pinnwand</span></button>
-                </div>
+                <SlidingTabs 
+                    tabs={[
+                        { id: 'calendar', label: 'Termine', icon: CalendarIcon },
+                        { id: 'news', label: 'Pinnwand', icon: Layout }
+                    ]}
+                    activeTabId={activeTab}
+                    onTabChange={(id) => setActiveTab(id as Tab)}
+                    liquidGlass={liquidGlass}
+                />
             </div>
 
             {activeTab === 'calendar' && (
                 <div className="px-4 mb-2">
-                    <div className={`${getTabContainerClass()} relative`}>
-                        {liquidGlass && (
-                            <div
-                                className={getSliderClass()}
-                                style={{
-                                    top: '2px', bottom: '2px',
-                                    left: `${activeViewIndex * 50}%`,
-                                    width: '50%'
-                                }}
-                            >
-                                <div className={getSliderInnerClass()} />
-                            </div>
-                        )}
-                        <button onClick={() => setCalendarView('family')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all z-10 ${getBtnClass(calendarView === 'family')}`}><Users size={14} className="mr-1" /> Familie</button>
-                        <button onClick={() => setCalendarView('private')} className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-1 transition-all z-10 ${getBtnClass(calendarView === 'private')}`}><User size={14} className="mr-1" /> Privat</button>
-                    </div>
+                    <SlidingTabs 
+                        tabs={[
+                            { id: 'family', label: 'Familie', icon: Users },
+                            { id: 'private', label: 'Privat', icon: User }
+                        ]}
+                        activeTabId={calendarView}
+                        onTabChange={(id) => setCalendarView(id as 'family' | 'private')}
+                        liquidGlass={liquidGlass}
+                    />
                 </div>
             )}
 

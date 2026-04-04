@@ -426,7 +426,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
 
-                        {isAdmin ? (
+                        {isAdmin && (
                             <div className="relative">
                                 <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Passwort ändern</label>
                                 <input
@@ -436,13 +436,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     placeholder="Neues Passwort"
                                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
-                                <button type="button" onClick={() => setShowChangePassword(!showChangePassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white">
+                                <button type="button" onClick={() => setShowChangePassword(!showChangePassword)} className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
                                     {showChangePassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
-                            </div>
-                        ) : (
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-
                             </div>
                         )}
 
@@ -1039,8 +1035,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         <Globe size={24} />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-gray-900 dark:text-white text-base">Webseite</h3>
-                                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io/FamilyHub</p>
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-base">Webseite der App</h3>
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io</p>
                                     </div>
                                 </div>
                                 <ExternalLink size={20} className="text-gray-400 group-hover:text-purple-500 transition ml-2" />

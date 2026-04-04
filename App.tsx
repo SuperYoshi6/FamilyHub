@@ -123,7 +123,7 @@ const App: React.FC = () => {
     return AppRoute.DASHBOARD;
   });
   const [currentWeatherLocation, setCurrentWeatherLocation] = useState<{ lat: number, lng: number, name: string } | null>(null);
-  
+
   // Login State
   const [loginStep, setLoginStep] = useState<'select' | 'enter-pass' | 'set-pass'>('select');
   const [loginUser, setLoginUser] = useState<FamilyMember | null>(null);
@@ -173,9 +173,9 @@ const App: React.FC = () => {
   };
   const maintenanceActive = () => {
     if (!maintenanceMode) return false;
-    
+
     const now = nowTs;
-    
+
     // If start time is set, we must be after it
     if (maintenanceStart && maintenanceStart.trim() !== '') {
       const startTs = new Date(maintenanceStart).getTime();
@@ -226,9 +226,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
-      StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => {});
-      LocalNotifications.requestPermissions().catch(() => {});
+      StatusBar.setOverlaysWebView({ overlay: true }).catch(() => { });
+      StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => { });
+      LocalNotifications.requestPermissions().catch(() => { });
     }
   }, []);
 
@@ -241,6 +241,15 @@ const App: React.FC = () => {
     if (darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
+
+  useEffect(() => {
+    // This allows the global CSS in index.html (like Blue -> Pink) to work
+    if (effectiveEasterMode) {
+      document.documentElement.setAttribute('data-easter', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-easter');
+    }
+  }, [effectiveEasterMode]);
 
   useEffect(() => {
     if (!loadingData && family.length > 0 && !currentUser) {
@@ -332,7 +341,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (loadingData) return;
-    
+
     if (currentUser?.role !== 'admin') {
       return;
     }
@@ -346,16 +355,16 @@ const App: React.FC = () => {
       global_easter_enabled: globalEasterEnabled,
       global_liquid_glass_enabled: globalLiquidGlassEnabled,
     };
-    
+
     const payloadStr = JSON.stringify(payload);
     if (payloadStr === lastSentPayloadRef.current) return;
     lastSentPayloadRef.current = payloadStr;
-    
+
     // Use a small timeout to debounce and ensure we don't fire too many requests
     const timeout = setTimeout(() => {
       Backend.appSettings.update('global', payload as any);
     }, 500);
-    
+
     return () => clearTimeout(timeout);
   }, [loadingData, currentUser, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled]);
 
@@ -442,19 +451,46 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      StatusBar.setStyle({ style: (currentRoute === AppRoute.WEATHER || darkMode) ? Style.Dark : Style.Light }).catch(() => {});
+      StatusBar.setStyle({ style: (currentRoute === AppRoute.WEATHER || darkMode) ? Style.Dark : Style.Light }).catch(() => { });
     }
   }, [currentRoute, darkMode]);
 
   const updateMealPlan = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
   const addMealRequest = async (r: MealRequest) => { setMealRequests(p => [...p, r]); await Backend.mealRequests.add(r); };
   const deleteMealRequest = async (id: string) => { setMealRequests(p => p.filter(x => x.id !== id)); await Backend.mealRequests.delete(id); };
-  const addIngredientsToShopping = async (ings: string[]) => { const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); setShoppingList(p => [...p, ...items]); await addNotification('Einkauf', 'Zutaten hinzugefügt'); };
+  const addMealToPlan = async (day: string, mealName: string, ingredients: string[], slot: 'breakfast' | 'lunch' | 'main' = 'main') => {
+    const existing = mealPlan.find(x => x.day === day);
+    const updatedDay: MealPlan = existing 
+      ? { 
+          ...existing, 
+          [slot === 'main' ? 'mealName' : slot]: mealName,
+          ingredients: [...new Set([...(existing.ingredients || []), ...ingredients])]
+        }
+      : { 
+          id: Math.random().toString(), 
+          day, 
+          mealName: slot === 'main' ? mealName : '',
+          breakfast: slot === 'breakfast' ? mealName : '',
+          lunch: slot === 'lunch' ? mealName : '',
+          ingredients,
+          recipeHint: '' 
+        };
+    const nextPlan = [...mealPlan.filter(x => x.day !== day), updatedDay];
+    setMealPlan(nextPlan); 
+    await Backend.mealPlan.setAll(nextPlan);
+    await addNotification('Essen', `${mealName} zum Plan hinzugefügt`);
+  };
+  const addIngredientsToShopping = async (ings: string[]) => { 
+    const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); 
+    setShoppingList(p => [...p, ...items]); 
+    await Promise.all(items.map(item => Backend.shopping.add(item)));
+    await addNotification('Einkauf', 'Zutaten hinzugefügt'); 
+  };
   const addRecipe = async (r: Recipe) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); };
   const handlePlanGenerated = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
-  const updateFamilyMember = async (id: string, u: Partial<FamilyMember>) => { setFamily(p => p.map(m => m.id === id ? {...m, ...u} : m)); await Backend.family.update(id, u); };
+  const updateFamilyMember = async (id: string, u: Partial<FamilyMember>) => { setFamily(p => p.map(m => m.id === id ? { ...m, ...u } : m)); await Backend.family.update(id, u); };
   const addFeedback = async (f: FeedbackItem) => { setFeedbacks(p => [...p, f]); await Backend.feedback.add(f); };
-  const markFeedbacksRead = async (ids: string[]) => { setFeedbacks(p => p.map(f => ids.includes(f.id) ? {...f, read: true} : f)); for(const id of ids) await Backend.feedback.update(id, {read: true}); };
+  const markFeedbacksRead = async (ids: string[]) => { setFeedbacks(p => p.map(f => ids.includes(f.id) ? { ...f, read: true } : f)); for (const id of ids) await Backend.feedback.update(id, { read: true }); };
   const addNews = async (n: NewsItem) => { setNews(p => [n, ...p]); await Backend.news.add(n); };
   const addFamilyMember = async (name: string, role: 'parent' | 'child', mustChangePassword?: boolean, password?: string): Promise<FamilyMember | null> => {
     const colorOptions = ['bg-red-100 text-red-700', 'bg-orange-100 text-orange-700', 'bg-green-100 text-green-700', 'bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700', 'bg-pink-100 text-pink-700', 'bg-teal-100 text-teal-700', 'bg-indigo-100 text-indigo-700'];
@@ -492,7 +528,7 @@ const App: React.FC = () => {
       await Backend.news.add(logItem);
     }
   };
-  const markNewsRead = async (id: string) => { const n = news.find(x => x.id === id); if (n && currentUser) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? {...x, readBy: readers} : x)); await Backend.news.update(id, {readBy: readers}); } };
+  const markNewsRead = async (id: string) => { const n = news.find(x => x.id === id); if (n && currentUser) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? { ...x, readBy: readers } : x)); await Backend.news.update(id, { readBy: readers }); } };
   const sendAdminBroadcast = async (title: string, msg: string) => { await addNotification(title, msg); };
   const triggerSecurityScreen = async (id: string) => {
     await Backend.family.update(id, { mustShowSecurityScreen: true });
@@ -526,7 +562,7 @@ const App: React.FC = () => {
     setShowPasswordResetScreen(false);
   };
 
-  const handleLogoClick = () => { if (logoClickCount + 1 >= 5) { setShowAdminLogin(true); setLogoClickCount(0); } else setLogoClickCount(p => p+1); };
+  const handleLogoClick = () => { if (logoClickCount + 1 >= 5) { setShowAdminLogin(true); setLogoClickCount(0); } else setLogoClickCount(p => p + 1); };
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginUser || !passwordInput.trim()) return;
@@ -549,9 +585,9 @@ const App: React.FC = () => {
   };
   const handleAdminLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPasswordInput === 'admin005') {
-      const admin = family.find(f => f.role === 'admin') || { id: 'admin_user', name: 'Administrator', role: 'admin', avatar: 'https://ui-avatars.com/api/?name=Admin&background=ef4444&color=fff&bold=true', color: '#ef4444', password: 'admin' } as FamilyMember;
-      
+    if (adminPasswordInput === 'admin006') {
+      const admin = family.find(f => f.role === 'admin') || { id: 'admin_user', name: 'Administrator', role: 'admin', avatar: 'https://ui-avatars.com/api/?name=Admin&background=ef4444&color=fff&bold=true', color: '#ef4444', password: 'admin006' } as FamilyMember;
+
       if (!family.find(f => f.id === admin.id)) {
         await Backend.family.add(admin);
         setFamily(prev => [...prev, admin]);
@@ -649,7 +685,7 @@ const App: React.FC = () => {
 
     if (maintenanceActive() && currentUser?.role !== 'admin' && !showAdminLogin) {
       const countdown = formatCountdown(maintenanceEnd);
-      
+
       const getUpdateInfo = () => {
         const ua = navigator.userAgent.toLowerCase();
         if (ua.includes('android')) return { link: APK_DOWNLOAD_LINK, label: 'Android Update (.apk)' };
@@ -740,16 +776,16 @@ const App: React.FC = () => {
               )}
               <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 <div className="relative">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    autoFocus 
-                    value={passwordInput} 
-                    onChange={(e) => { setPasswordInput(e.target.value); setLoginError(''); }} 
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    autoFocus
+                    value={passwordInput}
+                    onChange={(e) => { setPasswordInput(e.target.value); setLoginError(''); }}
                     placeholder={loginStep === 'set-pass' ? t('login.create_pass', language) : t('login.pass_placeholder', language)}
-                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-2xl px-4 py-4 text-center text-xl outline-none dark:text-white focus:ring-2 focus:ring-blue-500 transition-all font-mono tracking-widest" 
+                    className="w-full bg-transparent rounded-2xl px-4 py-4 text-center text-xl outline-none dark:text-white focus:ring-2 focus:ring-blue-500 transition-all font-mono tracking-widest"
                   />
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   >
@@ -757,7 +793,7 @@ const App: React.FC = () => {
                   </button>
                 </div>
                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl transition-all transform active:scale-95">
-                  {loginStep === 'set-pass' ? t('login.set_pass_btn', language) : 'Login'}
+                  {loginStep === 'set-pass' ? t('login.set_pass_btn', language) : 'Anmelden'}
                 </button>
 
                 {loginError && <p className="text-red-500 text-sm mt-2 font-bold animate-shake">{loginError}</p>}
@@ -802,38 +838,64 @@ const App: React.FC = () => {
     let PageComponent;
     switch (currentRoute) {
       case AppRoute.WEATHER:
-        PageComponent = <WeatherPage onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} favorites={userWeatherFavorites} onToggleFavorite={toggleWeatherFavorite} initialLocation={currentWeatherLocation} onUpdateCurrentWeatherLocation={setCurrentWeatherLocation} />;
+        PageComponent = <WeatherPage onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} favorites={userWeatherFavorites} onToggleFavorite={toggleWeatherFavorite} initialLocation={currentWeatherLocation} onUpdateCurrentWeatherLocation={setCurrentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.CALENDAR:
-        PageComponent = <CalendarPage events={events} news={news} polls={polls} family={family} currentUser={currentUser} onAddEvent={async (e) => { const ev = {...e, authorId: currentUser.id}; setEvents(p => [...p, ev]); await Backend.events.add(ev); }} onUpdateEvent={async (id, u) => { setEvents(p => p.map(x => x.id === id ? {...x, ...u} : x)); await Backend.events.update(id, u); }} onDeleteEvent={async (id) => { setEvents(p => p.filter(x => x.id !== id)); await Backend.events.delete(id); }} onAddNews={async (n) => { setNews(p => [n, ...p]); await Backend.news.add(n); }} onUpdateNews={async (id, u) => { setNews(p => p.map(x => x.id === id ? {...x, ...u} : x)); await Backend.news.update(id, u); }} onDeleteNews={async (id) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); }} onAddPoll={async (p) => { setPolls(x => [p,...x]); await Backend.polls.add(p); }} onUpdatePoll={async (id, u) => { setPolls(x => x.map(p => p.id === id ? {...p, ...u}:p)); await Backend.polls.update(id, u); }} onDeletePoll={async (id) => { setPolls(x => x.filter(p => p.id !== id)); await Backend.polls.delete(id); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} onMarkNewsRead={async (id) => { const n = news.find(x => x.id === id); if (n) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? {...x, readBy: readers} : x)); await Backend.news.update(id, {readBy: readers}); } }} />;
+        PageComponent = <CalendarPage events={events} news={news} polls={polls} family={family} currentUser={currentUser} onAddEvent={async (e) => { const ev = { ...e, authorId: currentUser.id }; setEvents(p => [...p, ev]); await Backend.events.add(ev); }} onUpdateEvent={async (id, u) => { setEvents(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.events.update(id, u); }} onDeleteEvent={async (id) => { setEvents(p => p.filter(x => x.id !== id)); await Backend.events.delete(id); }} onAddNews={async (n) => { setNews(p => [n, ...p]); await Backend.news.add(n); }} onUpdateNews={async (id, u) => { setNews(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.news.update(id, u); }} onDeleteNews={async (id) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); }} onAddPoll={async (p) => { setPolls(x => [p, ...x]); await Backend.polls.add(p); }} onUpdatePoll={async (id, u) => { setPolls(x => x.map(p => p.id === id ? { ...p, ...u } : p)); await Backend.polls.update(id, u); }} onDeletePoll={async (id) => { setPolls(x => x.filter(p => p.id !== id)); await Backend.polls.delete(id); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} onMarkNewsRead={async (id) => { const n = news.find(x => x.id === id); if (n) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? { ...x, readBy: readers } : x)); await Backend.news.update(id, { readBy: readers }); } }} easterEnabled={effectiveEasterMode} />;
         break;
       case AppRoute.LISTS:
-        PageComponent = <ListsPage shoppingItems={shoppingList} householdTasks={householdTasks} personalTasks={personalTasks} recipes={recipes} family={family} currentUser={currentUser} onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? {...i, checked: !i.checked} : i)); await Backend.shopping.update(id, {checked: !item.checked}); } }} onAddShopping={async (name) => { const i = { id: Date.now().toString(), name, checked: false }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }} onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }} onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium' }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }} onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { setHouseholdTasks(p => p.map(x => x.id === id ? {...x, done: !x.done} : x)); await Backend.householdTasks.update(id, {done: !t.done}); } } else { const t = personalTasks.find(x => x.id === id); if (t) { setPersonalTasks(p => p.map(x => x.id === id ? {...x, done: !x.done} : x)); await Backend.personalTasks.update(id, {done: !t.done}); } } }} onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium' }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }} onDeleteTask={async (id, type) => { if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }} onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }} onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }} onAddIngredientsToShopping={async (ings) => { const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); setShoppingList(p => [...p, ...items]); await addNotification('Einkauf', 'Zutaten hinzugefügt'); }} onAddMealToPlan={async (d, m, ings) => { const newM = { id: Math.random().toString(), day: d, mealName: m, ingredients: ings }; setMealPlan(p => [...p.filter(x => x.day !== d), newM]); await Backend.mealPlan.setAll([...mealPlan.filter(x => x.day !== d), newM]); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} />;
+        PageComponent = <ListsPage 
+                                shoppingItems={shoppingList} 
+                                householdTasks={householdTasks} 
+                                personalTasks={personalTasks} 
+                                recipes={recipes} 
+                                family={family} 
+                                currentUser={currentUser} 
+                                onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? { ...i, checked: !i.checked } : i)); await Backend.shopping.update(id, { checked: !item.checked }); } }} 
+                                onAddShopping={async (name) => { const i = { id: Date.now().toString(), name, checked: false }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }} 
+                                onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }} 
+                                onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium' }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }} 
+                                onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.householdTasks.update(id, { done: !t.done }); } } else { const t = personalTasks.find(x => x.id === id); if (t) { setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.personalTasks.update(id, { done: !t.done }); } } }} 
+                                onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium' }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }} 
+                                onDeleteTask={async (id, type) => { if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }} 
+                                onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }} 
+                                onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }} 
+                                onAddIngredientsToShopping={async (ings) => { 
+                                  const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); 
+                                  const newList = [...shoppingList, ...items];
+                                  setShoppingList(newList); 
+                                  await Promise.all(items.map(item => Backend.shopping.add(item)));
+                                  await addNotification('Einkauf', 'Zutaten hinzugefügt'); 
+                                }} 
+                                mealPlan={mealPlan}
+                                onAddMealToPlan={addMealToPlan} 
+                                onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} 
+                                liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.MEALS:
-        PageComponent = <MealsPage plan={mealPlan} requests={mealRequests} family={family} currentUser={currentUser} onUpdatePlan={updateMealPlan} onAddRequest={addMealRequest} onDeleteRequest={deleteMealRequest} onAddIngredientsToShopping={addIngredientsToShopping} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} recipes={recipes} onAddRecipe={addRecipe} onPlanGenerated={handlePlanGenerated} liquidGlass={false} />;
+        PageComponent = <MealsPage plan={mealPlan} requests={mealRequests} family={family} currentUser={currentUser} onUpdatePlan={updateMealPlan} onAddRequest={addMealRequest} onDeleteRequest={deleteMealRequest} onAddIngredientsToShopping={addIngredientsToShopping} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} recipes={recipes} onAddRecipe={addRecipe} onPlanGenerated={handlePlanGenerated} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.ACTIVITIES:
-        PageComponent = <ActivitiesPage feedbacks={feedbacks} polls={polls} family={family} currentUser={currentUser} onNavigate={setCurrentRoute} onUpdateFeedbacks={setFeedbacks} onUpdatePolls={setPolls} lang={language} />;
+        PageComponent = <ActivitiesPage onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} currentLocation={currentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.SETTINGS:
         PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} easterMode={easterMode} onToggleEasterMode={() => setEasterMode(!easterMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
-  const newVal = !maintenanceMode;
-  setMaintenanceMode(newVal);
-  if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
-    setMaintenanceEnd('');
-  }
-}} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => {}} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onNavigate={setCurrentRoute} />;
+          const newVal = !maintenanceMode;
+          setMaintenanceMode(newVal);
+          if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
+            setMaintenanceEnd('');
+          }
+        }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onNavigate={setCurrentRoute} />;
         break;
       default:
-        PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} />;
+        PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} />;
     }
 
     return (
       <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {renderEasterDecorations()}
         <main className="flex-1 overflow-y-auto no-scrollbar relative">{PageComponent}</main>
-        <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${currentRoute === AppRoute.WEATHER ? (effectiveLiquidGlass ? 'bg-black/20 backdrop-blur-xl' : 'bg-slate-900') : (effectiveLiquidGlass ? 'bg-white/80 dark:bg-slate-900/90 backdrop-blur-md' : 'bg-white dark:bg-slate-900')}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${currentRoute === AppRoute.WEATHER ? (effectiveLiquidGlass ? 'bg-transparent' : 'bg-slate-900') : (effectiveLiquidGlass ? 'bg-transparent' : 'bg-white dark:bg-slate-900')}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} easterMode={effectiveEasterMode} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} />
         </div>
         {showSecurityScreen && currentUser && (

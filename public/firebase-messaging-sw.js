@@ -4,7 +4,7 @@ importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compa
 
 // Initialize the Firebase app in the service worker
 firebase.initializeApp({
-  apiKey: "AIzaSyC51OaW48B5gx0k-nGYnMpaBMqc_tSfgy4",
+  apiKey: "AIzaSyBbfFwbszHY1GOr6nhEXiAgo4MuHMofvQs",
   authDomain: "familyhub-notification.firebaseapp.com",
   projectId: "familyhub-notification",
   storageBucket: "familyhub-notification.firebasestorage.app",

@@ -77,7 +77,7 @@ const translations = {
       pass_placeholder: 'Passwort',
       new_pass_placeholder: 'Neues Passwort',
       wrong_pass: 'Falsches Passwort',
-      change_required: 'Admin verlangt Passwortwechsel. Setze jetzt ein neues Passwort.',
+      change_required: 'Der Administrator verlangt ein neues Passwort. Setze jetzt ein neues Passwort.',
       login_btn: 'Anmelden',
       set_pass_btn: 'Passwort festlegen',
     },
@@ -85,8 +85,8 @@ const translations = {
       logged_in_as: 'Angemeldet als',
     },
     maintenance: {
-      title: 'Wartungsarbeiten',
-      description: 'Die App wird gerade aktualisiert. Bitte versuche es später erneut.',
+      title: 'Wartungsmodus.',
+      description: 'Wir polieren gerade die Ecken! Der Familien-Hub bekommt ein kleines Update und ist gleich wieder für euch da. Danke für eure Geduld! 🛠️✨',
       download_update: 'Update herunterladen',
       active_error: 'Wartungsmodus aktiv. Login nur für Administratoren.',
     }
@@ -154,7 +154,7 @@ const translations = {
       pass_placeholder: 'Password',
       new_pass_placeholder: 'New Password',
       wrong_pass: 'Incorrect password',
-      login_btn: 'Sign In',
+      login_btn: 'Anmelden',
       set_pass_btn: 'Set Password',
     },
     header: {

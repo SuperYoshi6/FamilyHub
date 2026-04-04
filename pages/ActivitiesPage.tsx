@@ -8,9 +8,10 @@ import { Geolocation } from '@capacitor/geolocation';
 interface ActivitiesPageProps {
   onProfileClick: () => void;
   currentLocation?: { lat: number; lng: number; name: string } | null;
+  liquidGlass?: boolean;
 }
 
-const ActivitiesPage: React.FC<ActivitiesPageProps> = ({ onProfileClick, currentLocation }) => {
+const ActivitiesPage: React.FC<ActivitiesPageProps> = ({ onProfileClick, currentLocation, liquidGlass }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ text: string; places: PlaceRecommendation[] } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -96,7 +97,7 @@ const ActivitiesPage: React.FC<ActivitiesPageProps> = ({ onProfileClick, current
 
   return (
     <>
-      <Header title="Orte & Aktivitäten" onProfileClick={onProfileClick} />
+      <Header title="Orte & Aktivitäten" onProfileClick={onProfileClick} liquidGlass={liquidGlass} />
       <div className="p-4 space-y-6">
         
         {/* Search Input */}
@@ -107,7 +108,7 @@ const ActivitiesPage: React.FC<ActivitiesPageProps> = ({ onProfileClick, current
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Was wollt ihr unternehmen?"
-            className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-3 pl-10 pr-4 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-800 dark:text-white"
+            className={`w-full ${liquidGlass ? 'bg-white/20 backdrop-blur-md border-white/40' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'} border rounded-xl py-3 pl-10 pr-4 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-800 dark:text-white`}
           />
           <button 
             type="submit" 
@@ -155,7 +156,7 @@ const ActivitiesPage: React.FC<ActivitiesPageProps> = ({ onProfileClick, current
                   <div 
                     key={idx} 
                     onClick={() => openPlaceDetails(place)}
-                    className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-col justify-between hover:shadow-md transition cursor-pointer active:scale-[0.98]"
+                    className={`${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} rounded-xl shadow-sm border p-4 flex flex-col justify-between hover:shadow-md transition cursor-pointer active:scale-[0.98]`}
                   >
                     <div>
                         <div className="flex justify-between items-start mb-2">

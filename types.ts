@@ -34,6 +34,7 @@ export interface NewsItem {
   createdAt: string;
   authorId: string;
   readBy?: string[]; // Array of UserIDs who marked this as read
+  pinned?: boolean; // New: Pin to top
 }
 
 // --- POLLS ---
@@ -98,12 +99,19 @@ export interface Task {
   note?: string;
 }
 
+export interface RecipeIngredient {
+  name: string;
+  amount: string;
+}
+
 export interface Recipe {
   id: string;
   name: string;
-  ingredients: string[];
+  ingredients: RecipeIngredient[];
   image?: string; // Base64 or URL
   description?: string;
+  source?: string; // New: Display site name like "Chefkoch"
+  url?: string; // New: Direct link to the source
 }
 
 export interface MealPlan {

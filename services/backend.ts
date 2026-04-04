@@ -143,6 +143,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
             if ('readBy' in payload) { payload.read_by = payload.readBy; delete payload.readBy; }
+            if ('pinned' in payload) { payload.pinned = payload.pinned; } // Standard
         }
 
         if (this.table === 'polls') {
@@ -151,6 +152,11 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('expiresAt' in payload) { payload.expires_at = payload.expiresAt; delete payload.expiresAt; }
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if ('allowMultipleSelection' in payload) { payload.allow_multiple_selection = payload.allowMultipleSelection; delete payload.allowMultipleSelection; }
+            if ('description' in payload) { delete payload.description; }
+
+            // Handle NOT NULL constraints for dates
+            if (!payload.starts_at) { payload.starts_at = new Date().toISOString(); }
+            if (!payload.expires_at) { payload.expires_at = '2099-12-31T23:59:59Z'; }
         }
 
         if (this.table === 'events') {
@@ -169,6 +175,9 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'meal_plans') {
             if ('mealName' in payload) { payload.meal_name = payload.mealName; delete payload.mealName; }
             if ('recipeHint' in payload) { payload.recipe_hint = payload.recipeHint; delete payload.recipeHint; }
+            // breakfast and lunch are already snake_case or don't need mapping, but let's be explicit
+            if ('breakfast' in payload) { payload.breakfast = payload.breakfast; }
+            if ('lunch' in payload) { payload.lunch = payload.lunch; }
         }
 
         if (this.table === 'notifications') {
@@ -208,6 +217,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
             if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
             if ('read_by' in item) { item.readBy = item.read_by; delete item.read_by; }
+            if ('pinned' in item) { item.pinned = item.pinned; }
         }
         if (this.table === 'polls') {
             if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
@@ -230,6 +240,8 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'meal_plans') {
             if ('meal_name' in item) { item.mealName = item.meal_name; delete item.meal_name; }
             if ('recipe_hint' in item) { item.recipeHint = item.recipe_hint; delete item.recipe_hint; }
+            if ('breakfast' in item) { item.breakfast = item.breakfast; }
+            if ('lunch' in item) { item.lunch = item.lunch; }
         }
         if (this.table === 'weather_favs') {
             if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }

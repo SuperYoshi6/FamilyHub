@@ -1,265 +1,414 @@
 <!DOCTYPE html>
 <html lang="de">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#f3f4f6" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
-    <link rel="manifest" href="./manifest.json">
-    <title>FamilyHub</title>
-    <script type="text/javascript">
-      // Single Page Apps for GitHub Pages
-      // MIT License
-      // https://github.com/rafgraph/spa-github-pages
-      (function(l) {
-        if (l.search[1] === '/' ) {
-          var decoded = l.search.slice(1).split('&').map(function(s) { 
-            return s.replace(/~and~/g, '&')
-          }).join('?');
-          window.history.replaceState(null, null,
-              l.pathname.slice(0, -1) + decoded + l.hash
-          );
-        }
-      }(window.location))
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              dark: {
-                bg: '#111827',
-                card: '#1f2937',
-                text: '#f3f4f6',
-                muted: '#9ca3af'
-              }
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#f3f4f6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111827" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="icon"
+    href="data:image/svg+xml,svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
+  <link rel="manifest" href="./manifest.json">
+  <title>FamilyHub</title>
+  <script type="text/javascript">
+    // Single Page Apps for GitHub Pages
+    // MIT License
+    // https://github.com/rafgraph/spa-github-pages
+    (function (l) {
+      if (l.search[1] === '/') {
+        var decoded = l.search.slice(1).split('&').map(function (s) {
+          return s.replace(/~and~/g, '&')
+        }).join('?');
+        window.history.replaceState(null, null,
+          l.pathname.slice(0, -1) + decoded + l.hash
+        );
+      }
+    }(window.location))
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              bg: '#111827',
+              card: '#1f2937',
+              text: '#f3f4f6',
+              muted: '#9ca3af'
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+            'slide-in': 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            'slide-up': 'slideUp 0.3s ease-out forwards',
+            'fade-in': 'fadeIn 0.4s ease-out forwards',
+            'gradient-x': 'gradientX 20s ease infinite',
+            'blob': 'blob 7s infinite',
+            'rain': 'fall linear infinite',
+            'cloud': 'drift ease-in-out infinite alternate',
+            'thunder': 'flash 5s infinite',
+            'wobble': 'liquidWobble 0.25s ease-in-out infinite',
+            'shimmer': 'shimmer-sweep 3s ease-in-out infinite'
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
             },
-            animation: {
-              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              'float': 'float 6s ease-in-out infinite',
-              'slide-in': 'slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-              'slide-up': 'slideUp 0.3s ease-out forwards',
-              'fade-in': 'fadeIn 0.4s ease-out forwards',
-              'gradient-x': 'gradientX 20s ease infinite',
-              'blob': 'blob 7s infinite',
-              'rain': 'fall linear infinite',
-              'cloud': 'drift ease-in-out infinite alternate',
-              'thunder': 'flash 5s infinite',
-              'wobble': 'liquidWobble 0.25s ease-in-out infinite'
+            slideIn: {
+              '0%': { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+              '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
             },
-            keyframes: {
-              float: {
-                '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-10px)' },
-              },
-              slideIn: {
-                '0%': { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
-                '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
-              },
-              slideUp: {
-                '0%': { opacity: '0', transform: 'translateY(20px)' },
-                '100%': { opacity: '1', transform: 'translateY(0)' },
-              },
-              fadeIn: {
-                '0%': { opacity: '0' },
-                '100%': { opacity: '1' },
-              },
-              gradientX: {
-                '0%': { 'background-position': '0% 50%' },
-                '50%': { 'background-position': '100% 50%' },
-                '100%': { 'background-position': '0% 50%' },
-              },
-              blob: {
-                '0%': { transform: 'translate3d(0px, 0px, 0) scale(1)' },
-                '33%': { transform: 'translate3d(30px, -50px, 0) scale(1.1)' },
-                '66%': { transform: 'translate3d(-20px, 20px, 0) scale(0.9)' },
-                '100%': { transform: 'translate3d(0px, 0px, 0) scale(1)' },
-              },
-              fall: {
-                '0%': { transform: 'translate3d(0, -10vh, 0) translateX(0)', opacity: '0' },
-                '10%': { opacity: '1' },
-                '90%': { opacity: '1' },
-                '100%': { transform: 'translate3d(10px, 110vh, 0)', opacity: '0' }
-              },
-              drift: {
-                '0%': { transform: 'translate3d(-5%, 0, 0)' },
-                '50%': { transform: 'translate3d(5%, 0, 0)' },
-                '100%': { transform: 'translate3d(-5%, 0, 0)' }
-              },
-              flash: {
-                '0%, 90%, 100%': { opacity: '0' },
-                '92%, 96%': { opacity: '0.6' },
-                '94%': { opacity: '0' }
-              },
-              liquidWobble: {
-                '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
-                '25%': { transform: 'scale(1.05) rotate(-1deg)' },
-                '75%': { transform: 'scale(1.05) rotate(1deg)' }
-              },
-              'easter-fall': {
-                '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '0' },
-                '10%': { opacity: '1' },
-                '90%': { opacity: '1' },
-                '100%': { transform: 'translateY(110vh) rotate(360deg)', opacity: '0' }
-              }
+            slideUp: {
+              '0%': { opacity: '0', transform: 'translateY(20px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            gradientX: {
+              '0%': { 'background-position': '0% 50%' },
+              '50%': { 'background-position': '100% 50%' },
+              '100%': { 'background-position': '0% 50%' },
+            },
+            blob: {
+              '0%': { transform: 'translate3d(0px, 0px, 0) scale(1)' },
+              '33%': { transform: 'translate3d(30px, -50px, 0) scale(1.1)' },
+              '66%': { transform: 'translate3d(-20px, 20px, 0) scale(0.9)' },
+              '100%': { transform: 'translate3d(0px, 0px, 0) scale(1)' },
+            },
+            fall: {
+              '0%': { transform: 'translate3d(0, -10vh, 0) translateX(0)', opacity: '0' },
+              '10%': { opacity: '1' },
+              '90%': { opacity: '1' },
+              '100%': { transform: 'translate3d(10px, 110vh, 0)', opacity: '0' }
+            },
+            drift: {
+              '0%': { transform: 'translate3d(-5%, 0, 0)' },
+              '50%': { transform: 'translate3d(5%, 0, 0)' },
+              '100%': { transform: 'translate3d(-5%, 0, 0)' }
+            },
+            flash: {
+              '0%, 90%, 100%': { opacity: '0' },
+              '92%, 96%': { opacity: '0.6' },
+              '94%': { opacity: '0' }
+            },
+            liquidWobble: {
+              '0%, 100%': { transform: 'scale(1) rotate(0deg)' },
+              '25%': { transform: 'scale(1.05) rotate(-1deg)' },
+              '75%': { transform: 'scale(1.05) rotate(1deg)' }
+            },
+            'easter-fall': {
+              '0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '0' },
+              '10%': { opacity: '1' },
+              '90%': { opacity: '1' },
+              '100%': { transform: 'translateY(110vh) rotate(360deg)', opacity: '0' }
+            },
+            'shimmer-sweep': {
+              '0%': { transform: 'translateX(-100%)' },
+              '100%': { transform: 'translateX(100%)' }
             }
           }
         }
       }
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-      /* Global Reset */
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      
-      /* Liquid Glass Refinements */
-      .liquid-shimmer-card {
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(20px) saturate(180%);
-        -webkit-backdrop-filter: blur(20px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 40px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-      }
-      .dark .liquid-shimmer-card {
-        background: rgba(15, 23, 42, 0.4);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    /* Global Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Liquid Glass Refinements */
+    .liquid-shimmer-card {
+      position: relative;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(25px) saturate(200%);
+      -webkit-backdrop-filter: blur(25px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 40px;
+      box-shadow: 0 10px 40px -10px rgba(31, 38, 135, 0.2);
+      overflow: hidden;
+    }
+
+    .liquid-shimmer-card::after {
+      content: "";
+      position: absolute;
+      top: 0; right: 0; bottom: 0; left: 0;
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.1) 45%,
+        rgba(255, 255, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0.1) 55%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      transform: translateX(-100%);
+      animation: shimmer-sweep 4s infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .dark .liquid-shimmer-card {
+      background: rgba(15, 23, 42, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .dark .liquid-shimmer-card::after {
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 45%,
+        rgba(255, 255, 255, 0.1) 50%,
+        rgba(255, 255, 255, 0.05) 55%,
+        rgba(255, 255, 255, 0) 100%
+      );
+    }
+
+    /* Nav Wobble Bubble */
+    .nav-wobble-bubble {
+      position: absolute;
+      height: 80%;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.2));
+      border-radius: 20px;
+      z-index: 0;
+      pointer-events: none;
+      will-change: left, width, transform;
+      transition: width 0.3s ease, left 0.35s ease, transform 0.15s ease;
+    }
+
+    .dark .nav-wobble-bubble {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(139, 92, 246, 0.3));
+    }
+
+    /* ===== Easter Mode: Blau → Rosa ===== */
+    html[data-easter] .nav-wobble-bubble {
+      background: linear-gradient(135deg, rgba(244, 114, 182, 0.4), rgba(236, 72, 153, 0.2));
+    }
+
+    html[data-easter] .dark .nav-wobble-bubble {
+      background: linear-gradient(135deg, rgba(244, 114, 182, 0.5), rgba(236, 72, 153, 0.3));
+    }
+
+    html[data-easter] .bg-blue-600 {
+      background-color: #db2777 !important;
+    }
+
+    html[data-easter] .bg-blue-500 {
+      background-color: #ec4899 !important;
+    }
+
+    html[data-easter] .bg-blue-400 {
+      background-color: #f472b6 !important;
+    }
+
+    html[data-easter] .bg-blue-100 {
+      background-color: #fce7f3 !important;
+    }
+
+    html[data-easter] .bg-blue-50 {
+      background-color: #fdf2f8 !important;
+    }
+
+    html[data-easter] .hover\:bg-blue-700:hover {
+      background-color: #be185d !important;
+    }
+
+    html[data-easter] .hover\:bg-blue-600:hover {
+      background-color: #db2777 !important;
+    }
+
+    html[data-easter] .text-blue-600 {
+      color: #db2777 !important;
+    }
+
+    html[data-easter] .text-blue-500 {
+      color: #ec4899 !important;
+    }
+
+    html[data-easter] .text-blue-400 {
+      color: #f472b6 !important;
+    }
+
+    html[data-easter] .text-blue-300 {
+      color: #f9a8d4 !important;
+    }
+
+    html[data-easter] .dark\:text-blue-400 {
+      color: #f9a8d4 !important;
+    }
+
+    html[data-easter] .dark\:text-blue-300 {
+      color: #fbcfe8 !important;
+    }
+
+    html[data-easter] .border-blue-500 {
+      border-color: #ec4899 !important;
+    }
+
+    html[data-easter] .border-blue-200 {
+      border-color: #fbcfe8 !important;
+    }
+
+    html[data-easter] .dark\:border-blue-800 {
+      border-color: #831843 !important;
+    }
+
+    html[data-easter] .ring-blue-500 {
+      --tw-ring-color: rgba(236, 72, 153, 0.5) !important;
+    }
+
+    html[data-easter] .dark\:bg-blue-900\/20 {
+      background-color: rgba(131, 24, 67, 0.2) !important;
+    }
+
+    html[data-easter] .dark\:bg-blue-900\/30 {
+      background-color: rgba(131, 24, 67, 0.3) !important;
+    }
+
+    html[data-easter] .dark\:bg-blue-800 {
+      background-color: #831843 !important;
+    }
+
+    html[data-easter] .dark\:border-blue-900 {
+      border-color: #500724 !important;
+    }
+
+    html[data-easter] .border-blue-100 {
+      border-color: #fce7f3 !important;
+    }
+
+    html[data-easter] .ring-blue-50 {
+      --tw-ring-color: rgba(253, 242, 248, 1) !important;
+    }
+
+    html[data-easter] .dark\:ring-blue-900\/20 {
+      --tw-ring-color: rgba(131, 24, 67, 0.2) !important;
+    }
+
+    html[data-easter] .hover\:bg-blue-50:hover {
+      background-color: #fdf2f8 !important;
+    }
+
+    html[data-easter] .dark\:hover\:bg-blue-900\/30:hover {
+      background-color: rgba(131, 24, 67, 0.3) !important;
+    }
+
+    html[data-easter] .shadow-blue-500\/20 {
+      box-shadow: 0 4px 14px 0 rgba(236, 72, 153, 0.2) !important;
+    }
+
+    html[data-easter] .dark\:text-blue-600 {
+      color: #ec4899 !important;
+    }
+
+    html[data-easter] .text-blue-600.dark\:text-blue-400 {
+      color: #db2777 !important;
+    }
+
+    /* Legibility Helpers */
+    .glass-text-glow {
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 2px rgba(255, 255, 255, 1);
+    }
+
+    .dark .glass-text-glow {
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 1);
+    }
+
+    @keyframes easter-sway {
+
+      0%,
+      100% {
+        transform: translateX(-10px);
       }
 
-      /* Nav Wobble Bubble */
-      .nav-wobble-bubble {
-        position: absolute;
-        height: 80%;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(37, 99, 235, 0.2));
-        border-radius: 20px;
-        z-index: 0;
-        pointer-events: none;
-        will-change: left, width, transform;
-        transition: width 0.3s ease, left 0.35s ease, transform 0.15s ease;
+      50% {
+        transform: translateX(10px);
       }
-      .dark .nav-wobble-bubble {
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.5), rgba(139, 92, 246, 0.3));
-      }
+    }
 
-      /* ===== Easter Mode: Blau → Rosa ===== */
-      html[data-easter] .nav-wobble-bubble {
-        background: linear-gradient(135deg, rgba(244, 114, 182, 0.4), rgba(236, 72, 153, 0.2));
-      }
-      html[data-easter] .dark .nav-wobble-bubble {
-        background: linear-gradient(135deg, rgba(244, 114, 182, 0.5), rgba(236, 72, 153, 0.3));
-      }
-      html[data-easter] .bg-blue-600  { background-color: #db2777 !important; }
-      html[data-easter] .bg-blue-500  { background-color: #ec4899 !important; }
-      html[data-easter] .bg-blue-400  { background-color: #f472b6 !important; }
-      html[data-easter] .bg-blue-100  { background-color: #fce7f3 !important; }
-      html[data-easter] .bg-blue-50   { background-color: #fdf2f8 !important; }
-      html[data-easter] .hover\:bg-blue-700:hover { background-color: #be185d !important; }
-      html[data-easter] .hover\:bg-blue-600:hover { background-color: #db2777 !important; }
-      html[data-easter] .text-blue-600 { color: #db2777 !important; }
-      html[data-easter] .text-blue-500 { color: #ec4899 !important; }
-      html[data-easter] .text-blue-400 { color: #f472b6 !important; }
-      html[data-easter] .text-blue-300 { color: #f9a8d4 !important; }
-      html[data-easter] .dark\:text-blue-400 { color: #f9a8d4 !important; }
-      html[data-easter] .dark\:text-blue-300 { color: #fbcfe8 !important; }
-      html[data-easter] .border-blue-500 { border-color: #ec4899 !important; }
-      html[data-easter] .border-blue-200 { border-color: #fbcfe8 !important; }
-      html[data-easter] .dark\:border-blue-800 { border-color: #831843 !important; }
-      html[data-easter] .ring-blue-500 { --tw-ring-color: rgba(236,72,153,0.5) !important; }
-      html[data-easter] .dark\:bg-blue-900\/20 { background-color: rgba(131,24,67,0.2) !important; }
-      html[data-easter] .dark\:bg-blue-900\/30 { background-color: rgba(131,24,67,0.3) !important; }
-      html[data-easter] .dark\:bg-blue-800 { background-color: #831843 !important; }
-      html[data-easter] .dark\:border-blue-900 { border-color: #500724 !important; }
-      html[data-easter] .border-blue-100 { border-color: #fce7f3 !important; }
-      html[data-easter] .ring-blue-50 { --tw-ring-color: rgba(253,242,248,1) !important; }
-      html[data-easter] .dark\:ring-blue-900\/20 { --tw-ring-color: rgba(131,24,67,0.2) !important; }
-      html[data-easter] .hover\:bg-blue-50:hover { background-color: #fdf2f8 !important; }
-      html[data-easter] .dark\:hover\:bg-blue-900\/30:hover { background-color: rgba(131,24,67,0.3) !important; }
-      html[data-easter] .shadow-blue-500\/20 { box-shadow: 0 4px 14px 0 rgba(236,72,153,0.2) !important; }
-      html[data-easter] .dark\:text-blue-600 { color: #ec4899 !important; }
-      html[data-easter] .text-blue-600.dark\:text-blue-400 { color: #db2777 !important; }
+    /* Disable selection globally for app-like feel */
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      overscroll-behavior-y: none;
+    }
 
-      /* Legibility Helpers */
-      .glass-text-glow {
-        text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 2px rgba(255, 255, 255, 1);
-      }
-      .dark .glass-text-glow {
-        text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 1);
-      }
+    /* Re-enable selection for inputs */
+    input,
+    textarea,
+    [contenteditable="true"] {
+      -webkit-user-select: text;
+      user-select: text;
+    }
 
-      @keyframes easter-sway {
-        0%, 100% { transform: translateX(-10px); }
-        50% { transform: translateX(10px); }
-      }
-      
-      /* Disable selection globally for app-like feel */
-      html, body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        overflow-x: hidden;
-        -webkit-tap-highlight-color: transparent;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        user-select: none;
-        overscroll-behavior-y: none;
-      }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6;
+      transition: background-color 0.5s ease, color 0.5s ease;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
 
-      /* Re-enable selection for inputs */
-      input, textarea, [contenteditable="true"] {
-        -webkit-user-select: text;
-        user-select: text;
-      }
+    #root {
+      min-height: 100vh;
+    }
 
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f3f4f6;
-        transition: background-color 0.5s ease, color 0.5s ease;
-        padding-bottom: env(safe-area-inset-bottom);
-      }
+    header.sticky {
+      top: 0;
+    }
 
-      #root {
-        min-height: 100vh;
-      }
-      
-      header.sticky {
-        top: 0;
-      }
-      
-      nav.fixed.bottom-0 {
-        padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
-      }
+    nav.fixed.bottom-0 {
+      padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    }
 
-      .dark body {
-        background-color: #111827;
-        color: #f3f4f6;
-      }
-      
-      ::-webkit-scrollbar {
-        width: 0px;
-        background: transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-      }
-      .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #475569;
-      }
+    .dark body {
+      background-color: #111827;
+      color: #f3f4f6;
+    }
 
-      .page-transition-wrapper {
-        animation: slideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
-        width: 100%;
-        will-change: transform, opacity;
-      }
-    </style>
+    ::-webkit-scrollbar {
+      width: 0px;
+      background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+
+    .page-transition-wrapper {
+      animation: slideIn 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+      width: 100%;
+      will-change: transform, opacity;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -273,8 +422,10 @@
 }
 </script>
 </head>
-  <body class="transition-colors duration-300">
-    <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
-  </body>
+
+<body class="transition-colors duration-300">
+  <div id="root"></div>
+  <script type="module" src="./index.tsx"></script>
+</body>
+
 </html>

@@ -14,6 +14,26 @@ interface WeatherPageProps {
     liquidGlass?: boolean;
 }
 
+const getMoonPhase = (date: Date) => {
+    const lp = 2551443;
+    const now = new Date(date.getTime());
+    const new_moon = new Date(1970, 0, 7, 20, 35, 0);
+    const phase = ((now.getTime() - new_moon.getTime()) / 1000) % lp;
+    const phaseIndex = Math.floor((phase / lp) * 8);
+    
+    const phases = [
+        { name: 'Neumond', icon: '🌑' },
+        { name: 'Zunehmender Sichelmond', icon: '🌒' },
+        { name: 'Erstes Viertel', icon: '🌓' },
+        { name: 'Zunehmender Mond', icon: '🌔' },
+        { name: 'Vollmond', icon: '🌕' },
+        { name: 'Abnehmender Mond', icon: '🌖' },
+        { name: 'Letztes Viertel', icon: '🌗' },
+        { name: 'Abnehmender Sichelmond', icon: '🌘' }
+    ];
+    return phases[phaseIndex % 8];
+};
+
 // --- Helper Functions ---
 
 const renderMetricIcon = (iconName: string, className: string) => {
@@ -387,15 +407,15 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
 
     // --- THEME LOGIC FOR LIQUID GLASS ---
     const textColorClass = liquidGlass
-        ? 'text-slate-800 dark:text-white'
+        ? 'text-slate-900 dark:text-white drop-shadow-sm'
         : (isSnowyBg && isDay ? 'text-slate-800' : 'text-white');
 
     const sectionTitleClass = liquidGlass
-        ? 'text-slate-600 dark:text-yellow-100 opacity-90'
+        ? 'text-slate-800 dark:text-white font-black'
         : 'text-yellow-100 opacity-90';
 
     const glassClass = liquidGlass
-        ? 'bg-white/40 dark:bg-black/30 backdrop-blur-xl border border-white/30 dark:border-white/10 shadow-sm'
+        ? 'liquid-shimmer-card rounded-[2.5rem] shadow-lg'
         : (isSnowyBg ? 'bg-white/40 border-slate-500/20' : 'bg-black/20 border-white/5');
 
     // --- Helper Components ---
@@ -443,7 +463,6 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         const hourlySlice = data.hourly.time.slice(currentHourIndex, currentHourIndex + 25);
         const tempSlice = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 25);
         const codeSlice = data.hourly.weather_code.slice(currentHourIndex, currentHourIndex + 25);
-        const rainSlice = (data.hourly.precipitation_probability || []).slice(currentHourIndex, currentHourIndex + 25);
 
         const sunrise0 = data.daily.sunrise?.[0] ? new Date(data.daily.sunrise[0]).getTime() : 0;
         const sunset0 = data.daily.sunset?.[0] ? new Date(data.daily.sunset[0]).getTime() : 0;
@@ -472,8 +491,8 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                                     <span className="text-xs font-medium opacity-80 whitespace-nowrap">{isNow ? 'Jetzt' : `${hour}:00`}</span>
                                     {getSmallWeatherIcon(codeSlice[i] || 0, hourIsDay)}
                                     <span className="font-bold text-lg">{Math.round(tempSlice[i] || 0)}°</span>
-                                    <span className="text-[10px] font-semibold text-blue-200/80 flex items-center gap-1">
-                                        <Umbrella size={10} /> {rainSlice[i] ?? 0}%
+                                    <span className={`text-[9px] font-black flex items-center gap-0.5 leading-none mt-1 ${liquidGlass ? 'text-blue-600 dark:text-blue-400' : 'text-blue-200/80'}`}>
+                                        <Umbrella size={8} /> {data.hourly.precipitation_probability?.[currentHourIndex + i] ?? 0}%
                                     </span>
                                 </div>
                             )
@@ -502,7 +521,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                             <span className="w-20 font-medium text-left">{getDayName(dayStr, i)}</span>
                             <div className="flex flex-col items-center justify-center w-12">
                                 {getSmallWeatherIcon(data.daily.weather_code[i])}
-                                <span className="text-[9px] font-semibold text-blue-200/80 flex items-center gap-0.5 leading-none mt-1">
+                                <span className={`text-[9px] font-black flex items-center gap-0.5 leading-none mt-1 ${liquidGlass ? 'text-blue-600 dark:text-blue-400' : 'text-blue-200/80'}`}>
                                     <Umbrella size={8} /> {data.daily.precipitation_probability_max?.[i] ?? 0}%
                                 </span>
                             </div>
@@ -641,7 +660,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                         className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
                         title="Aktueller Standort"
                     >
-                        <Navigation size={20} className={!initialLocation ? 'fill-current' : ''} />
+                        <Navigation size={20} />
                     </button>
                     <button
                         onClick={handleFavoriteClick}
@@ -722,9 +741,9 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                         <div className={`mb-2 drop-shadow-2xl filter transform hover:scale-105 transition duration-700 ease-in-out ${liquidGlass ? 'animate-float' : ''}`}>
                             {getBigWeatherIcon(currentCode, isDay)}
                         </div>
-                        <h1 className="text-8xl font-bold tracking-tighter drop-shadow-lg leading-none">
-                            {Math.round(data.current.temperature_2m)}°
-                        </h1>
+                        <div className={`text-8xl font-[1000] tracking-tighter leading-none mb-1 drop-shadow-2xl ${textColorClass.includes('text-slate-900') ? 'glass-text-glow' : ''}`}>
+                            {Math.round(data.current.temperature_2m || 0)}°
+                        </div>
                         <p className="text-xl font-medium mt-2 opacity-90 drop-shadow-sm">
                             {getWeatherDescription(currentCode)}
                         </p>

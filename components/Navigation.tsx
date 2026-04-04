@@ -84,9 +84,9 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     };
 
     const getNavClass = () => {
-        if (liquidGlass) return 'liquid-shimmer-card';
+        if (liquidGlass) return 'liquid-shimmer-card rounded-t-[32px] border-t border-white/40';
         if (easterMode) return 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-t border-white/20 rounded-t-[32px]';
-        return 'bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-gray-800';
+        return 'bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-gray-800 rounded-t-[32px]';
     };
 
     // Calculate dynamic styles for the bubble
@@ -126,15 +126,15 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                 let textColor = '';
 
                 if (easterMode) {
-                   textColor = isActive ? 'text-pink-600 dark:text-pink-400 font-bold scale-110' : 'text-slate-500/70 dark:text-slate-400/60';
+                   textColor = isActive ? 'text-[#db2777] dark:text-pink-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
                 } else if (isWeather && !liquidGlass) {
                     textColor = isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500';
                 } else if (christmasMode) {
                     textColor = isActive ? 'text-red-600 dark:text-red-500' : 'text-green-800/70 dark:text-green-400/60';
                 } else if (liquidGlass) {
-                    textColor = isActive ? 'text-slate-900 dark:text-white font-extrabold' : 'text-slate-500 dark:text-slate-400';
+                    textColor = isActive ? 'text-blue-600 dark:text-blue-500 font-black' : 'text-slate-500 dark:text-slate-400';
                 } else {
-                    textColor = isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500';
+                    textColor = isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-400 dark:text-gray-500';
                 }
 
                 return (
@@ -145,7 +145,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                         className={`relative flex flex-col items-center justify-center w-full space-y-1 transition-all duration-300 z-10 pointer-events-auto ${textColor} ${activeBg}`}
                         style={{ width: `${itemWidthPercent}%` }}
                     >
-                        <item.icon size={isActive ? 28 : 24} className="transition-all duration-300" />
+                        <item.icon size={isActive ? 28 : 24} className={`transition-all duration-300 ${isActive && liquidGlass ? 'animate-[liquidWobble_0.25s_ease-in-out]' : ''}`} />
                         <span className="text-[10px] font-black truncate w-full text-center uppercase tracking-tighter">
                             {item.label}
                         </span>

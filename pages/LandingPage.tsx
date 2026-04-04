@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Smartphone, Download, Globe, Shield, Bell, Droplets, Database, Monitor } from 'lucide-react';
 import Logo from '../components/Logo';
 import { AppRoute } from '../types';
@@ -10,6 +10,8 @@ interface LandingPageProps {
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
+    const [showInstallMenu, setShowInstallMenu] = useState(false);
+
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-gray-900 text-gray-900 dark:text-white font-sans selection:bg-blue-100 dark:selection:bg-blue-900/40">
             {/* Header */}
@@ -32,28 +34,31 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                 <div className="max-w-6xl mx-auto text-center relative z-10">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-widest mb-10 animate-fade-in border border-blue-500/20">
                         <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
-                        Version 1.0.0 • Jetzt bereit fuer den Alltag
+                        Version 1.0.0 • Jetz bereit für den Altag
                     </div>
                     <h1 className="text-7xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.85] animate-slide-up">
-                        Das Herz eures<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Zuhauses.</span>
+                        Das Herz eures<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Zuhauses.</span>
                     </h1>
                     <p className="max-w-2xl mx-auto text-xl text-slate-500 dark:text-slate-400 mb-14 animate-slide-up animation-delay-300 leading-relaxed font-medium">
-                        Die intelligente Plattform fuer eure Familie. Modernes Liquid-Design, Supabase Sync mit Offline-Fallback und klare Admin-Sicherheit.
+                        Die intelligente Plattform für die Familie.Modern, Schnell und Zuverlässig. Alles an einem Ort.
                     </p>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-6 animate-slide-up animation-delay-500">
                         <button onClick={() => onNavigate(AppRoute.DASHBOARD)} className="w-full md:w-auto bg-blue-600 text-white px-12 py-6 rounded-3xl text-xl font-bold hover:bg-blue-700 hover:shadow-2xl hover:shadow-blue-500/40 hover:-translate-y-1 transition-all active:scale-95 text-center">
                             Im Web starten 🌐
                         </button>
-                        <div className="relative group w-full md:w-auto">
-                            <button className="w-full md:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-12 py-6 rounded-3xl text-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all active:scale-95 flex items-center justify-center gap-3 shadow-xl shadow-slate-200/50 dark:shadow-none">
+                        <div className="relative w-full md:w-auto">
+                            <button
+                                onClick={() => setShowInstallMenu(!showInstallMenu)}
+                                className="w-full md:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-12 py-6 rounded-3xl text-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all active:scale-95 flex items-center justify-center gap-3 shadow-xl shadow-slate-200/50 dark:shadow-none"
+                            >
                                 <Download size={24} /> Installieren
                             </button>
                             {/* Dropdown with high Z-Index and better visibility */}
-                            <div className="absolute top-[calc(100%+15px)] left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-slate-100 dark:border-slate-700 overflow-hidden opacity-0 translate-y-4 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300 z-[100] w-full md:w-80 p-2">
-                                <a href="#install" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left">
+                            <div className={`absolute top-[calc(100%+15px)] left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-slate-100 dark:border-slate-700 overflow-hidden transition-all duration-300 z-[100] w-full md:w-80 p-2 ${showInstallMenu ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                                <a href="#install" onClick={() => setShowInstallMenu(false)} className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left">
                                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center text-blue-600">
                                         <Globe size={24} />
                                     </div>
@@ -97,9 +102,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                 <div className="max-w-4xl mx-auto mt-24 relative animate-fade-in animation-delay-700 z-0">
                     <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 rounded-[2.5rem] shadow-2xl overflow-hidden group">
                         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                             <div className="bg-white/20 backdrop-blur-xl p-8 rounded-full border border-white/20 active:scale-90 transition-transform cursor-pointer">
+                            <div className="bg-white/20 backdrop-blur-xl p-8 rounded-full border border-white/20 active:scale-90 transition-transform cursor-pointer">
                                 <Logo size={100} />
-                             </div>
+                            </div>
                         </div>
                     </div>
                     {/* Decorative Blobs */}
@@ -189,9 +194,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                     <div className="bg-blue-600 rounded-[3rem] p-12 md:p-20 text-white relative overflow-hidden shadow-2xl shadow-blue-500/40">
                         <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
                             <div className="flex-1">
-                                <h2 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight italic">FamilyHub am Handy</h2>
-                                <p className="text-blue-100 text-lg mb-8">Installiere FamilyHub als Web-App (PWA) direkt auf deinem Home-Bildschirm für das beste App-Erlebnis.</p>
-                                
+                                <h2 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight italic">FamilyHub auf deinem Handy</h2>
+                                <p className="text-blue-100 text-lg mb-8">Installiere FamilyHub für alle gängigen Betriebssysteme.</p>
+
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
@@ -251,7 +256,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                             </div>
                                             <div className="flex items-start gap-3">
                                                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
-                                                <p className="flex-1 text-xs font-medium italic">Falls Windows Defender warnt, klicke auf "Trotzdem ausführen".</p>
+                                                <p className="flex-1 text-xs font-medium italic">Falls ein Antivirenprogramm warnt, klicke auf "Trotzdem ausführen".</p>
                                             </div>
                                         </div>
                                     </div>
@@ -265,16 +270,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                             <div className="flex items-start gap-3">
                                                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
                                                 <p className="flex-1 text-xs font-medium italic">
-  Lade 
-  <a 
-    href="https://apps.apple.com/de/app/swift-playground/id908519492"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="underline decoration-pink-400 ml-1 hover:text-blue-200 transition-colors"
-  >
-    Swift Playground
-  </a>.
-</p>
+                                                    Lade
+                                                    <a
+                                                        href="https://apps.apple.com/de/app/swift-playground/id908519492"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="underline decoration-pink-400 ml-1 hover:text-blue-200 transition-colors"
+                                                    >
+                                                        Swift Playground
+                                                    </a>.
+                                                </p>
                                             </div>
                                             <div className="flex items-start gap-3">
                                                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
@@ -288,8 +293,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     </div>
                                 </div>
 
-                                <a 
-                                    href="#install" 
+                                <a
+                                    href="#install"
                                     onClick={(e) => { e.preventDefault(); onNavigate(AppRoute.DASHBOARD); }}
                                     className="inline-flex items-center gap-2 bg-white text-blue-600 px-8 py-4 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform"
                                 >
@@ -316,7 +321,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                     </div>
                     <div className="flex space-x-6 text-sm font-medium text-gray-500">
                         <a href="https://github.com/SuperYoshi6/FamilyHub" className="hover:text-blue-500 transition-colors">GitHub</a>
-            </div>
+                    </div>
                 </div>
             </footer>
         </div>
