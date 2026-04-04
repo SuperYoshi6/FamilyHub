@@ -57,6 +57,7 @@ const hashCode = (str: string): number => {
 const CURRENT_APP_VERSION = "1.0.0";
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
 const EXE_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub-setup.exe";
+const SWIFT_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swiftpm.zip";
 const POLLING_INTERVAL = 30000;
 const DEFAULT_APP_SETTINGS = {
   id: 'global',
@@ -688,9 +689,11 @@ const App: React.FC = () => {
 
       const getUpdateInfo = () => {
         const ua = navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        
         if (ua.includes('android')) return { link: APK_DOWNLOAD_LINK, label: 'Android Update (.apk)' };
         if (ua.includes('win')) return { link: EXE_DOWNLOAD_LINK, label: 'Windows Update (.exe)' };
-        if (ua.includes('iphone') || ua.includes('ipad')) return { link: '/', label: 'iOS Update (PWA)' };
+        if (isIOS) return { link: SWIFT_DOWNLOAD_LINK, label: 'iOS Update (Swift)' };
         return { link: APK_DOWNLOAD_LINK, label: t('maintenance.download_update', language) };
       };
       const updateInfo = getUpdateInfo();
@@ -707,9 +710,14 @@ const App: React.FC = () => {
             <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-4">Endet in {countdown}</div>
           )}
           <div className="flex flex-col gap-3 w-full max-w-xs">
-            <button onClick={() => window.open(updateInfo.link, '_blank')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition">
+            <a 
+              href={updateInfo.link} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition text-center no-underline"
+            >
               {updateInfo.label}
-            </button>
+            </a>
             {currentUser && (
               <button onClick={handleLogout} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold px-6 py-3 rounded-2xl shadow-sm transition">
                 {t('settings.logout', language)}

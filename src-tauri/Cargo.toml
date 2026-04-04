@@ -8,9 +8,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.0.0-rc", features = [] }
+tauri-build = { version = "^2.1.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0-rc", features = ["api-all"] }
+tauri = { version = "^2.1.0", features = [] }
+tauri-plugin-log = "2"
+log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+ 
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# it enables the `custom-protocol` feature for the `tauri` dependency
+custom-protocol = ["tauri/custom-protocol"]
