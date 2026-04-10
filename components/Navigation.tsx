@@ -16,7 +16,7 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, easterMode, liquidGlass, enableSwipe }) => {
     const isWeather = currentRoute === AppRoute.WEATHER;
     const navRef = useRef<HTMLElement>(null);
-    
+
     // --- Interaction State ---
     const [isDragging, setIsDragging] = useState(false);
     const [dragX, setDragX] = useState<number | null>(null);
@@ -30,6 +30,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
         { route: AppRoute.CALENDAR, icon: easterMode ? Bird : (christmasMode ? CalendarHeart : Calendar), label: t('nav.calendar', lang) },
         { route: AppRoute.MEALS, icon: easterMode ? Carrot : (christmasMode ? Cookie : Utensils), label: t('nav.meals', lang) },
         { route: AppRoute.LISTS, icon: easterMode ? ShoppingBasket : (christmasMode ? Gift : ClipboardList), label: t('nav.lists', lang) },
+
     ];
 
     const activeIndex = navItems.findIndex(item => item.route === currentRoute);
@@ -56,7 +57,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
             const x = ((e.clientX - rect.left) / rect.width) * 100;
             const clamped = Math.max(0, Math.min(100 - itemWidthPercent, x - itemWidthPercent / 2));
             setDragX(clamped);
-            
+
             // Calculate velocity for "stretch" effect
             const now = Date.now();
             const dt = now - lastTime.current;
@@ -105,7 +106,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
         >
             {/* Wobble Bubble Background (Liquid Glass only) */}
             {liquidGlass && (
-                <div 
+                <div
                     className="nav-wobble-bubble"
                     style={{
                         width: bubbleWidth,
@@ -126,7 +127,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                 let textColor = '';
 
                 if (easterMode) {
-                   textColor = isActive ? 'text-[#db2777] dark:text-pink-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
+                    textColor = isActive ? 'text-[#db2777] dark:text-pink-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
                 } else if (isWeather && !liquidGlass) {
                     textColor = isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500';
                 } else if (christmasMode) {

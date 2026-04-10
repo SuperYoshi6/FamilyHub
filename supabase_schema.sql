@@ -1,5 +1,10 @@
 -- FamilyHub Supabase Schema
 
+-- !!! DATABASE MIGRATION REQUIRED FOR MULTI-IMAGE CAROUSEL UPGRADE !!!
+-- Run the following queries in Supabase SQL Editor:
+-- ALTER TABLE news ADD COLUMN images TEXT[];
+-- ALTER TABLE polls ADD COLUMN images TEXT[];
+
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

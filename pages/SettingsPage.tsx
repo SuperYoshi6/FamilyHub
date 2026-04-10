@@ -24,7 +24,6 @@ interface SettingsPageProps {
     christmasMode?: boolean;
     onToggleChristmasMode?: () => void;
     easterMode?: boolean;
-    onToggleEasterMode?: () => void;
     liquidGlass?: boolean;
     onToggleLiquidGlass?: () => void;
     globalEasterEnabled?: boolean;
@@ -585,20 +584,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         <Layout size={16} className="mr-2 text-blue-500" />
                                         Feature-Freigaben
                                     </h3>
-                                    <div className="space-y-3">
-                                        {onToggleGlobalEaster && (
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-2">
-                                                    <div className="bg-pink-100 dark:bg-pink-900/30 p-2 rounded-full text-pink-600 dark:text-pink-400">
-                                                        <Egg size={16} />
-                                                    </div>
-                                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Ostermodus für alle</span>
-                                                </div>
-                                                <button onClick={onToggleGlobalEaster} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalEasterEnabled ? 'bg-pink-500' : 'bg-gray-300'}`}>
-                                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalEasterEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                </button>
-                                            </div>
-                                        )}
+                                    <div className="space-y-1">
                                         {onToggleGlobalLiquidGlass && (
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center space-x-2">

@@ -7,7 +7,8 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { compressImage } from '../services/imageUtils';
-
+import { NativeCalendarService } from '../services/nativeCalendar';
+import ImageCarousel from '../components/ImageCarousel';
 interface CalendarPageProps {
     events: CalendarEvent[];
     news: NewsItem[];
@@ -113,9 +114,10 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     const [newsTitle, setNewsTitle] = useState('');
     const [newsDesc, setNewsDesc] = useState('');
     const [newsTag, setNewsTag] = useState('');
-    const [newsImage, setNewsImage] = useState('');
+    const [newsImages, setNewsImages] = useState<string[]>([]);
     const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
     const [newsImageUrlInput, setNewsImageUrlInput] = useState('');
+    const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
     const newsFileInputRef = useRef<HTMLInputElement>(null);
     const [processingImage, setProcessingImage] = useState(false);
 
@@ -130,15 +132,18 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         });
 
     const [showPollForm, setShowPollForm] = useState(false);
+    const [editingPollId, setEditingPollId] = useState<string | null>(null);
     const [pollQuestion, setPollQuestion] = useState('');
     const [pollDesc, setPollDesc] = useState('');
-    const [pollOptions, setPollOptions] = useState<{ id: string, text: string, description: string }[]>([
-        { id: '1', text: '', description: '' },
-        { id: '2', text: '', description: '' }
+    const [pollOptions, setPollOptions] = useState<{ id: string, text: string, description: string, votes?: string[] }[]>([
+        { id: '1', text: '', description: '', votes: [] },
+        { id: '2', text: '', description: '', votes: [] }
     ]);
     const [pollStartTime, setPollStartTime] = useState('');
     const [pollEndTime, setPollEndTime] = useState('');
     const [pollAllowMulti, setPollAllowMulti] = useState(false);
+    const [pollImages, setPollImages] = useState<string[]>([]);
+    const pollFileInputRef = useRef<HTMLInputElement>(null);
 
     // Filter events before grouping
     const filteredEvents = events.filter(e => {
@@ -152,7 +157,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     const groupedEvents = filteredEvents.reduce((acc, event) => {
         const start = new Date(event.date);
         const end = event.endDate ? new Date(event.endDate) : start;
-        
+
         // Iterate through each day in the range
         const current = new Date(start);
         while (current <= end) {
@@ -319,7 +324,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     };
 
     const generateICS = () => {
-        const dtstamp = formatToICSDateTime(new Date().toISOString().split('T')[0], new Date().toTimeString().slice(0,5));
+        const dtstamp = formatToICSDateTime(new Date().toISOString().split('T')[0], new Date().toTimeString().slice(0, 5));
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin';
 
         const lines = [
@@ -400,11 +405,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             return;
         }
         if (canShare) {
-            navigator.share({ files: [file], title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
+            navigator.share({ files: [file], title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => { });
             return;
         }
         if (navigator.share) {
-            navigator.share({ url, title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => {});
+            navigator.share({ url, title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => { });
         }
 
         const a = document.createElement('a');
@@ -529,66 +534,145 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     };
 
     const handleNewsFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
             setProcessingImage(true);
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64 = reader.result as string;
+            const newImages: string[] = [];
+            for (const file of files) {
+                const reader = new FileReader();
+                const base64 = await new Promise<string>((resolve) => {
+                    reader.onloadend = () => resolve(reader.result as string);
+                    const myBlob = file as Blob;
+                    reader.readAsDataURL(myBlob);
+                });
                 const compressed = await compressImage(base64, 800, 0.7);
-                setNewsImage(compressed);
-                setProcessingImage(false);
-            };
-            reader.readAsDataURL(file);
+                newImages.push(compressed);
+            }
+            setNewsImages(prev => [...prev, ...newImages]);
+            setProcessingImage(false);
+        }
+    };
+
+    const handlePollFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            setProcessingImage(true);
+            const newImages: string[] = [];
+            for (const file of files) {
+                const reader = new FileReader();
+                const base64 = await new Promise<string>((resolve) => {
+                    reader.onloadend = () => resolve(reader.result as string);
+                    const myBlob = file as Blob;
+                    reader.readAsDataURL(myBlob);
+
+                });
+                const compressed = await compressImage(base64, 800, 0.7);
+                newImages.push(compressed);
+            }
+            setPollImages(prev => [...prev, ...newImages]);
+            setProcessingImage(false);
         }
     };
 
     const submitNews = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newsTitle.trim()) return;
-        const finalImage = imageMode === 'url' ? newsImageUrlInput : newsImage;
-        const newItem: NewsItem = {
-            id: Date.now().toString(),
-            title: newsTitle,
-            description: newsDesc,
-            tag: newsTag.startsWith('#') ? newsTag : (newsTag ? `#${newsTag}` : undefined),
-            image: finalImage,
-            createdAt: new Date().toISOString(),
-            authorId: currentUser.id
-        };
-        onAddNews(newItem);
+        const finalImages = imageMode === 'url' && newsImageUrlInput ? [...newsImages, newsImageUrlInput] : newsImages;
+
+        if (editingNewsId) {
+            onUpdateNews?.(editingNewsId, {
+                title: newsTitle,
+                description: newsDesc,
+                tag: newsTag.startsWith('#') ? newsTag : (newsTag ? `#${newsTag}` : undefined),
+                image: finalImages.length > 0 ? finalImages[0] : undefined,
+                images: finalImages
+            });
+            setEditingNewsId(null);
+        } else {
+            const newItem: NewsItem = {
+                id: Date.now().toString(),
+                title: newsTitle,
+                description: newsDesc,
+                tag: newsTag.startsWith('#') ? newsTag : (newsTag ? `#${newsTag}` : undefined),
+                image: finalImages.length > 0 ? finalImages[0] : undefined,
+                images: finalImages,
+                createdAt: new Date().toISOString(),
+                authorId: currentUser.id
+            };
+            onAddNews(newItem);
+        }
+
         setShowNewsForm(false);
         setNewsTitle('');
         setNewsDesc('');
         setNewsTag('');
-        setNewsImage('');
+        setNewsImages([]);
         setNewsImageUrlInput('');
+    };
+
+    const handleEditNews = (item: NewsItem) => {
+        setEditingNewsId(item.id);
+        setNewsTitle(item.title);
+        setNewsDesc(item.description || '');
+        setNewsTag(item.tag?.replace('#', '') || '');
+        setNewsImages(item.images || (item.image ? [item.image] : []));
+        setImageMode('upload');
+        setShowNewsForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const submitPoll = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!pollQuestion.trim() || pollOptions.some(o => !o.text.trim()) || !onAddPoll) return;
+        if (!pollQuestion.trim() || pollOptions.some(o => !o.text.trim()) || (!onAddPoll && !editingPollId)) return;
 
-        const newPoll: Poll = {
-            id: Date.now().toString(),
-            question: pollQuestion,
-            description: pollDesc,
-            options: pollOptions.map(o => ({ ...o, votes: [] })),
-            authorId: currentUser.id,
-            createdAt: new Date().toISOString(),
-            startsAt: pollStartTime || undefined,
-            expiresAt: pollEndTime || undefined,
-            allowMultipleSelection: pollAllowMulti
-        };
+        if (editingPollId) {
+            onUpdatePoll?.(editingPollId, {
+                question: pollQuestion,
+                description: pollDesc,
+                images: pollImages,
+                options: pollOptions.map(o => ({ ...o, votes: o.votes || [] })),
+                startsAt: pollStartTime || undefined,
+                expiresAt: pollEndTime || undefined,
+                allowMultipleSelection: pollAllowMulti
+            });
+            setEditingPollId(null);
+        } else {
+            const newPoll: Poll = {
+                id: Date.now().toString(),
+                question: pollQuestion,
+                description: pollDesc,
+                images: pollImages,
+                options: pollOptions.map(o => ({ ...o, votes: [] })),
+                authorId: currentUser.id,
+                createdAt: new Date().toISOString(),
+                startsAt: pollStartTime || undefined,
+                expiresAt: pollEndTime || undefined,
+                allowMultipleSelection: pollAllowMulti
+            };
+            onAddPoll?.(newPoll);
+        }
 
-        onAddPoll(newPoll);
         setShowPollForm(false);
         setPollQuestion('');
         setPollDesc('');
-        setPollOptions([{ id: '1', text: '', description: '' }, { id: '2', text: '', description: '' }]);
+        setPollOptions([{ id: '1', text: '', description: '', votes: [] }, { id: '2', text: '', description: '', votes: [] }]);
         setPollStartTime('');
         setPollEndTime('');
         setPollAllowMulti(false);
+        setPollImages([]);
+    };
+
+    const handleEditPoll = (poll: Poll) => {
+        setEditingPollId(poll.id);
+        setPollQuestion(poll.question);
+        setPollDesc(poll.description || '');
+        setPollImages(poll.images || []);
+        setPollOptions(poll.options);
+        setPollAllowMulti(poll.allowMultipleSelection || false);
+        setPollStartTime(poll.startsAt || '');
+        setPollEndTime(poll.expiresAt || '');
+        setShowPollForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleVote = (pollId: string, optionId: string) => {
@@ -623,8 +707,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                     <>
                         {!showNewsForm && (
                             <div className="flex justify-center">
-                                <button 
-                                    onClick={() => setShowNewsForm(true)} 
+                                <button
+                                    onClick={() => setShowNewsForm(true)}
                                     className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 transition active:scale-95`}
                                 >
                                     <Plus size={20} /> <span>News erstellen</span>
@@ -650,25 +734,35 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         </div>
                                         {imageMode === 'upload' ? (
                                             <div className="text-center py-2">
-                                                <input type="file" ref={newsFileInputRef} onChange={handleNewsFileChange} accept="image/*" className="hidden" />
-                                                 {newsImage ? (<div className="relative inline-block"><img src={newsImage} className="h-32 rounded-lg shadow-sm" /><button type="button" onClick={() => setNewsImage('')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12} /></button></div>) : (<button type="button" onClick={() => newsFileInputRef.current?.click()} className="flex flex-col items-center justify-center w-full py-4 text-gray-400 hover:text-indigo-500 transition">{processingImage ? <Loader2 className="animate-spin mb-1" size={24} /> : <Camera size={24} className="mb-1" />}<span className="text-xs">Foto wählen</span></button>)}
-                                             </div>
-                                         ) : (
-                                             <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
-                                         )}
-                                     </div>
-                                     <button type="submit" disabled={!newsTitle.trim() || processingImage} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50`}>Veröffentlichen</button>
-                                 </form>
-                             </div>
-                         )}
- 
-                         <div className="grid gap-4">
-                             {publicNews.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
-                             {publicNews.map(item => {
-                                 const author = family.find(f => f.id === item.authorId);
-                                 return (
-                                     <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700'}`}>
-                                        {item.image && (<div className="h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-900 relative"><img src={item.image} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" alt="News" /></div>)}
+                                                <input type="file" multiple ref={newsFileInputRef} onChange={handleNewsFileChange} accept="image/*" className="hidden" />
+                                                {newsImages.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2 justify-center">
+                                                        {newsImages.map((img, idx) => (
+                                                            <div key={idx} className="relative inline-block">
+                                                                <img src={img} className="h-20 w-20 object-cover rounded-lg shadow-sm" />
+                                                                <button type="button" onClick={() => setNewsImages(newsImages.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12} /></button>
+                                                            </div>
+                                                        ))}
+                                                        <button type="button" onClick={() => newsFileInputRef.current?.click()} className="flex items-center justify-center h-20 w-20 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 transition text-gray-400">+</button>
+                                                    </div>
+                                                ) : (<button type="button" onClick={() => newsFileInputRef.current?.click()} className="flex flex-col items-center justify-center w-full py-4 text-gray-400 hover:text-indigo-500 transition">{processingImage ? <Loader2 className="animate-spin mb-1" size={24} /> : <Camera size={24} className="mb-1" />}<span className="text-xs">Fotos wählen</span></button>)}
+                                            </div>
+                                        ) : (
+                                            <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
+                                        )}
+                                    </div>
+                                    <button type="submit" disabled={!newsTitle.trim() || processingImage} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50`}>Veröffentlichen</button>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="grid gap-4">
+                            {publicNews.length === 0 && !showNewsForm && <div className="text-center py-10 opacity-50"><FileText size={48} className="mx-auto mb-2" /><p>Die Pinnwand ist leer.</p></div>}
+                            {publicNews.map(item => {
+                                const author = family.find(f => f.id === item.authorId);
+                                return (
+                                    <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700'}`}>
+                                        <ImageCarousel images={item.images} fallbackImage={item.image} />
                                         <div className="p-4">
                                             <div className="flex justify-between items-start mb-2">
                                                 <div>
@@ -677,8 +771,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     {(currentUser.role === 'admin' || currentUser.role === 'parent') && (
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); onUpdateNews?.(item.id, { pinned: !item.pinned }) }} 
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onUpdateNews?.(item.id, { pinned: !item.pinned }) }}
                                                             className={`p-1.5 rounded-lg transition ${item.pinned ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40' : 'text-gray-300 hover:text-indigo-500'}`}
                                                             title={item.pinned ? "Abpinnen" : "Anpinnen"}
                                                         >
@@ -697,16 +791,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                             </div>
                                         </div>
                                     </div>
-                                 );
-                             })}
-                         </div>
+                                );
+                            })}
+                        </div>
                     </>
                 ) : (
                     <>
                         {!showPollForm && (
                             <div className="flex justify-center">
-                                <button 
-                                    onClick={() => setShowPollForm(true)} 
+                                <button
+                                    onClick={() => setShowPollForm(true)}
                                     className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 transition active:scale-95`}
                                 >
                                     <Plus size={20} /> <span>Umfrage erstellen</span>
@@ -723,6 +817,23 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                 <form onSubmit={submitPoll} className="space-y-4">
                                     <input type="text" placeholder="Frage" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} required />
                                     <textarea placeholder="Beschreibung (Optional)" value={pollDesc} onChange={(e) => setPollDesc(e.target.value)} className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none ${liquidGlass ? 'bg-white/40 border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`} rows={2} />
+
+                                    <div className={`p-3 rounded-xl border border-dashed ${liquidGlass ? 'bg-white/30 border-white/40' : 'bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600'}`}>
+                                        <div className="text-center py-2">
+                                            <input type="file" multiple ref={pollFileInputRef} onChange={handlePollFileChange} accept="image/*" className="hidden" />
+                                            {pollImages.length > 0 ? (
+                                                <div className="flex flex-wrap gap-2 justify-center">
+                                                    {pollImages.map((img, idx) => (
+                                                        <div key={idx} className="relative inline-block">
+                                                            <img src={img} className="h-20 w-20 object-cover rounded-lg shadow-sm" />
+                                                            <button type="button" onClick={() => setPollImages(pollImages.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12} /></button>
+                                                        </div>
+                                                    ))}
+                                                    <button type="button" onClick={() => pollFileInputRef.current?.click()} className="flex items-center justify-center h-20 w-20 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 transition text-gray-400">+</button>
+                                                </div>
+                                            ) : (<button type="button" onClick={() => pollFileInputRef.current?.click()} className="flex flex-col items-center justify-center w-full py-2 text-gray-400 hover:text-indigo-500 transition">{processingImage ? <Loader2 className="animate-spin mb-1" size={24} /> : <Camera size={20} className="mb-1" />}<span className="text-xs">Bilder hinzufügen (Optional)</span></button>)}
+                                        </div>
+                                    </div>
 
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold uppercase text-gray-500 ml-1">Antworten</label>
@@ -780,72 +891,75 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                 const hasExpired = poll.expiresAt ? now > new Date(poll.expiresAt) : false;
 
                                 return (
-                                    <div key={poll.id} className={`rounded-2xl shadow-sm p-4 border transition-all ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'opacity-60 grayscale-[0.5]' : ''}`}>
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div className="flex-1">
-                                                <h3 className={`font-bold text-lg leading-tight ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{poll.question}</h3>
-                                                {poll.description && <p className="text-xs text-gray-500 mt-1">{poll.description}</p>}
+                                    <div key={poll.id} className={`rounded-2xl shadow-sm overflow-hidden border transition-all ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                                        <ImageCarousel images={poll.images} />
+                                        <div className="p-4">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex-1">
+                                                    <h3 className={`font-bold text-lg leading-tight ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{poll.question}</h3>
+                                                    {poll.description && <p className="text-xs text-gray-500 mt-1">{poll.description}</p>}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    {poll.allowMultipleSelection && <span className="bg-blue-50 dark:bg-blue-900/30 text-[10px] font-bold text-blue-600 px-2 py-0.5 rounded-full">Multi</span>}
+                                                    {onDeletePoll && <button onClick={() => onDeletePoll(poll.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>}
+                                                </div>
                                             </div>
-                                            <div className="flex gap-2">
-                                                {poll.allowMultipleSelection && <span className="bg-blue-50 dark:bg-blue-900/30 text-[10px] font-bold text-blue-600 px-2 py-0.5 rounded-full">Multi</span>}
-                                                {onDeletePoll && <button onClick={() => onDeletePoll(poll.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>}
-                                            </div>
-                                        </div>
 
-                                        {isTimed && (
-                                            <div className="flex items-center gap-2 mb-4 text-[10px] font-bold">
-                                                <Clock size={12} className="text-indigo-500" />
-                                                {!hasStarted ? (
-                                                    <span className="text-orange-500">Startet am {new Date(poll.startsAt!).toLocaleString()}</span>
-                                                ) : hasExpired ? (
-                                                    <span className="text-red-500">Beendet</span>
-                                                ) : (
-                                                    <span className="text-emerald-500">Aktiv bis {poll.expiresAt ? new Date(poll.expiresAt).toLocaleString() : 'Open End'}</span>
-                                                )}
-                                            </div>
-                                        )}
+                                            {isTimed && (
+                                                <div className="flex items-center gap-2 mb-4 text-[10px] font-bold">
+                                                    <Clock size={12} className="text-indigo-500" />
+                                                    {!hasStarted ? (
+                                                        <span className="text-orange-500">Startet am {new Date(poll.startsAt!).toLocaleString()}</span>
+                                                    ) : hasExpired ? (
+                                                        <span className="text-red-500">Beendet</span>
+                                                    ) : (
+                                                        <span className="text-emerald-500">Aktiv bis {poll.expiresAt ? new Date(poll.expiresAt).toLocaleString() : 'Open End'}</span>
+                                                    )}
+                                                </div>
+                                            )}
 
-                                        <div className="space-y-3 mt-4">
-                                            {poll.options.map(opt => {
-                                                const vPercentage = totalVotes > 0 ? (opt.votes.length / totalVotes) * 100 : 0;
-                                                const hasVoted = opt.votes.includes(currentUser.id);
+                                            <div className="space-y-3 mt-4">
+                                                {poll.options.map(opt => {
+                                                    const vPercentage = totalVotes > 0 ? (opt.votes.length / totalVotes) * 100 : 0;
+                                                    const hasVoted = opt.votes.includes(currentUser.id);
 
-                                                return (
-                                                    <button
-                                                        key={opt.id}
-                                                        onClick={() => (hasStarted && !hasExpired) && handleVote(poll.id, opt.id)}
-                                                        disabled={!hasStarted || hasExpired}
-                                                        className={`w-full group relative rounded-xl p-3 text-left transition-all border ${hasVoted ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'cursor-not-allowed' : 'hover:border-indigo-300'}`}
-                                                    >
-                                                        <div className="relative z-10 flex flex-col">
-                                                            <div className="flex justify-between items-center">
-                                                                <span className={`text-sm font-bold ${hasVoted ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-200'}`}>{opt.text}</span>
-                                                                <span className="text-xs font-mono opacity-60">{opt.votes.length}</span>
+                                                    return (
+                                                        <button
+                                                            key={opt.id}
+                                                            onClick={() => (hasStarted && !hasExpired) && handleVote(poll.id, opt.id)}
+                                                            disabled={!hasStarted || hasExpired}
+                                                            className={`w-full group relative rounded-xl p-3 text-left transition-all border ${hasVoted ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'cursor-not-allowed' : 'hover:border-indigo-300'}`}
+                                                        >
+                                                            <div className="relative z-10 flex flex-col">
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className={`text-sm font-bold ${hasVoted ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-200'}`}>{opt.text}</span>
+                                                                    <span className="text-xs font-mono opacity-60">{opt.votes.length}</span>
+                                                                </div>
+                                                                {opt.description && <span className="text-[10px] opacity-60 mt-0.5 leading-tight">{opt.description}</span>}
                                                             </div>
-                                                            {opt.description && <span className="text-[10px] opacity-60 mt-0.5 leading-tight">{opt.description}</span>}
-                                                        </div>
-                                                        <div className="absolute inset-0 bg-gray-50/50 dark:bg-gray-900/20 z-0 rounded-xl overflow-hidden">
-                                                            <div
-                                                                className={`h-full transition-all duration-1000 ${hasVoted ? 'bg-indigo-500/10' : 'bg-gray-100/50 dark:bg-gray-700/20'}`}
-                                                                style={{ width: `${vPercentage}%` }}
-                                                            />
-                                                        </div>
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-
-                                        <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100/50 dark:border-gray-700">
-                                            <div className="flex -space-x-1.5 overflow-hidden">
-                                                {poll.options.flatMap(o => o.votes).slice(0, 5).map((id, i) => {
-                                                    const voter = family.find(f => f.id === id);
-                                                    return voter ? <img key={i} src={voter.avatar} className="inline-block h-4 w-4 rounded-full ring-2 ring-white dark:ring-gray-800" /> : null;
+                                                            <div className="absolute inset-0 bg-gray-50/50 dark:bg-gray-900/20 z-0 rounded-xl overflow-hidden">
+                                                                <div
+                                                                    className={`h-full transition-all duration-1000 ${hasVoted ? 'bg-indigo-500/10' : 'bg-gray-100/50 dark:bg-gray-700/20'}`}
+                                                                    style={{ width: `${vPercentage}%` }}
+                                                                />
+                                                            </div>
+                                                        </button>
+                                                    )
                                                 })}
-                                                {totalVotes > 5 && <span className="text-[8px] font-bold text-gray-400 pl-2 self-center">+{totalVotes - 5}</span>}
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                {author && <span className="text-[10px] font-medium opacity-50">Von {author.name}</span>}
-                                                <span className="text-[10px] opacity-40 font-mono italic">{new Date(poll.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+                                            <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100/50 dark:border-gray-700">
+                                                <div className="flex -space-x-1.5 overflow-hidden">
+                                                    {poll.options.flatMap(o => o.votes).slice(0, 5).map((id, i) => {
+                                                        const voter = family.find(f => f.id === id);
+                                                        return voter ? <img key={i} src={voter.avatar} className="inline-block h-4 w-4 rounded-full ring-2 ring-white dark:ring-gray-800" /> : null;
+                                                    })}
+                                                    {totalVotes > 5 && <span className="text-[8px] font-bold text-gray-400 pl-2 self-center">+{totalVotes - 5}</span>}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {author && <span className="text-[10px] font-medium opacity-50">Von {author.name}</span>}
+                                                    <span className="text-[10px] opacity-40 font-mono italic">{new Date(poll.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -872,7 +986,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
             <main className="p-4 md:p-6 pb-24">
                 {/* Tab 1: Haupttabs – komplett außerhalb der Swipe-Zone */}
                 <div className="mb-4">
-                    <SlidingTabs 
+                    <SlidingTabs
                         tabs={[
                             { id: 'calendar', label: 'Kalender', icon: CalendarIcon },
                             { id: 'board', label: 'Pinnwand', icon: Layout }
@@ -953,16 +1067,32 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                             </div>
                                         ) : (
                                             (groupedEvents[selectedDate] || []).map(event => (
-                                                 <div key={event.id} className={`p-4 rounded-xl border-l-4 border-blue-500 relative group shadow-sm hover:shadow-md transition-all ${liquidGlass ? 'bg-white/40 border border-white/20' : 'bg-gray-50 dark:bg-slate-800'}`}>
-                                                     <div className="flex justify-between items-start">
-                                                         <div className="flex-1">
-                                                             <h4 className={`font-bold text-base ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{event.title}</h4>
-                                                             <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center"><Clock size={14} className="mr-1.5 text-blue-500" /> {event.time} - {event.endTime}</div>
-                                                             {event.location && (<div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center"><MapPin size={14} className="mr-1.5 text-red-500" /> {event.location}</div>)}
-                                                         </div>
-                                                         <button onClick={() => handleEditEvent(event)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"><Edit2 size={18} /></button>
-                                                     </div>
-                                                 </div>
+                                                <div key={event.id} className={`p-4 rounded-xl border-l-4 border-blue-500 relative group shadow-sm hover:shadow-md transition-all ${liquidGlass ? 'bg-white/40 border border-white/20' : 'bg-gray-50 dark:bg-slate-800'}`}>
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex-1">
+                                                            <h4 className={`font-bold text-base ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{event.title}</h4>
+                                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center"><Clock size={14} className="mr-1.5 text-blue-500" /> {event.time} - {event.endTime}</div>
+                                                            {event.location && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`, '_blank');
+                                                                    }}
+                                                                    className="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-600 mt-1 flex items-center hover:underline text-left"
+                                                                >
+                                                                    <MapPin size={14} className="mr-1.5 text-red-500 shrink-0" /> <span className="line-clamp-1">{event.location}</span>
+                                                                </button>
+                                                            )}
+                                                            {event.description && (
+                                                                <div className={`mt-2 p-2.5 rounded-lg text-sm border-l-2 border-blue-400 whitespace-pre-line ${liquidGlass ? 'bg-white/30 text-slate-700 dark:text-gray-300' : 'bg-gray-100/50 dark:bg-gray-900/40 text-gray-600 dark:text-gray-300'}`}>
+                                                                    {event.description}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <button onClick={() => handleEditEvent(event)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"><Edit2 size={18} /></button>
+                                                    </div>
+                                                </div>
                                             ))
                                         )}
                                     </div>
@@ -1009,8 +1139,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Wer nimmt teil?</label>
                                             <div className="flex flex-wrap gap-2 pt-1">
-                                                {family.map(member => (
-                                                    <button 
+                                                {family.filter(member => member.role !== 'admin').map(member => (
+                                                    <button
                                                         key={member.id}
                                                         type="button"
                                                         onClick={() => {

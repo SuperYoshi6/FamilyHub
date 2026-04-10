@@ -155,7 +155,7 @@ const App: React.FC = () => {
   const userWeatherFavorites = (currentUser && weatherFavorites) ? weatherFavorites.filter(f => f.userId === currentUser.id) : [];
   const allowEasterForUser = currentUser ? (currentUser.role === 'admin' || globalEasterEnabled) : globalEasterEnabled;
   const allowLiquidGlassForUser = currentUser ? (currentUser.role === 'admin' || globalLiquidGlassEnabled) : globalLiquidGlassEnabled;
-  const effectiveEasterMode = allowEasterForUser ? easterMode : false;
+
   const effectiveLiquidGlass = allowLiquidGlassForUser ? liquidGlass : false;
   const tabOrder: AppRoute[] = [AppRoute.DASHBOARD, AppRoute.WEATHER, AppRoute.CALENDAR, AppRoute.MEALS, AppRoute.LISTS];
   const isTabClosedForUser = (route: AppRoute) => {
@@ -242,15 +242,6 @@ const App: React.FC = () => {
     if (darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
-
-  useEffect(() => {
-    // This allows the global CSS in index.html (like Blue -> Pink) to work
-    if (effectiveEasterMode) {
-      document.documentElement.setAttribute('data-easter', 'true');
-    } else {
-      document.documentElement.removeAttribute('data-easter');
-    }
-  }, [effectiveEasterMode]);
 
   useEffect(() => {
     if (!loadingData && family.length > 0 && !currentUser) {
@@ -461,31 +452,31 @@ const App: React.FC = () => {
   const deleteMealRequest = async (id: string) => { setMealRequests(p => p.filter(x => x.id !== id)); await Backend.mealRequests.delete(id); };
   const addMealToPlan = async (day: string, mealName: string, ingredients: string[], slot: 'breakfast' | 'lunch' | 'main' = 'main') => {
     const existing = mealPlan.find(x => x.day === day);
-    const updatedDay: MealPlan = existing 
-      ? { 
-          ...existing, 
-          [slot === 'main' ? 'mealName' : slot]: mealName,
-          ingredients: [...new Set([...(existing.ingredients || []), ...ingredients])]
-        }
-      : { 
-          id: Math.random().toString(), 
-          day, 
-          mealName: slot === 'main' ? mealName : '',
-          breakfast: slot === 'breakfast' ? mealName : '',
-          lunch: slot === 'lunch' ? mealName : '',
-          ingredients,
-          recipeHint: '' 
-        };
+    const updatedDay: MealPlan = existing
+      ? {
+        ...existing,
+        [slot === 'main' ? 'mealName' : slot]: mealName,
+        ingredients: [...new Set([...(existing.ingredients || []), ...ingredients])]
+      }
+      : {
+        id: Math.random().toString(),
+        day,
+        mealName: slot === 'main' ? mealName : '',
+        breakfast: slot === 'breakfast' ? mealName : '',
+        lunch: slot === 'lunch' ? mealName : '',
+        ingredients,
+        recipeHint: ''
+      };
     const nextPlan = [...mealPlan.filter(x => x.day !== day), updatedDay];
-    setMealPlan(nextPlan); 
+    setMealPlan(nextPlan);
     await Backend.mealPlan.setAll(nextPlan);
     await addNotification('Essen', `${mealName} zum Plan hinzugefügt`);
   };
-  const addIngredientsToShopping = async (ings: string[]) => { 
-    const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); 
-    setShoppingList(p => [...p, ...items]); 
+  const addIngredientsToShopping = async (ings: string[]) => {
+    const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false }));
+    setShoppingList(p => [...p, ...items]);
     await Promise.all(items.map(item => Backend.shopping.add(item)));
-    await addNotification('Einkauf', 'Zutaten hinzugefügt'); 
+    await addNotification('Einkauf', 'Zutaten hinzugefügt');
   };
   const addRecipe = async (r: Recipe) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); };
   const handlePlanGenerated = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
@@ -647,30 +638,7 @@ const App: React.FC = () => {
     else { const n = { ...loc, id: Date.now().toString(), userId: currentUser.id }; setWeatherFavorites(p => [...p, n]); await Backend.weatherFavorites.add(n); }
   };
 
-  const renderEasterDecorations = () => {
-    if (!effectiveEasterMode) return null;
-    const eggs = ['🥚', '🐰', '🐣', '🌷', '🦋'];
-    return (
-      <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-        {[...Array(15)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute text-3xl animate-easter-fall"
-            style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 10}s`,
-              animationDuration: `${10 + Math.random() * 15}s`,
-              top: '-50px'
-            }}
-          >
-            <span className="animate-[easter-sway_3s_ease-in-out_infinite] block">
-              {eggs[Math.floor(Math.random() * eggs.length)]}
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  };
+
 
   // --- 7. Page Rendering Helper ---
   const renderContent = () => {
@@ -690,7 +658,7 @@ const App: React.FC = () => {
       const getUpdateInfo = () => {
         const ua = navigator.userAgent.toLowerCase();
         const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        
+
         if (ua.includes('android')) return { link: APK_DOWNLOAD_LINK, label: 'Android Update (.apk)' };
         if (ua.includes('win')) return { link: EXE_DOWNLOAD_LINK, label: 'Windows Update (.exe)' };
         if (isIOS) return { link: SWIFT_DOWNLOAD_LINK, label: 'iOS Update (Swift)' };
@@ -710,10 +678,10 @@ const App: React.FC = () => {
             <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-4">Endet in {countdown}</div>
           )}
           <div className="flex flex-col gap-3 w-full max-w-xs">
-            <a 
-              href={updateInfo.link} 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href={updateInfo.link}
+              target="_blank"
+              rel="noopener noreferrer"
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition text-center no-underline"
             >
               {updateInfo.label}
@@ -849,36 +817,36 @@ const App: React.FC = () => {
         PageComponent = <WeatherPage onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} favorites={userWeatherFavorites} onToggleFavorite={toggleWeatherFavorite} initialLocation={currentWeatherLocation} onUpdateCurrentWeatherLocation={setCurrentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.CALENDAR:
-        PageComponent = <CalendarPage events={events} news={news} polls={polls} family={family} currentUser={currentUser} onAddEvent={async (e) => { const ev = { ...e, authorId: currentUser.id }; setEvents(p => [...p, ev]); await Backend.events.add(ev); }} onUpdateEvent={async (id, u) => { setEvents(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.events.update(id, u); }} onDeleteEvent={async (id) => { setEvents(p => p.filter(x => x.id !== id)); await Backend.events.delete(id); }} onAddNews={async (n) => { setNews(p => [n, ...p]); await Backend.news.add(n); }} onUpdateNews={async (id, u) => { setNews(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.news.update(id, u); }} onDeleteNews={async (id) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); }} onAddPoll={async (p) => { setPolls(x => [p, ...x]); await Backend.polls.add(p); }} onUpdatePoll={async (id, u) => { setPolls(x => x.map(p => p.id === id ? { ...p, ...u } : p)); await Backend.polls.update(id, u); }} onDeletePoll={async (id) => { setPolls(x => x.filter(p => p.id !== id)); await Backend.polls.delete(id); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} onMarkNewsRead={async (id) => { const n = news.find(x => x.id === id); if (n) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? { ...x, readBy: readers } : x)); await Backend.news.update(id, { readBy: readers }); } }} easterEnabled={effectiveEasterMode} />;
+        PageComponent = <CalendarPage events={events} news={news} polls={polls} family={family} currentUser={currentUser} onAddEvent={async (e) => { const ev = { ...e, authorId: currentUser.id }; setEvents(p => [...p, ev]); await Backend.events.add(ev); try { import('./services/nativeCalendar').then(m => m.NativeCalendarService.syncEventToNative(ev)); } catch (err) {} }} onUpdateEvent={async (id, u) => { setEvents(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.events.update(id, u); try { const updatedEvent = { ...events.find(ev => ev.id === id), ...u } as CalendarEvent; import('./services/nativeCalendar').then(m => m.NativeCalendarService.updateEventInNative(updatedEvent)); } catch(err){} }} onDeleteEvent={async (id) => { setEvents(p => p.filter(x => x.id !== id)); await Backend.events.delete(id); try { import('./services/nativeCalendar').then(m => m.NativeCalendarService.deleteEventFromNative(id)); } catch(err){} }} onAddNews={async (n) => { setNews(p => [n, ...p]); await Backend.news.add(n); }} onUpdateNews={async (id, u) => { setNews(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.news.update(id, u); }} onDeleteNews={async (id) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); }} onAddPoll={async (p) => { setPolls(x => [p, ...x]); await Backend.polls.add(p); }} onUpdatePoll={async (id, u) => { setPolls(x => x.map(p => p.id === id ? { ...p, ...u } : p)); await Backend.polls.update(id, u); }} onDeletePoll={async (id) => { setPolls(x => x.filter(p => p.id !== id)); await Backend.polls.delete(id); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} onMarkNewsRead={async (id) => { const n = news.find(x => x.id === id); if (n) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? { ...x, readBy: readers } : x)); await Backend.news.update(id, { readBy: readers }); } }} />;
         break;
       case AppRoute.LISTS:
-        PageComponent = <ListsPage 
-                                shoppingItems={shoppingList} 
-                                householdTasks={householdTasks} 
-                                personalTasks={personalTasks} 
-                                recipes={recipes} 
-                                family={family} 
-                                currentUser={currentUser} 
-                                onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? { ...i, checked: !i.checked } : i)); await Backend.shopping.update(id, { checked: !item.checked }); } }} 
-                                onAddShopping={async (name) => { const i = { id: Date.now().toString(), name, checked: false }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }} 
-                                onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }} 
-                                onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium' }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }} 
-                                onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.householdTasks.update(id, { done: !t.done }); } } else { const t = personalTasks.find(x => x.id === id); if (t) { setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.personalTasks.update(id, { done: !t.done }); } } }} 
-                                onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium' }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }} 
-                                onDeleteTask={async (id, type) => { if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }} 
-                                onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }} 
-                                onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }} 
-                                onAddIngredientsToShopping={async (ings) => { 
-                                  const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false })); 
-                                  const newList = [...shoppingList, ...items];
-                                  setShoppingList(newList); 
-                                  await Promise.all(items.map(item => Backend.shopping.add(item)));
-                                  await addNotification('Einkauf', 'Zutaten hinzugefügt'); 
-                                }} 
-                                mealPlan={mealPlan}
-                                onAddMealToPlan={addMealToPlan} 
-                                onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} 
-                                liquidGlass={effectiveLiquidGlass} />;
+        PageComponent = <ListsPage
+          shoppingItems={shoppingList}
+          householdTasks={householdTasks}
+          personalTasks={personalTasks}
+          recipes={recipes}
+          family={family}
+          currentUser={currentUser}
+          onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? { ...i, checked: !i.checked } : i)); await Backend.shopping.update(id, { checked: !item.checked }); } }}
+          onAddShopping={async (name) => { const i = { id: Date.now().toString(), name, checked: false }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }}
+          onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }}
+          onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium' }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }}
+          onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.householdTasks.update(id, { done: !t.done }); } } else { const t = personalTasks.find(x => x.id === id); if (t) { setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.personalTasks.update(id, { done: !t.done }); } } }}
+          onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium' }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }}
+          onDeleteTask={async (id, type) => { if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }}
+          onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }}
+          onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }}
+          onAddIngredientsToShopping={async (ings) => {
+            const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false }));
+            const newList = [...shoppingList, ...items];
+            setShoppingList(newList);
+            await Promise.all(items.map(item => Backend.shopping.add(item)));
+            await addNotification('Einkauf', 'Zutaten hinzugefügt');
+          }}
+          mealPlan={mealPlan}
+          onAddMealToPlan={addMealToPlan}
+          onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)}
+          liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.MEALS:
         PageComponent = <MealsPage plan={mealPlan} requests={mealRequests} family={family} currentUser={currentUser} onUpdatePlan={updateMealPlan} onAddRequest={addMealRequest} onDeleteRequest={deleteMealRequest} onAddIngredientsToShopping={addIngredientsToShopping} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} recipes={recipes} onAddRecipe={addRecipe} onPlanGenerated={handlePlanGenerated} liquidGlass={effectiveLiquidGlass} />;
@@ -887,7 +855,7 @@ const App: React.FC = () => {
         PageComponent = <ActivitiesPage onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} currentLocation={currentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.SETTINGS:
-        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} easterMode={easterMode} onToggleEasterMode={() => setEasterMode(!easterMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
+        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
           const newVal = !maintenanceMode;
           setMaintenanceMode(newVal);
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
@@ -901,11 +869,12 @@ const App: React.FC = () => {
 
     return (
       <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-        {renderEasterDecorations()}
+        { }
         <main className="flex-1 overflow-y-auto no-scrollbar relative">{PageComponent}</main>
         <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 bg-white dark:bg-slate-900 ${effectiveLiquidGlass ? 'bg-transparent' : ''}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} easterMode={effectiveEasterMode} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} />
+          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} />
         </div>
+
         {showSecurityScreen && currentUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-gray-800 text-center">

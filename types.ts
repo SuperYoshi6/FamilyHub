@@ -29,7 +29,8 @@ export interface NewsItem {
   id: string;
   title: string;
   description: string;
-  image?: string; // Base64 or URL
+  image?: string; // Base64 or URL (Legacy single image)
+  images?: string[]; // New: Multiple images for carousel
   tag?: string; // e.g. #Urlaub or PRIVATE:userid
   createdAt: string;
   authorId: string;
@@ -49,6 +50,7 @@ export interface Poll {
   id: string;
   question: string;
   description?: string;
+  images?: string[]; // New: Multiple images for carousel
   options: PollOption[];
   createdAt: string;
   startsAt?: string; // ISO String - Scheduled start (optional)

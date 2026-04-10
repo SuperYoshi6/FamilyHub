@@ -239,7 +239,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   activeTabId={calendarView}
                   onTabChange={(id) => setCalendarView(id as 'family' | 'private')}
                   liquidGlass={liquidGlass}
-                  className="w-32"
+                  className="w-40"
                />
            </div>
            <div className="space-y-4">
@@ -252,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                    <div className="flex-1">
                       <h4 className="font-bold text-slate-800 dark:text-white text-lg">{event.title}</h4>
                       <div className="flex items-center text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">
-                         <Clock size={14} className="mr-1.5 text-blue-500" /> {event.time} {event.location && `• ${event.location}`}
+                         <Clock size={14} className="mr-1.5 text-blue-500" /> {event.time?.slice(0, 5)} {event.location && `• ${event.location}`}
                       </div>
                    </div>
                    <ArrowRight className="text-slate-200" size={18}/>
