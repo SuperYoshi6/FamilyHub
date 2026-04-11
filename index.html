@@ -13,10 +13,9 @@
     href="data:image/svg+xml,svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏠</text></svg>">
   <link rel="manifest" href="./manifest.json">
   <title>FamilyHub</title>
+
   <script type="text/javascript">
-    // Single Page Apps for GitHub Pages
-    // MIT License
-    // https://github.com/rafgraph/spa-github-pages
+    // Single Page Apps for GitHub Pages Fix
     (function (l) {
       if (l.search[1] === '/') {
         var decoded = l.search.slice(1).split('&').map(function (s) {
@@ -28,6 +27,7 @@
       }
     }(window.location))
   </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -138,43 +138,12 @@
       -webkit-backdrop-filter: blur(25px) saturate(200%);
       border: 1px solid rgba(255, 255, 255, 0.35);
       border-radius: 40px;
-      box-shadow: 0 10px 40px -10px rgba(31, 38, 135, 0.2);
       overflow: hidden;
-    }
-
-    .liquid-shimmer-card::after {
-      content: "";
-      position: absolute;
-      top: 0; right: 0; bottom: 0; left: 0;
-      background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(255, 255, 255, 0.1) 45%,
-        rgba(255, 255, 255, 0.2) 50%,
-        rgba(255, 255, 255, 0.1) 55%,
-        rgba(255, 255, 255, 0) 100%
-      );
-      transform: translateX(-100%);
-      animation: shimmer-sweep 4s infinite;
-      pointer-events: none;
-      z-index: 1;
     }
 
     .dark .liquid-shimmer-card {
       background: rgba(15, 23, 42, 0.3);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-    }
-
-    .dark .liquid-shimmer-card::after {
-      background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(255, 255, 255, 0.05) 45%,
-        rgba(255, 255, 255, 0.1) 50%,
-        rgba(255, 255, 255, 0.05) 55%,
-        rgba(255, 255, 255, 0) 100%
-      );
     }
 
     /* Nav Wobble Bubble */
@@ -319,13 +288,6 @@
     }
 
     /* Legibility Helpers */
-    .glass-text-glow {
-      text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 2px rgba(255, 255, 255, 1);
-    }
-
-    .dark .glass-text-glow {
-      text-shadow: 0 0 10px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 1);
-    }
 
     @keyframes easter-sway {
 
@@ -422,7 +384,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="./assets/index-BeLauCEj.js"></script>
+  <script type="module" crossorigin src="./assets/index-C9ks5BJ5.js"></script>
 </head>
 
 <body class="transition-colors duration-300">
