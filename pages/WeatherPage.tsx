@@ -51,7 +51,7 @@ const renderMetricIcon = (iconName: string, className: string) => {
     }
 };
 
-const getBigWeatherIcon = (code: number, isDay: number = 1) => {
+const getBigWeatherIcon = (code: number, isDay: number = 1, liquidGlass: boolean = false) => {
     if (code === 0) {
         if (isDay) {
             return <Sun size={80} className="text-yellow-400 animate-pulse-slow" />;
@@ -59,7 +59,7 @@ const getBigWeatherIcon = (code: number, isDay: number = 1) => {
             // Nacht mit Sternen-Animation: Moon + Stern-Funkel
             return (
                 <div className="relative w-20 h-20 flex items-center justify-center">
-                    <Moon size={80} className="text-blue-100 drop-shadow-lg" />
+                    <Moon size={80} className={`text-blue-100 ${liquidGlass ? '' : 'drop-shadow-lg'}`} />
                     <div className="absolute top-2 right-8 text-yellow-200 animate-pulse" style={{fontSize: '8px', opacity: 0.8}}>✦</div>
                     <div className="absolute top-8 left-4 text-yellow-100 animate-pulse" style={{fontSize: '6px', opacity: 0.6, animationDelay: '0.5s'}}>✧</div>
                 </div>
@@ -407,7 +407,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
 
     // --- THEME LOGIC FOR LIQUID GLASS ---
     const textColorClass = liquidGlass
-        ? 'text-slate-900 dark:text-white drop-shadow-sm'
+        ? 'text-slate-900 dark:text-white'
         : (isSnowyBg && isDay ? 'text-slate-800' : 'text-white');
 
     const sectionTitleClass = liquidGlass
@@ -415,8 +415,8 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         : 'text-yellow-100 opacity-90';
 
     const glassClass = liquidGlass
-        ? 'liquid-shimmer-card rounded-[2.5rem] shadow-lg'
-        : (isSnowyBg ? 'bg-white/40 border-slate-500/20' : 'bg-black/20 border-white/5');
+        ? 'liquid-shimmer-card rounded-[2.5rem] shadow-none'
+        : (isSnowyBg ? 'bg-white/40 border-slate-500/20 shadow-sm' : 'bg-black/20 border-white/5 shadow-sm');
 
     // --- Helper Components ---
 
@@ -428,7 +428,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                 className={`flex justify-between items-center mb-3 px-3 py-1.5 cursor-pointer transition-all rounded-lg select-none ${isSelected ? 'bg-white/20 ring-1 ring-white/50' : 'hover:bg-white/10 group'}`}
             >
                 <div className="flex items-center gap-2">
-                    <h3 className={`text-left text-xs font-bold uppercase tracking-wider flex items-center drop-shadow-sm ${sectionTitleClass}`}>
+                    <h3 className={`text-left text-xs font-bold uppercase tracking-wider flex items-center ${liquidGlass ? '' : 'drop-shadow-sm'} ${sectionTitleClass}`}>
                         {title}
                     </h3>
                     {note && (
@@ -479,7 +479,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         return (
             <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
                 <SectionHeader title="Stündlich" index={index} onClick={() => handleSectionClick(index)} />
-                <div className={`${glassClass} rounded-3xl p-5 shadow-sm`}>
+                <div className={`${glassClass} rounded-3xl p-5 ${liquidGlass ? 'shadow-none' : 'shadow-sm'}`}>
                     <div className="flex overflow-x-auto gap-6 pb-2 scrollbar-hide">
                         {hourlySlice.map((t: string, i: number) => {
                             const date = new Date(t);
@@ -506,7 +506,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     const renderDaily = (index: number) => (
         <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
             <SectionHeader title="7-Tage Trend" index={index} onClick={() => handleSectionClick(index)} />
-            <div className={`${glassClass} rounded-3xl p-5 space-y-4 shadow-sm`}>
+            <div className={`${glassClass} rounded-3xl p-5 space-y-4 ${liquidGlass ? 'shadow-none' : 'shadow-sm'}`}>
                     {data?.daily.time.map((dayStr, i) => {
                         const min = Math.round(data.daily.temperature_2m_min[i]);
                         const max = Math.round(data.daily.temperature_2m_max[i]);
@@ -558,7 +558,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                         Wetterradar
                     </h3>
                 </div>
-                <div className={`${glassClass} rounded-3xl p-2 shadow-sm`}>
+                <div className={`${glassClass} rounded-3xl p-2 ${liquidGlass ? 'shadow-none' : 'shadow-sm'}`}>
                     <div className="flex gap-2 mb-2 px-1">
                         <button
                             onClick={(e) => { e.stopPropagation(); setRadarType('rain'); }}
@@ -609,7 +609,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                               ${glassClass} 
                               p-4 rounded-3xl flex flex-col items-start 
                               relative overflow-hidden cursor-pointer transition-all active:scale-95 select-none
-                              ${isSelected ? (liquidGlass ? 'ring-2 ring-yellow-400 shadow-lg scale-[0.98]' : 'ring-2 ring-yellow-400 shadow-lg scale-[0.98]') : 'hover:bg-white/5'}
+                              ${isSelected ? (liquidGlass ? 'ring-2 ring-yellow-400 scale-[0.98] shadow-none' : 'ring-2 ring-yellow-400 shadow-lg scale-[0.98]') : 'hover:bg-white/5'}
                           `}
                         >
                             <div className="flex justify-between w-full mb-3">
@@ -637,40 +637,40 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     const bgGradient = getBackgroundClass(currentCode, isDay, liquidGlass);
 
     return (
-        <div className={`min-h-screen ${liquidGlass ? '' : 'bg-gradient-to-b'} ${bgGradient} ${textColorClass} transition-all duration-1000 relative overflow-hidden`}>
+        <main className={`min-h-screen pb-24 ${liquidGlass ? '' : 'bg-gradient-to-b'} ${bgGradient} ${textColorClass} transition-all duration-1000 relative overflow-hidden`}>
             <WeatherEffects code={currentCode} isDay={isDay} />
 
-            {/* Header Optimized Layout */}
-            <div className="pt-4 px-4 flex items-center z-20 relative">
-                <button onClick={onBack} className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition flex-shrink-0 mr-2 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}>
-                    <ArrowLeft size={24} />
-                </button>
-
-                <div className="flex-1 min-w-0 flex flex-col items-center justify-center mx-2 bg-white/10 rounded-2xl py-1.5 px-3 backdrop-blur-sm">
-                    <div className="flex items-center space-x-1">
-                        <MapPin size={12} className="opacity-70 flex-shrink-0" />
-                        <span className="font-semibold tracking-wide uppercase text-sm opacity-90 truncate">{locationName}</span>
+            {/* Sticky Header Section */}
+            <div className={`sticky top-0 z-40 transition-all duration-500 overflow-hidden ${liquidGlass ? 'backdrop-blur-xl bg-white/10 border-b border-white/20' : ''}`}>
+                <div className="pt-4 pb-4 px-4 flex items-center">
+                    <button onClick={onBack} className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition flex-shrink-0 mr-2 active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}>
+                        <ArrowLeft size={24} />
+                    </button>
+                    <div className="flex-1 min-w-0 flex flex-col items-center justify-center mx-2 bg-white/10 rounded-2xl py-1.5 px-3 backdrop-blur-md border border-white/10">
+                        <div className="flex items-center space-x-1">
+                            <MapPin size={12} className="opacity-70 flex-shrink-0" />
+                            <span className="font-bold tracking-tight uppercase text-xs opacity-90 truncate">{locationName}</span>
+                        </div>
+                        {data && <LocationClock utcOffsetSeconds={data.utc_offset_seconds} isSnowyBg={isSnowyBg} liquidGlass={liquidGlass} />}
                     </div>
-                    {data && <LocationClock utcOffsetSeconds={data.utc_offset_seconds} isSnowyBg={isSnowyBg} liquidGlass={liquidGlass} />}
-                </div>
-
-                <div className="flex space-x-1 flex-shrink-0">
-                    <button
-                        onClick={() => attemptCurrentLocation(true)}
-                        className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
-                        title="Aktueller Standort"
-                    >
-                        <Navigation size={20} />
-                    </button>
-                    <button
-                        onClick={handleFavoriteClick}
-                        className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
-                    >
-                        <Star size={20} fill={isFavorite ? 'currentColor' : 'none'} className={isFavorite ? 'text-yellow-400' : ''} />
-                    </button>
-                    <button onClick={() => setIsSearching(!isSearching)} className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}>
-                        <Search size={20} />
-                    </button>
+                    <div className="flex space-x-1 flex-shrink-0">
+                        <button
+                            onClick={() => attemptCurrentLocation(true)}
+                            className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
+                            title="Aktueller Standort"
+                        >
+                            <Navigation size={20} />
+                        </button>
+                        <button
+                            onClick={handleFavoriteClick}
+                            className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
+                        >
+                            <Star size={20} fill={isFavorite ? 'currentColor' : 'none'} className={isFavorite ? 'text-yellow-400' : ''} />
+                        </button>
+                        <button onClick={() => setIsSearching(!isSearching)} className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}>
+                            <Search size={20} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -738,13 +738,13 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                 ) : data && (
                     <>
                         {/* Hero Section (Always Top) */}
-                        <div className={`mb-2 drop-shadow-2xl filter transform hover:scale-105 transition duration-700 ease-in-out ${liquidGlass ? 'animate-float' : ''}`}>
-                            {getBigWeatherIcon(currentCode, isDay)}
+                        <div className={`mb-2 filter transform hover:scale-105 transition duration-700 ease-in-out ${liquidGlass ? 'animate-float' : 'drop-shadow-2xl'}`}>
+                            {getBigWeatherIcon(currentCode, isDay, liquidGlass)}
                         </div>
-                        <div className={`text-8xl font-[1000] tracking-tighter leading-none mb-1 drop-shadow-2xl ${textColorClass.includes('text-slate-900') ? 'glass-text-glow' : ''}`}>
+                        <div className={`text-8xl font-[1000] tracking-tighter leading-none mb-1 ${liquidGlass ? '' : 'drop-shadow-2xl'} ${textColorClass.includes('text-slate-900') ? 'glass-text-glow' : ''}`}>
                             {Math.round(data.current.temperature_2m || 0)}°
                         </div>
-                        <p className="text-xl font-medium mt-2 opacity-90 drop-shadow-sm">
+                        <p className={`text-xl font-medium mt-2 opacity-90 ${liquidGlass ? '' : 'drop-shadow-sm'}`}>
                             {getWeatherDescription(currentCode)}
                         </p>
                         <div className={`flex space-x-4 mt-2 text-sm opacity-90 font-medium ${liquidGlass ? 'bg-white/10 backdrop-blur-md text-current' : (isSnowyBg ? 'bg-slate-800/10' : 'bg-black/20')} px-4 py-1 rounded-full backdrop-blur-sm`}>
@@ -770,7 +770,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                     </>
                 )}
             </div>
-        </div>
+        </main>
     );
 };
 

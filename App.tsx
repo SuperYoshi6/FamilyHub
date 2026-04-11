@@ -214,6 +214,12 @@ const App: React.FC = () => {
       try {
         const geoPerm = await Geolocation.checkPermissions();
         if (geoPerm.location !== 'granted') await Geolocation.requestPermissions();
+
+        // Request Calendar Permissions
+        try {
+          const { NativeCalendarService } = await import('./services/nativeCalendar');
+          await NativeCalendarService.requestPermissions();
+        } catch (e) { }
       } catch (e) { }
     } else if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -596,6 +602,44 @@ const App: React.FC = () => {
     setLoginError('');
     setLoginStep('enter-pass');
   };
+
+  // --- CALENDAR HANDLERS ---
+  const handleAddEvent = async (e: any) => {
+    const ev = { ...e, authorId: currentUser?.id || 'unknown' };
+    setEvents(p => [...p, ev]);
+    await Backend.events.add(ev);
+    try {
+      const { NativeCalendarService } = await import('./services/nativeCalendar');
+      await NativeCalendarService.syncEventToNative(ev);
+    } catch (err) {
+      console.warn('Native Sync failed:', err);
+    }
+  };
+
+  const handleUpdateEvent = async (id: string, updates: Partial<CalendarEvent>) => {
+    setEvents(p => p.map(x => x.id === id ? { ...x, ...updates } : x));
+    await Backend.events.update(id, updates);
+    try {
+      const current = events.find(ev => ev.id === id);
+      if (current) {
+        const { NativeCalendarService } = await import('./services/nativeCalendar');
+        await NativeCalendarService.updateEventInNative({ ...current, ...updates });
+      }
+    } catch (err) {
+      console.warn('Native Update failed:', err);
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    setEvents(p => p.filter(x => x.id !== id));
+    await Backend.events.delete(id);
+    try {
+      const { NativeCalendarService } = await import('./services/nativeCalendar');
+      await NativeCalendarService.deleteEventFromNative(id);
+    } catch (err) {
+      console.warn('Native Delete failed:', err);
+    }
+  };
   const handleLogout = () => { localStorage.removeItem('fh_session_user'); setCurrentUser(null); setCurrentRoute(AppRoute.DASHBOARD); setLoginStep('select'); setLoginUser(null); };
 
   const getNextSwipeRoute = (direction: 1 | -1) => {
@@ -817,7 +861,24 @@ const App: React.FC = () => {
         PageComponent = <WeatherPage onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} favorites={userWeatherFavorites} onToggleFavorite={toggleWeatherFavorite} initialLocation={currentWeatherLocation} onUpdateCurrentWeatherLocation={setCurrentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.CALENDAR:
-        PageComponent = <CalendarPage events={events} news={news} polls={polls} family={family} currentUser={currentUser} onAddEvent={async (e) => { const ev = { ...e, authorId: currentUser.id }; setEvents(p => [...p, ev]); await Backend.events.add(ev); try { import('./services/nativeCalendar').then(m => m.NativeCalendarService.syncEventToNative(ev)); } catch (err) {} }} onUpdateEvent={async (id, u) => { setEvents(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.events.update(id, u); try { const updatedEvent = { ...events.find(ev => ev.id === id), ...u } as CalendarEvent; import('./services/nativeCalendar').then(m => m.NativeCalendarService.updateEventInNative(updatedEvent)); } catch(err){} }} onDeleteEvent={async (id) => { setEvents(p => p.filter(x => x.id !== id)); await Backend.events.delete(id); try { import('./services/nativeCalendar').then(m => m.NativeCalendarService.deleteEventFromNative(id)); } catch(err){} }} onAddNews={async (n) => { setNews(p => [n, ...p]); await Backend.news.add(n); }} onUpdateNews={async (id, u) => { setNews(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.news.update(id, u); }} onDeleteNews={async (id) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); }} onAddPoll={async (p) => { setPolls(x => [p, ...x]); await Backend.polls.add(p); }} onUpdatePoll={async (id, u) => { setPolls(x => x.map(p => p.id === id ? { ...p, ...u } : p)); await Backend.polls.update(id, u); }} onDeletePoll={async (id) => { setPolls(x => x.filter(p => p.id !== id)); await Backend.polls.delete(id); }} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} onMarkNewsRead={async (id) => { const n = news.find(x => x.id === id); if (n) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? { ...x, readBy: readers } : x)); await Backend.news.update(id, { readBy: readers }); } }} />;
+        PageComponent = <CalendarPage
+          events={events}
+          news={news}
+          polls={polls}
+          family={family}
+          currentUser={currentUser}
+          onAddEvent={handleAddEvent}
+          onUpdateEvent={handleUpdateEvent}
+          onDeleteEvent={handleDeleteEvent}
+          onAddNews={async (n) => { setNews(p => [n, ...p]); await Backend.news.add(n); }}
+          onUpdateNews={async (id, u) => { setNews(p => p.map(x => x.id === id ? { ...x, ...u } : x)); await Backend.news.update(id, u); }}
+          onDeleteNews={async (id) => { setNews(p => p.filter(x => x.id !== id)); await Backend.news.delete(id); }}
+          onAddPoll={async (p) => { setPolls(x => [p, ...x]); await Backend.polls.add(p); }}
+          onUpdatePoll={async (id, u) => { setPolls(x => x.map(p => p.id === id ? { ...p, ...u } : p)); await Backend.polls.update(id, u); }}
+          onDeletePoll={async (id) => { setPolls(x => x.filter(p => p.id !== id)); await Backend.polls.delete(id); }}
+          onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)}
+          onMarkNewsRead={markNewsRead}
+          liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.LISTS:
         PageComponent = <ListsPage
@@ -861,7 +922,7 @@ const App: React.FC = () => {
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
             setMaintenanceEnd('');
           }
-        }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onNavigate={setCurrentRoute} />;
+        }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onNavigate={setCurrentRoute} events={events} />;
         break;
       default:
         PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} />;

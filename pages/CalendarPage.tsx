@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import SlidingTabs from '../components/SlidingTabs';
 import { CalendarEvent, FamilyMember, NewsItem, Poll } from '../types';
-import { MapPin, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Share2, Pin } from 'lucide-react';
+import { MapPin, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Share2, Pin } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -168,35 +168,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         }
         return acc;
     }, {} as Record<string, CalendarEvent[]>);
-
-    const activeTabIndex = activeTab === 'calendar' ? 0 : 1;
-    const activeViewIndex = calendarFilter === 'all' ? 0 : 1;
-
-    // --- Helpers ---
-    const getTabContainerClass = () => {
-        if (liquidGlass) {
-            return "liquid-shimmer-card border-white/40 p-1 rounded-xl relative flex";
-        }
-        return "bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex";
-    };
-
-    const getSliderClass = () => {
-        return "absolute top-1 bottom-1 rounded-lg z-0 transition-all duration-300 ease-in-out";
-    };
-
-    const getSliderInnerClass = () => {
-        if (liquidGlass) {
-            return "w-full h-full rounded-lg bg-white/40 dark:bg-white/20 backdrop-blur-md border border-white/40 shadow-sm";
-        }
-        return "";
-    };
-
-    const getBtnClass = (isActive: boolean) => {
-        if (liquidGlass) {
-            return isActive ? "text-slate-900 dark:text-white font-extrabold" : "text-gray-500 dark:text-gray-400";
-        }
-        return isActive ? "bg-white dark:bg-gray-700 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400";
-    };
 
     // --- Logic ---
     const handleDayClick = (dateStr: string) => {
@@ -477,7 +448,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
         return (
-            <div className={`rounded-xl shadow-sm border overflow-hidden animate-fade-in transition-colors mb-6 ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
+            <div className={`rounded-xl border overflow-hidden animate-fade-in transition-colors mb-6 ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
                 <div className={`flex justify-between items-center p-4 border-b ${liquidGlass ? 'border-white/20 bg-white/10' : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800'}`}>
                     <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition"><ChevronLeft size={20} /></button>
                     <span className={`font-bold text-lg capitalize ${liquidGlass ? 'text-slate-800 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{monthName}</span>
@@ -512,7 +483,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                 onClick={() => handleDayClick(dateStr)}
                                 className={`relative flex flex-col items-center justify-start pt-2 pb-1 cursor-pointer transition-colors hover:bg-blue-500/10 active:bg-blue-500/20`}
                             >
-                                <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white shadow-md' : (liquidGlass ? 'text-slate-800 dark:text-white' : 'text-gray-700 dark:text-gray-300')}`}>
+                                <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-blue-600 text-white' : (liquidGlass ? 'text-slate-800 dark:text-white' : 'text-gray-700 dark:text-gray-300')}`}>
                                     {day}
                                 </span>
 
@@ -709,7 +680,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             <div className="flex justify-center">
                                 <button
                                     onClick={() => setShowNewsForm(true)}
-                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 transition active:scale-95`}
+                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl font-bold flex items-center space-x-2 transition active:scale-95`}
                                 >
                                     <Plus size={20} /> <span>News erstellen</span>
                                 </button>
@@ -717,7 +688,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                         )}
 
                         {showNewsForm && (
-                            <div className={`rounded-xl shadow-lg p-4 animate-slide-in ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
+                            <div className={`rounded-xl p-4 animate-slide-in ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className={`font-bold ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>Neue News</h3>
                                     <button onClick={() => setShowNewsForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
@@ -729,8 +700,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
                                     <div className={`p-3 rounded-xl border border-dashed ${liquidGlass ? 'bg-white/30 border-white/40' : 'bg-gray-50 dark:bg-slate-800 border-gray-300 dark:border-gray-600'}`}>
                                         <div className="flex gap-2 mb-2">
-                                            <button type="button" onClick={() => setImageMode('upload')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'upload' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>Foto</button>
-                                            <button type="button" onClick={() => setImageMode('url')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'url' ? 'bg-white dark:bg-gray-600 shadow-sm' : 'text-gray-400'}`}>URL</button>
+                                            <button type="button" onClick={() => setImageMode('upload')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'upload' ? 'bg-white dark:bg-gray-600' : 'text-gray-400'}`}>Foto</button>
+                                            <button type="button" onClick={() => setImageMode('url')} className={`flex-1 py-1 text-xs font-bold rounded-lg transition ${imageMode === 'url' ? 'bg-white dark:bg-gray-600' : 'text-gray-400'}`}>URL</button>
                                         </div>
                                         {imageMode === 'upload' ? (
                                             <div className="text-center py-2">
@@ -739,7 +710,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                     <div className="flex flex-wrap gap-2 justify-center">
                                                         {newsImages.map((img, idx) => (
                                                             <div key={idx} className="relative inline-block">
-                                                                <img src={img} className="h-20 w-20 object-cover rounded-lg shadow-sm" />
+                                                                <img src={img} className="h-20 w-20 object-cover rounded-lg" />
                                                                 <button type="button" onClick={() => setNewsImages(newsImages.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12} /></button>
                                                             </div>
                                                         ))}
@@ -751,7 +722,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                             <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
                                         )}
                                     </div>
-                                    <button type="submit" disabled={!newsTitle.trim() || processingImage} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50`}>Veröffentlichen</button>
+                                    <button type="submit" disabled={!newsTitle.trim() || processingImage} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl active:scale-95 transition disabled:opacity-50`}>Veröffentlichen</button>
                                 </form>
                             </div>
                         )}
@@ -761,7 +732,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             {publicNews.map(item => {
                                 const author = family.find(f => f.id === item.authorId);
                                 return (
-                                    <div key={item.id} className={`rounded-2xl shadow-sm overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700'}`}>
+                                    <div key={item.id} className={`rounded-2xl overflow-hidden group ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700'}`}>
                                         <ImageCarousel images={item.images} fallbackImage={item.image} />
                                         <div className="p-4">
                                             <div className="flex justify-between items-start mb-2">
@@ -801,7 +772,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             <div className="flex justify-center">
                                 <button
                                     onClick={() => setShowPollForm(true)}
-                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center space-x-2 transition active:scale-95`}
+                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl font-bold flex items-center space-x-2 transition active:scale-95`}
                                 >
                                     <Plus size={20} /> <span>Umfrage erstellen</span>
                                 </button>
@@ -809,7 +780,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                         )}
 
                         {showPollForm && (
-                            <div className={`rounded-xl shadow-lg p-4 animate-slide-in ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
+                            <div className={`rounded-xl p-4 animate-slide-in ${liquidGlass ? 'liquid-shimmer-card border border-white/40' : 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className={`font-bold ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>Neue Umfrage</h3>
                                     <button onClick={() => setShowPollForm(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
@@ -825,7 +796,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                 <div className="flex flex-wrap gap-2 justify-center">
                                                     {pollImages.map((img, idx) => (
                                                         <div key={idx} className="relative inline-block">
-                                                            <img src={img} className="h-20 w-20 object-cover rounded-lg shadow-sm" />
+                                                            <img src={img} className="h-20 w-20 object-cover rounded-lg" />
                                                             <button type="button" onClick={() => setPollImages(pollImages.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"><X size={12} /></button>
                                                         </div>
                                                     ))}
@@ -875,7 +846,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         <label htmlFor="multiVote" className="text-xs font-medium cursor-pointer">Mehrfachauswahl erlauben</label>
                                     </div>
 
-                                    <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition disabled:opacity-50`}>Umfrage starten</button>
+                                    <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl active:scale-95 transition disabled:opacity-50`}>Umfrage starten</button>
                                 </form>
                             </div>
                         )}
@@ -891,7 +862,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                 const hasExpired = poll.expiresAt ? now > new Date(poll.expiresAt) : false;
 
                                 return (
-                                    <div key={poll.id} className={`rounded-2xl shadow-sm overflow-hidden border transition-all ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                                    <div key={poll.id} className={`rounded-2xl overflow-hidden border transition-all ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                                         <ImageCarousel images={poll.images} />
                                         <div className="p-4">
                                             <div className="flex justify-between items-start mb-2">
@@ -974,32 +945,38 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
     return (
         <>
-            <Header
-                title={activeTab === 'calendar' ? 'Kalender' : 'Pinnwand'}
-                currentUser={currentUser}
-                onProfileClick={onProfileClick}
-                liquidGlass={liquidGlass}
-                unreadNotifications={unreadNotifications}
-                onNotificationClick={onNotificationClick}
-            />
-
-            <main className="p-4 md:p-6 pb-24">
-                {/* Tab 1: Haupttabs – komplett außerhalb der Swipe-Zone */}
-                <div className="mb-4">
-                    <SlidingTabs
-                        tabs={[
-                            { id: 'calendar', label: 'Kalender', icon: CalendarIcon },
-                            { id: 'board', label: 'Pinnwand', icon: Layout }
-                        ]}
-                        activeTabId={activeTab}
-                        onTabChange={(id) => setActiveTab(id as 'calendar' | 'board')}
-                        liquidGlass={liquidGlass}
-                        className="w-full"
-                    />
+            <main className="p-0 pb-24">
+                {/* Header / Tabs Section (Sticky) */}
+                <div className={`sticky top-0 z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-white/5 border-b border-white/20' : 'bg-white/95 dark:bg-gray-900/95 border-b border-gray-100 dark:border-gray-800'}`}>
+                    <div className="relative">
+                        <Header
+                            title={activeTab === 'calendar' ? 'Kalender' : 'Pinnwand'}
+                            currentUser={currentUser}
+                            onProfileClick={onProfileClick}
+                            liquidGlass={liquidGlass}
+                            unreadNotifications={unreadNotifications}
+                            onNotificationClick={onNotificationClick}
+                        />
+                    </div>
+                    
+                    {/* Tab 1: Haupttabs – integriert in sticky section */}
+                    <div className="px-4 pb-4">
+                        <SlidingTabs
+                            tabs={[
+                                { id: 'calendar', label: 'Kalender', icon: CalendarIcon },
+                                { id: 'board', label: 'Pinnwand', icon: Layout }
+                            ]}
+                            activeTabId={activeTab}
+                            onTabChange={(id) => setActiveTab(id as 'calendar' | 'board')}
+                            liquidGlass={liquidGlass}
+                            className="w-full"
+                        />
+                    </div>
                 </div>
 
-                {/* Tab 2: Sub-Filter – ebenfalls außerhalb der Swipe-Zone */}
-                <div className="mb-4">
+                <div className="px-4 py-2">
+                    {/* Tab 2: Sub-Filter */}
+                    <div className="mb-4">
                     {activeTab === 'calendar' ? (
                         <SlidingTabs
                             tabs={[
@@ -1037,12 +1014,13 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                         </div>
                     )}
                 </div>
+            </div>
 
                 {/* Calendar Detail Modal */}
                 {selectedDate && activeTab === 'calendar' && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none p-4">
                         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity" onClick={closeModal}></div>
-                        <div className={`w-full max-w-md rounded-2xl shadow-2xl pointer-events-auto transform transition-transform duration-300 max-h-[85vh] flex flex-col animate-slide-up ${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800'}`}>
+                        <div className={`w-full max-w-md rounded-2xl pointer-events-auto transform transition-transform duration-300 max-h-[85vh] flex flex-col animate-slide-up ${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800'}`}>
                             <div className={`flex justify-between items-center p-4 border-b rounded-t-2xl flex-shrink-0 ${liquidGlass ? 'border-white/20 bg-white/10' : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50'}`}>
                                 <div>
                                     {isFormOpen ? (
@@ -1067,7 +1045,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                             </div>
                                         ) : (
                                             (groupedEvents[selectedDate] || []).map(event => (
-                                                <div key={event.id} className={`p-4 rounded-xl border-l-4 border-blue-500 relative group shadow-sm hover:shadow-md transition-all ${liquidGlass ? 'bg-white/40 border border-white/20' : 'bg-gray-50 dark:bg-slate-800'}`}>
+                                                <div key={event.id} className={`p-4 rounded-xl border-l-4 border-blue-500 relative group transition-all ${liquidGlass ? 'bg-white/40 border border-white/20' : 'bg-gray-50 dark:bg-slate-800'}`}>
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex-1">
                                                             <h4 className={`font-bold text-base ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{event.title}</h4>
@@ -1129,10 +1107,19 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         </div>
 
                                         <div className="space-y-1 relative">
-                                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Ort</label>
-                                            <div className="relative">
-                                                <MapPin size={16} className="absolute left-3 top-3.5 text-red-500" />
-                                                <input type="text" placeholder="Ort hinzufügen" value={manualLocation} onChange={(e) => setManualLocation(e.target.value)} className={`w-full rounded-xl p-3 pl-10 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white'}`} />
+                                            <div className="flex justify-between items-center ml-1">
+                                                <label className="text-[10px] font-bold uppercase text-gray-500">Ort</label>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(manualLocation || 'Aktueller Standort')}`, '_blank')}
+                                                    className={`text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 px-2 py-0.5 rounded-full ${liquidGlass ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20' : 'text-blue-500 hover:text-blue-600'}`}
+                                                >
+                                                    <Search size={10} /> Auf Karte suchen
+                                                </button>
+                                            </div>
+                                            <div className="relative group">
+                                                <MapPin size={16} className={`absolute left-3.5 top-3.5 transition-colors ${manualLocation ? 'text-red-500' : 'text-gray-400 group-focus-within:text-red-400'}`} />
+                                                <input type="text" placeholder="Wo findet es statt?" value={manualLocation} onChange={(e) => setManualLocation(e.target.value)} className={`w-full rounded-xl p-3.5 pl-10 text-sm outline-none transition-all ${liquidGlass ? 'bg-white/40 border border-white/30 focus:border-white/60 focus:bg-white/50 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500'}`} />
                                             </div>
                                         </div>
 

@@ -74,8 +74,8 @@ const SlidingTabs: React.FC<SlidingTabsProps> = ({ tabs, activeTabId, onTabChang
     };
 
     const bubbleLeft = dragX !== null ? dragX : (activeIndex * itemWidthPercent);
-    const stretch = liquidGlass ? Math.min(1.2, 1 + Math.abs(velocity) * 0.1) : 1;
-    const skew = liquidGlass ? Math.max(-10, Math.min(10, velocity * 5)) : 0;
+    const stretch = liquidGlass ? Math.min(1.6, 1 + Math.abs(velocity) * 0.6) : 1;
+    const skew = liquidGlass ? Math.max(-20, Math.min(20, velocity * 15)) : 0;
 
     return (
         <div 
@@ -85,15 +85,16 @@ const SlidingTabs: React.FC<SlidingTabsProps> = ({ tabs, activeTabId, onTabChang
             onPointerUp={handlePointerUp}
             onTouchStart={(e) => { if (liquidGlass) e.stopPropagation(); }}
             onTouchEnd={(e) => { if (liquidGlass) e.stopPropagation(); }}
-            className={`p-1 rounded-xl flex relative select-none touch-none overflow-hidden ${className} ${liquidGlass ? 'bg-white/10 backdrop-blur-md border border-white/20' : 'bg-gray-100 dark:bg-gray-800'}`}
+            className={`p-1 rounded-2xl flex relative select-none touch-none overflow-hidden ${className} ${liquidGlass ? 'bg-white/10 backdrop-blur-xl border border-white/30 dark:border-white/10' : 'bg-white/50 dark:bg-gray-800/80 border border-transparent'}`}
         >
-            {/* Sliding Bubble */}
+            {/* Sliding Bubble - The Pill */}
             <div 
-                className={`absolute top-1 bottom-1 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${liquidGlass ? 'liquid-shimmer-card rounded-lg shadow-md border-white/30' : 'bg-white dark:bg-gray-700 shadow-sm rounded-lg'}`}
+                className={`absolute top-1 bottom-1 transition-all ease-[cubic-bezier(0.23,1,0.32,1)] ${isDragging ? 'duration-0' : 'duration-500'} ${liquidGlass ? 'bg-white/60 dark:bg-white/20 backdrop-blur-md rounded-xl border border-white/40 dark:border-white/10' : 'bg-white dark:bg-gray-600 shadow-sm rounded-xl'}`}
                 style={{ 
                     left: `${bubbleLeft}%`, 
-                    width: `calc(${itemWidthPercent}% - 8px)`,
-                    transform: `translateX(4px) scaleX(${stretch}) skewX(${skew}deg)`,
+                    width: `calc(${itemWidthPercent}% - 6px)`,
+                    transform: `translateX(3px) scaleX(${stretch}) skewX(${skew}deg)`,
+                    transformOrigin: velocity === 0 ? 'center' : (velocity > 0 ? 'left center' : 'right center'),
                     zIndex: 0 
                 }}
             />
@@ -105,10 +106,10 @@ const SlidingTabs: React.FC<SlidingTabsProps> = ({ tabs, activeTabId, onTabChang
                     <button 
                         key={tab.id}
                         onClick={() => onTabChange(tab.id)}
-                        className={`flex-1 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-black flex items-center justify-center gap-1.5 transition-all relative z-10 ${isActive ? (liquidGlass ? 'text-blue-600 dark:text-blue-400' : 'text-blue-600 dark:text-blue-400') : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                        className={`relative z-10 flex-1 flex items-center justify-center space-x-2 py-2 px-1 text-sm font-bold transition-all duration-300 ${isActive ? (liquidGlass ? 'text-blue-700 dark:text-blue-300 scale-105' : 'text-blue-600 dark:text-blue-400') : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
                     >
-                        {Icon && <Icon size={14} className={`flex-shrink-0 ${isActive && liquidGlass ? 'animate-[liquidWobble_0.25s_ease-in-out]' : ''}`} />}
-                        <span className="truncate">{tab.label}</span>
+                        {Icon && <Icon size={14} className={`flex-shrink-0 transition-transform ${isActive ? 'scale-110' : ''} ${isActive && liquidGlass ? 'animate-wobble' : ''}`} />}
+                        <span className="truncate uppercase tracking-tight">{tab.label}</span>
                     </button>
                 );
             })}

@@ -313,7 +313,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     const isReadOnly = false;
 
                     return (
-                        <div key={task.id} className={`flex flex-col p-3 rounded-xl border relative overflow-hidden transition-all ${task.done ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 opacity-60' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm'}`}>
+                        <div key={task.id} className={`flex flex-col p-3 rounded-xl border relative overflow-hidden transition-all ${task.done ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 opacity-60' : `bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 ${liquidGlass ? 'shadow-none' : 'shadow-sm'}`}`}>
                             <div className="flex items-start justify-between mb-1">
                                 <div className={`flex items-center w-full ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !isReadOnly && onToggleTask(task.id, type)}>
                                     {task.done ? <CheckCircle2 className="text-green-500 mr-2 flex-shrink-0" size={20} /> : <Circle className={`mr-2 flex-shrink-0 ${type === 'household' ? 'text-blue-500' : 'text-purple-500'} ${isReadOnly ? 'opacity-50' : ''}`} size={20} />}
@@ -597,22 +597,26 @@ const ListsPage: React.FC<ListsPageProps> = ({
     const showAddForm = (activeTab !== 'household' && activeTab !== 'recipes') || canAddHousehold;
 
     return (
-        <>
-            <Header title="Listen" currentUser={currentUser} onProfileClick={onProfileClick} />
+        <main className="p-0 pb-24">
+            {/* Header / Tabs Section (Sticky) */}
+            <div className={`sticky top-0 z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-white/5 border-b border-white/20' : ''}`}>
+                <Header title="Listen" currentUser={currentUser} onProfileClick={onProfileClick} liquidGlass={liquidGlass} />
 
-            <div className="px-4 mt-2">
-                <SlidingTabs
-                    tabs={tabs}
-                    activeTabId={activeTab}
-                    onTabChange={(id) => setActiveTab(id as TabType)}
-                    liquidGlass={liquidGlass}
-                />
+                <div className="px-4 pb-4">
+                    <SlidingTabs
+                        tabs={tabs}
+                        activeTabId={activeTab}
+                        onTabChange={(id) => setActiveTab(id as TabType)}
+                        liquidGlass={liquidGlass}
+                        className="w-full"
+                    />
+                </div>
             </div>
 
             <div className="p-4 min-h-[calc(100vh-96px)]">
                 {/* Add Form */}
                 {showAddForm && (
-                    <div className={`mb-6 p-3 rounded-2xl shadow-sm border animate-slide-in bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700`}>
+                    <div className={`mb-6 p-3 rounded-2xl border animate-slide-in ${liquidGlass ? 'bg-white/10 shadow-none' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700 shadow-sm'}`}>
                         <form onSubmit={handleSubmit}>
                             <div className="flex items-center gap-2 p-1 bg-gray-50/50 dark:bg-gray-700/30 rounded-xl border border-transparent focus-within:border-orange-500/30 dark:focus-within:border-orange-400/30 transition-all">
                                 <input
@@ -708,7 +712,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
             {/* Planning Modal */}
             {planningRecipeId && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-700 animate-scale-in">
+                    <div className={`${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800 shadow-2xl'} w-full max-w-sm rounded-[32px] overflow-hidden border border-gray-100 dark:border-gray-700 animate-scale-in`}>
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
@@ -762,7 +766,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                             setPlanningRecipeId(null);
                                         }
                                     }}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-500/20 active:scale-95 transition-all mt-4"
+                                    className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl active:scale-95 transition-all mt-4 ${liquidGlass ? 'shadow-none' : 'shadow-xl shadow-blue-500/20'}`}
                                 >
                                     Im Plan speichern
                                 </button>
@@ -771,7 +775,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     </div>
                 </div>
             )}
-        </>
+        </main>
     );
 };
 

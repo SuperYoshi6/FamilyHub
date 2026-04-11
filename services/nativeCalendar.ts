@@ -58,8 +58,8 @@ export class NativeCalendarService {
                 startDate: startDate.getTime(),
                 endDate: endDate.getTime(),
                 isAllDay: isAllDay,
-                // KORREKTUR: Sicherer Zugriff auf createdBy
-                notes: `Erstellt via FamilyHub`
+                notes: `Erstellt via FamilyHub`,
+                alertOffsetInMinutes: [30]
             });
 
             if (result) {
@@ -97,5 +97,18 @@ export class NativeCalendarService {
         } catch (e) {
             console.error('Fehler beim Update des nativen Kalenders:', e);
         }
+    }
+
+    /**
+     * Synchronisiert alle Events in einer Schleife (für Ersteinrichtung oder Refresh)
+     */
+    public static async syncAllToNative(events: CalendarEvent[]): Promise<void> {
+        if (!Capacitor.isNativePlatform()) return;
+        console.log(`[Calendar] Starte Batch-Synchronisation von ${events.length} Terminen...`);
+        for (const ev of events) {
+            // updateEventInNative handles both new and existing mappings (delete + create)
+            await this.updateEventInNative(ev);
+        }
+        console.log('[Calendar] Batch-Synchronisation abgeschlossen.');
     }
 }
