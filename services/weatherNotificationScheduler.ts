@@ -1,5 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { fetchWeather } from './weather';
+import { androidNotificationChannelFields } from './notificationsAndroid';
 
 export const scheduleHourlyWeatherNotification = async (lat: number, lng: number, location: string) => {
     try {
@@ -46,6 +47,7 @@ export const scheduleHourlyWeatherNotification = async (lat: number, lng: number
                     smallIcon: 'ic_notification',
                     largeBody: `${description} in ${location}\nTemperatur: ${currentTemp}°C`,
                     actionTypeId: 'weather',
+                    ...androidNotificationChannelFields(),
                 },
             ],
         });

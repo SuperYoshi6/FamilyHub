@@ -18,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header
-      className={`sticky top-0 z-40 px-4 pb-3 flex justify-between items-center transition-all duration-500 overflow-hidden ${liquidGlass ? 'backdrop-blur-2xl bg-white/10 dark:bg-white/5 border-b border-white/30 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]' : 'shadow-sm bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-gray-800'}`}
+      className={`px-4 pb-3 flex justify-between items-center transition-all duration-500 overflow-hidden ${liquidGlass ? 'backdrop-blur-2xl bg-white/10 dark:bg-white/5 shadow-[0_8px_24px_0_rgba(31,38,135,0.05)]' : 'bg-white dark:bg-slate-900 shadow-[0_1px_0_rgba(0,0,0,0.03)]'}`}
       style={{ 
         paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' 
       }}

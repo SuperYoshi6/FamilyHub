@@ -2,10 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import SlidingTabs from '../components/SlidingTabs';
 import { CalendarEvent, FamilyMember, NewsItem, Poll } from '../types';
-import { MapPin, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Share2, Pin } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { MapPin, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Pin } from 'lucide-react';
 import { compressImage } from '../services/imageUtils';
 import { NativeCalendarService } from '../services/nativeCalendar';
 import ImageCarousel from '../components/ImageCarousel';
@@ -69,29 +66,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     useEffect(() => {
         localStorage.setItem('fh_board_filter', boardFilter);
     }, [boardFilter]);
-
-    // Swipe Navigation Logic
-    const touchStartX = useRef<number | null>(null);
-    const mainTabsOrder: ('calendar' | 'board')[] = ['calendar', 'board'];
-
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX;
-    };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (touchStartX.current === null) return;
-        const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-        touchStartX.current = null;
-
-        if (Math.abs(deltaX) > 70) {
-            const currentIndex = mainTabsOrder.indexOf(activeTab);
-            if (deltaX > 0 && currentIndex > 0) {
-                setActiveTab(mainTabsOrder[currentIndex - 1]);
-            } else if (deltaX < 0 && currentIndex < mainTabsOrder.length - 1) {
-                setActiveTab(mainTabsOrder[currentIndex + 1]);
-            }
-        }
-    };
 
     // Calendar State
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -339,62 +313,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         return lines.join('\r\n');
     };
 
-    const exportCalendarAsICS = () => {
-        const icsBlob = new Blob([generateICS()], { type: 'text/calendar;charset=utf-8' });
-        const filename = `familyhub-${calendarFilter === 'private' ? 'private' : 'family'}.ics`;
-        const file = new File([icsBlob], filename, { type: 'text/calendar' });
-        const canShare = typeof navigator !== 'undefined' && !!navigator.share && (!!navigator.canShare ? navigator.canShare({ files: [file] }) : true);
-
-        const url = URL.createObjectURL(icsBlob);
-        if (Capacitor.isNativePlatform()) {
-            (async () => {
-                try {
-                    const data = generateICS();
-                    await Filesystem.writeFile({
-                        path: filename,
-                        data: toBase64(data),
-                        directory: Directory.Cache,
-                    });
-                    const fileUri = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
-                    await Share.share({
-                        title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`,
-                        text: 'FamilyHub Termine exportieren',
-                        url: fileUri.uri,
-                    });
-                } catch (e) {
-                    // fallback to web download
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    a.target = '_blank';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.location.href = url;
-                }
-            })();
-            return;
-        }
-        if (canShare) {
-            navigator.share({ files: [file], title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => { });
-            return;
-        }
-        if (navigator.share) {
-            navigator.share({ url, title: `FamilyHub Kalender (${calendarFilter === 'private' ? 'Privat' : 'Familie'})`, text: 'FamilyHub Termine exportieren' }).catch(() => { });
-        }
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        if (typeof window !== 'undefined') {
-            window.location.href = url;
-        }
-        URL.revokeObjectURL(url);
-    };
+    // Export/Share removed per request
 
     const parseEventStartEnd = (event: CalendarEvent) => {
         const toDateTime = (date: string, time?: string) => {
@@ -448,30 +367,23 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
         return (
-            <div className={`rounded-xl border overflow-hidden animate-fade-in transition-colors mb-6 ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
+            <div className={`rounded-xl border overflow-hidden animate-fade-in transition-colors mb-6 ${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
                 <div className={`flex justify-between items-center p-4 border-b ${liquidGlass ? 'border-white/20 bg-white/10' : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800'}`}>
                     <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition"><ChevronLeft size={20} /></button>
                     <span className={`font-bold text-lg capitalize ${liquidGlass ? 'text-slate-800 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{monthName}</span>
                     <div className="flex items-center gap-1">
                         <button onClick={() => changeMonth(1)} className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition"><ChevronRight size={20} /></button>
-                        <button
-                            onClick={exportCalendarAsICS}
-                            title="Termine in Samsung/Google Kalender exportieren"
-                            className={`p-2 rounded-full transition active:scale-90 ${liquidGlass ? 'hover:bg-white/20 text-slate-700 dark:text-white' : 'hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400'}`}
-                        >
-                            <Share2 size={18} />
-                        </button>
                     </div>
                 </div>
 
-                <div className={`grid grid-cols-7 border-b ${liquidGlass ? 'border-white/20 bg-white/5' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-700'}`}>
+                <div className={`grid grid-cols-7 border-b ${liquidGlass ? 'border-white/10 bg-transparent' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-700'}`}>
                     {weekDays.map(d => (
-                        <div key={d} className="py-3 text-center text-xs font-bold opacity-60 uppercase tracking-wider">{d}</div>
+                        <div key={d} className="py-3 text-center text-xs font-bold opacity-60 tracking-wider">{d}</div>
                     ))}
                 </div>
 
                 <div className={`grid grid-cols-7 auto-rows-[minmax(80px,auto)] divide-x divide-y ${liquidGlass ? 'divide-white/20 border-b border-white/20' : 'divide-gray-100 dark:divide-gray-700 border-b dark:border-gray-700'}`}>
-                    {emptySlots.map((_, i) => <div key={`empty-${i}`} className="bg-black/5 dark:bg-white/5" />)}
+                    {emptySlots.map((_, i) => <div key={`empty-${i}`} className="bg-transparent" />)}
                     {days.map(day => {
                         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         const dayEvents = groupedEvents[dateStr] || [];
@@ -807,7 +719,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-xs font-bold uppercase text-gray-500 ml-1">Antworten</label>
+                                        <label className="text-xs font-bold text-gray-500 ml-1">Antworten</label>
                                         {pollOptions.map((opt, idx) => (
                                             <div key={opt.id} className="space-y-1">
                                                 <div className="flex gap-2">
@@ -832,11 +744,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Start (Optional)</label>
+                                            <label className="text-[10px] font-bold text-gray-500 ml-1">Start (Optional)</label>
                                             <input type="datetime-local" value={pollStartTime} onChange={(e) => setPollStartTime(e.target.value)} className={`w-full rounded-xl p-2 text-xs outline-none ${liquidGlass ? 'bg-white/20 border-white/20' : 'bg-gray-50 dark:bg-gray-700 dark:text-white'}`} />
                                         </div>
                                         <div>
-                                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Ende (Optional)</label>
+                                            <label className="text-[10px] font-bold text-gray-500 ml-1">Ende (Optional)</label>
                                             <input type="datetime-local" value={pollEndTime} onChange={(e) => setPollEndTime(e.target.value)} className={`w-full rounded-xl p-2 text-xs outline-none ${liquidGlass ? 'bg-white/20 border-white/20' : 'bg-gray-50 dark:bg-gray-700 dark:text-white'}`} />
                                         </div>
                                     </div>
@@ -946,8 +858,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     return (
         <>
             <main className="p-0 pb-24">
-                {/* Header / Tabs Section (Sticky) */}
-                <div className={`sticky top-0 z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-white/5 border-b border-white/20' : 'bg-white/95 dark:bg-gray-900/95 border-b border-gray-100 dark:border-gray-800'}`}>
+                {/* Header / Tabs Section (Not Sticky per user request) */}
+                <div className={`z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-transparent' : 'bg-white/95 dark:bg-gray-900/95 shadow-[0_1px_0_rgba(0,0,0,0.03)]'}`}>
                     <div className="relative">
                         <Header
                             title={activeTab === 'calendar' ? 'Kalender' : 'Pinnwand'}
@@ -958,9 +870,9 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             onNotificationClick={onNotificationClick}
                         />
                     </div>
-                    
+
                     {/* Tab 1: Haupttabs – integriert in sticky section */}
-                    <div className="px-4 pb-4">
+                    <div className="px-4 pb-4 max-w-5xl mx-auto">
                         <SlidingTabs
                             tabs={[
                                 { id: 'calendar', label: 'Kalender', icon: CalendarIcon },
@@ -974,47 +886,46 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                     </div>
                 </div>
 
-                <div className="px-4 py-2">
+                <div className="px-4 py-2 max-w-5xl mx-auto">
                     {/* Tab 2: Sub-Filter */}
                     <div className="mb-4">
-                    {activeTab === 'calendar' ? (
-                        <SlidingTabs
-                            tabs={[
-                                { id: 'all', label: 'Familie', icon: Users },
-                                { id: 'private', label: 'Privat', icon: User }
-                            ]}
-                            activeTabId={calendarFilter}
-                            onTabChange={(id) => setCalendarFilter(id as 'all' | 'private')}
-                            liquidGlass={liquidGlass}
-                            className="w-full"
-                        />
-                    ) : (
-                        <SlidingTabs
-                            tabs={[
-                                { id: 'news', label: 'News', icon: FileText },
-                                { id: 'polls', label: 'Umfragen', icon: Layout }
-                            ]}
-                            activeTabId={boardFilter}
-                            onTabChange={(id) => setBoardFilter(id as 'news' | 'polls')}
-                            liquidGlass={liquidGlass}
-                            className="w-full"
-                        />
-                    )}
-                </div>
+                        {activeTab === 'calendar' ? (
+                            <SlidingTabs
+                                tabs={[
+                                    { id: 'all', label: 'Familie', icon: Users },
+                                    { id: 'private', label: 'Privat', icon: User }
+                                ]}
+                                activeTabId={calendarFilter}
+                                onTabChange={(id) => setCalendarFilter(id as 'all' | 'private')}
+                                liquidGlass={liquidGlass}
+                                className="w-full"
+                            />
+                        ) : (
+                            <SlidingTabs
+                                tabs={[
+                                    { id: 'news', label: 'News', icon: FileText },
+                                    { id: 'polls', label: 'Umfragen', icon: Layout }
+                                ]}
+                                activeTabId={boardFilter}
+                                onTabChange={(id) => setBoardFilter(id as 'news' | 'polls')}
+                                liquidGlass={liquidGlass}
+                                className="w-full"
+                            />
+                        )}
+                    </div>
 
-                {/* Nur der Inhalt ist swipeable – keine Tabs drin */}
-                <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-                    {activeTab === 'calendar' ? (
-                        <div key={calendarFilter} className="animate-fade-in">
-                            {renderCalendar()}
-                        </div>
-                    ) : (
-                        <div key={boardFilter} className="animate-fade-in">
-                            {renderNewsBoard()}
-                        </div>
-                    )}
+                    <div>
+                        {activeTab === 'calendar' ? (
+                            <div key={calendarFilter} className="animate-fade-in">
+                                {renderCalendar()}
+                            </div>
+                        ) : (
+                            <div key={boardFilter} className="animate-fade-in">
+                                {renderNewsBoard()}
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
 
                 {/* Calendar Detail Modal */}
                 {selectedDate && activeTab === 'calendar' && (
@@ -1077,40 +988,40 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                 ) : (
                                     <form id="eventForm" onSubmit={handleManualSubmit} className="space-y-5">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Ereignis</label>
+                                            <label className="text-[10px] font-bold text-gray-500 ml-1">Ereignis</label>
                                             <input type="text" required placeholder="Titel" value={manualTitle} onChange={(e) => setManualTitle(e.target.value)} className={`w-full rounded-xl p-3.5 text-base outline-none ${liquidGlass ? 'bg-white/40 border border-white/30 text-slate-900 dark:text-white' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white'}`} />
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Beginn</label>
+                                                <label className="text-[10px] font-bold text-gray-500 ml-1">Beginn</label>
                                                 <input type="date" required value={manualDate} onChange={(e) => {
                                                     setManualDate(e.target.value);
                                                     if (!manualEndDate || manualEndDate < e.target.value) setManualEndDate(e.target.value);
                                                 }} className={`w-full rounded-xl p-3 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white'}`} />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Ende</label>
+                                                <label className="text-[10px] font-bold text-gray-500 ml-1">Ende</label>
                                                 <input type="date" required value={manualEndDate} onChange={(e) => setManualEndDate(e.target.value)} min={manualDate} className={`w-full rounded-xl p-3 text-sm outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white'}`} />
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Uhrzeit Start</label>
+                                                <label className="text-[10px] font-bold text-gray-500 ml-1">Uhrzeit Start</label>
                                                 <input type="time" required value={manualStartTime} onChange={(e) => setManualStartTime(e.target.value)} className={`w-full rounded-xl p-3 outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white'}`} />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Uhrzeit Ende</label>
+                                                <label className="text-[10px] font-bold text-gray-500 ml-1">Uhrzeit Ende</label>
                                                 <input type="time" required value={manualEndTime} onChange={(e) => setManualEndTime(e.target.value)} className={`w-full rounded-xl p-3 outline-none ${liquidGlass ? 'bg-white/40 border border-white/30' : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white'}`} />
                                             </div>
                                         </div>
 
                                         <div className="space-y-1 relative">
                                             <div className="flex justify-between items-center ml-1">
-                                                <label className="text-[10px] font-bold uppercase text-gray-500">Ort</label>
-                                                <button 
-                                                    type="button" 
+                                                <label className="text-[10px] font-bold text-gray-500">Ort</label>
+                                                <button
+                                                    type="button"
                                                     onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(manualLocation || 'Aktueller Standort')}`, '_blank')}
                                                     className={`text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 px-2 py-0.5 rounded-full ${liquidGlass ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20' : 'text-blue-500 hover:text-blue-600'}`}
                                                 >
@@ -1124,7 +1035,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         </div>
 
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Wer nimmt teil?</label>
+                                            <label className="text-[10px] font-bold text-gray-500 ml-1">Wer nimmt teil?</label>
                                             <div className="flex flex-wrap gap-2 pt-1">
                                                 {family.filter(member => member.role !== 'admin').map(member => (
                                                     <button
@@ -1156,7 +1067,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             </div>
                             <div className={`p-4 border-t rounded-b-2xl flex-shrink-0 ${liquidGlass ? 'border-white/20 bg-white/20' : 'border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80'}`}>
                                 {!isFormOpen ? (
-                                    <button onClick={openAddFormInModal} className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-[0.98] transition flex items-center justify-center hover:bg-blue-700"><Plus size={20} className="mr-2" /> Termin hinzufügen</button>
+                                    <button onClick={openAddFormInModal} className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-[0.98] transition flex items-center justify-center hover:bg-blue-700"><Plus size={20} className="mr-2" /> termin hinzufügen</button>
                                 ) : (
                                     <div className="flex space-x-3">
                                         {editingEventId && (<button type="button" onClick={handleDelete} className="bg-red-50 dark:bg-red-900/20 text-red-500 p-3.5 rounded-xl hover:bg-red-100 transition"><Trash2 size={22} /></button>)}

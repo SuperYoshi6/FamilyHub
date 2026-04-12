@@ -4,6 +4,9 @@ import { CalendarEvent } from '../types';
 
 const MAP_KEY = 'familyhub_native_calendar_map';
 
+/** Zwischengespeicherte Ziel-Kalender-ID (Geräte-Standard, z. B. Samsung-Kalender). */
+let resolvedCalendarId: string | null | undefined;
+
 export class NativeCalendarService {
     private static getMap(): Record<string, string> {
         try {
@@ -17,12 +20,31 @@ export class NativeCalendarService {
         localStorage.setItem(MAP_KEY, JSON.stringify(map));
     }
 
+    private static async getTargetCalendarId(): Promise<string | undefined> {
+        if (resolvedCalendarId !== undefined) {
+            return resolvedCalendarId || undefined;
+        }
+        try {
+            const { result } = await CapacitorCalendar.getDefaultCalendar();
+            resolvedCalendarId = result?.id ?? null;
+        } catch (e) {
+            console.warn('[Calendar] Kein Standard-Kalender ermittelt:', e);
+            resolvedCalendarId = null;
+        }
+        return resolvedCalendarId || undefined;
+    }
+
     // Fordert Berechtigungen an
     public static async requestPermissions(): Promise<boolean> {
         if (!Capacitor.isNativePlatform()) return false;
         try {
             const status = await CapacitorCalendar.requestFullCalendarAccess();
-            return status.result === 'granted';
+            const ok = status.result === 'granted';
+            if (ok) {
+                resolvedCalendarId = undefined;
+                await this.getTargetCalendarId();
+            }
+            return ok;
         } catch (e) {
             console.error('Berechtigungsfehler Kalender:', e);
             return false;
@@ -36,7 +58,7 @@ export class NativeCalendarService {
         try {
             const map = this.getMap();
             const startDateStr = event.date;
-            const startTimeStr = event.time;
+            const startTimeStr = event.time?.trim();
 
             let startDate: Date;
             let endDate: Date;
@@ -48,18 +70,30 @@ export class NativeCalendarService {
                 endDate = new Date(`${startDateStr}T23:59:59`);
             } else {
                 startDate = new Date(`${startDateStr}T${startTimeStr}:00`);
-                endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 Std
+                if (event.endDate && event.endTime?.trim()) {
+                    endDate = new Date(`${event.endDate}T${event.endTime.trim()}:00`);
+                } else if (event.endDate) {
+                    endDate = new Date(`${event.endDate}T23:59:59`);
+                } else {
+                    endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                }
+                if (endDate.getTime() <= startDate.getTime()) {
+                    endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                }
             }
 
-            // KORREKTUR: 'result' statt 'id' extrahieren
+            const calendarId = await this.getTargetCalendarId();
+            const isIos = Capacitor.getPlatform() === 'ios';
+
             const { result } = await CapacitorCalendar.createEvent({
                 title: event.title,
+                ...(calendarId ? { calendarId } : {}),
                 location: event.location || '',
                 startDate: startDate.getTime(),
                 endDate: endDate.getTime(),
                 isAllDay: isAllDay,
                 notes: `Erstellt via FamilyHub`,
-                alertOffsetInMinutes: [30]
+                ...(isIos ? { alertOffsetInMinutes: [30] } : {}),
             });
 
             if (result) {
@@ -104,9 +138,15 @@ export class NativeCalendarService {
      */
     public static async syncAllToNative(events: CalendarEvent[]): Promise<void> {
         if (!Capacitor.isNativePlatform()) return;
+        const access = await CapacitorCalendar.requestFullCalendarAccess();
+        if (access.result !== 'granted') {
+            console.warn('[Calendar] Keine Kalender-Berechtigung — Batch-Sync abgebrochen.');
+            return;
+        }
+        resolvedCalendarId = undefined;
+        await this.getTargetCalendarId();
         console.log(`[Calendar] Starte Batch-Synchronisation von ${events.length} Terminen...`);
         for (const ev of events) {
-            // updateEventInNative handles both new and existing mappings (delete + create)
             await this.updateEventInNative(ev);
         }
         console.log('[Calendar] Batch-Synchronisation abgeschlossen.');

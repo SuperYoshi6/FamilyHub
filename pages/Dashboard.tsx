@@ -159,13 +159,13 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="text-5xl font-black text-slate-800 dark:text-white block leading-tight tracking-tighter">
                 {weatherError ? '--' : currentTemp}
               </span>
-              <p className="text-sm text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest mt-0.5">
+              <p className="text-sm text-slate-400 dark:text-slate-500 font-black tracking-widest mt-0.5">
                 {locationName ? `${locationName} • ` : ''} {weatherDesc}
               </p>
             </div>
           </div>
-          <div className="flex items-center text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
-            DETAILS <ChevronRight size={14} className="ml-1" />
+          <div className="flex items-center text-blue-600 dark:text-blue-400 text-[10px] font-black tracking-[0.2em] bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
+            Details <ChevronRight size={14} className="ml-1" />
           </div>
           {weatherLoading && (
             <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100 dark:bg-slate-800 overflow-hidden">
@@ -178,14 +178,14 @@ const Dashboard: React.FC<DashboardProps> = ({
         {unreadNews.length > 0 && (
           <div className="animate-fade-in pt-2">
             <div className="flex justify-between items-center mb-4 px-1">
-              <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Pinwand-Highlights</h3>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white tracking-tight">Pinwand-Highlights</h3>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1">
               {unreadNews.map(n => (
                 <button key={n.id} onClick={() => { setSelectedNews(n); setSelectedNewsStep('preview'); }} className={`flex-shrink-0 w-64 ${liquidGlass ? 'liquid-shimmer-card rounded-3xl pb-1' : 'bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800'} overflow-hidden text-left hover:scale-[1.02] transition-all`}>
                   {n.image && <img src={n.image} className="w-full h-32 object-cover" />}
                   <div className="p-5">
-                    <span className="text-[10px] uppercase font-black text-blue-500 mb-2 block tracking-widest">Wichtig</span>
+                    <span className="text-[10px] font-black text-blue-500 mb-2 block tracking-widest">Wichtig</span>
                     <h4 className="font-bold text-slate-800 dark:text-white line-clamp-1 text-lg leading-tight">{n.title}</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">{n.description}</p>
                   </div>
@@ -234,8 +234,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             <h3 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Termine heute</h3>
             <SlidingTabs
               tabs={[
-                { id: 'family', label: 'ALLE', icon: Users },
-                { id: 'private', label: 'MEINE', icon: User }
+                { id: 'family', label: 'Alle', icon: Users },
+                { id: 'private', label: 'Meine', icon: User }
               ]}
               activeTabId={calendarView}
               onTabChange={(id) => setCalendarView(id as 'family' | 'private')}
@@ -292,7 +292,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="p-8">
               <div className="flex items-center gap-2 mb-4">
-                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-black rounded-full uppercase tracking-widest">News Update</span>
+                <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-black rounded-full tracking-widest">News Update</span>
               </div>
               <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{selectedNews.title}</h2>
               {selectedNewsStep === 'preview' && (
@@ -304,8 +304,8 @@ const Dashboard: React.FC<DashboardProps> = ({
               {selectedNewsStep === 'article' && (
                 <>
                   <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-8 max-h-64 overflow-y-auto pr-2 custom-scrollbar">{selectedNews.description}</p>
-                  <button onClick={async () => { if (onMarkNewsRead) await onMarkNewsRead(selectedNews.id); setSelectedNews(null); setSelectedNewsStep(null); }} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-green-700 active:scale-95 transition-all text-sm uppercase tracking-widest">
-                    <Check size={22} /> Als GELESEN MARKIEREN
+                  <button onClick={async () => { if (onMarkNewsRead) await onMarkNewsRead(selectedNews.id); setSelectedNews(null); setSelectedNewsStep(null); }} className="w-full bg-green-600 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:bg-green-700 active:scale-95 transition-all text-sm tracking-widest">
+                    <Check size={22} /> Als gelesen markieren
                   </button>
                 </>
               )}

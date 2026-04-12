@@ -23,6 +23,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { supabase } from './services/backend';
+import { ensureFamilyHubAndroidNotificationChannel, androidNotificationChannelFields } from './services/notificationsAndroid';
 
 // Helper for local settings
 const useLocalSetting = <T,>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
@@ -205,7 +206,17 @@ const App: React.FC = () => {
     const notif: AppNotification = { id: Date.now().toString() + Math.random(), title, message, type: 'info', timestamp: new Date().toISOString(), read: false, authorId: currentUser?.id };
     await Backend.notifications.add(notif);
     if (Capacitor.isNativePlatform()) {
-      LocalNotifications.schedule({ notifications: [{ id: hashCode(title + message), title, body: message, smallIcon: 'notification_icon', schedule: { at: new Date(Date.now() + 100) }, sound: 'default' }] });
+      LocalNotifications.schedule({
+        notifications: [{
+          id: hashCode(title + message),
+          title,
+          body: message,
+          smallIcon: 'notification_icon',
+          schedule: { at: new Date(Date.now() + 100) },
+          sound: 'default',
+          ...androidNotificationChannelFields(),
+        }],
+      });
     }
   };
 
@@ -236,12 +247,26 @@ const App: React.FC = () => {
       StatusBar.setOverlaysWebView({ overlay: true }).catch(() => { });
       StatusBar.setBackgroundColor({ color: '#00000000' }).catch(() => { });
       LocalNotifications.requestPermissions().catch(() => { });
+      void ensureFamilyHubAndroidNotificationChannel();
     }
   }, []);
 
   useEffect(() => {
     if (currentRoute !== AppRoute.LANDING) localStorage.setItem('fh_has_booted', 'true');
     if (currentRoute !== AppRoute.SETTINGS && currentRoute !== AppRoute.LANDING) localStorage.setItem('fh_last_route', currentRoute);
+  }, [currentRoute]);
+
+  useEffect(() => {
+    const path = window.location.pathname.toLowerCase();
+    if (currentRoute === AppRoute.LANDING) {
+      if (!path.includes('/install')) {
+        window.history.replaceState(null, '', '/install');
+      }
+      return;
+    }
+    if (!path.includes('/app')) {
+      window.history.replaceState(null, '', '/app');
+    }
   }, [currentRoute]);
 
   useEffect(() => {
@@ -284,6 +309,18 @@ const App: React.FC = () => {
         } else {
           await Backend.appSettings.add(DEFAULT_APP_SETTINGS as any);
         }
+
+        // --- AUTOMATIC CALENDAR SYNC ---
+        if (Capacitor.isNativePlatform() && ev.length > 0) {
+          try {
+            const { NativeCalendarService } = await import('./services/nativeCalendar');
+            // Trigger background sync for new events
+            setTimeout(() => NativeCalendarService.syncAllToNative(ev), 5000);
+          } catch (e) {
+            console.error('Auto Calendar Sync fail:', e);
+          }
+        }
+
       } finally { setLoadingData(false); }
     };
     loadAll();
@@ -294,6 +331,7 @@ const App: React.FC = () => {
     requestAppPermissions();
     let unsubscribeFCM: (() => void) | undefined;
     const setupFCM = async () => {
+      await ensureFamilyHubAndroidNotificationChannel();
       const token = await requestFirebaseToken(currentUser.id);
       if (token) {
         unsubscribeFCM = onMessageListener((payload: any) => {
@@ -301,7 +339,17 @@ const App: React.FC = () => {
             const title = payload.notification.title || 'Mitteilung';
             const message = payload.notification.body || '';
             if (shouldFireNotification(title, message) && Capacitor.isNativePlatform()) {
-              LocalNotifications.schedule({ notifications: [{ id: hashCode(title + message), title, body: message, smallIcon: 'notification_icon', schedule: { at: new Date(Date.now() + 100) }, sound: 'default' }] });
+              LocalNotifications.schedule({
+                notifications: [{
+                  id: hashCode(title + message),
+                  title,
+                  body: message,
+                  smallIcon: 'notification_icon',
+                  schedule: { at: new Date(Date.now() + 100) },
+                  sound: 'default',
+                  ...androidNotificationChannelFields(),
+                }],
+              });
             }
           }
         });
@@ -435,7 +483,16 @@ const App: React.FC = () => {
           } catch (e) {
             // ignore if no existing notification is set
           }
-          LocalNotifications.schedule({ notifications: [{ id: 9001, title, body, smallIcon: 'notification_icon', schedule: { every: 'hour', allowWhileIdle: true } }] });
+          LocalNotifications.schedule({
+            notifications: [{
+              id: 9001,
+              title,
+              body,
+              smallIcon: 'notification_icon',
+              schedule: { every: 'hour', allowWhileIdle: true },
+              ...androidNotificationChannelFields(),
+            }],
+          });
         }
       } catch (e) { }
     };
@@ -454,7 +511,17 @@ const App: React.FC = () => {
   }, [currentRoute, darkMode]);
 
   const updateMealPlan = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
-  const addMealRequest = async (r: MealRequest) => { setMealRequests(p => [...p, r]); await Backend.mealRequests.add(r); };
+  const addMealRequest = async (dishName: string) => {
+    if (!currentUser) return;
+    const request: MealRequest = {
+      id: Date.now().toString(),
+      dishName,
+      requestedBy: currentUser.id,
+      createdAt: new Date().toISOString(),
+    };
+    setMealRequests(p => [...p, request]);
+    await Backend.mealRequests.add(request);
+  };
   const deleteMealRequest = async (id: string) => { setMealRequests(p => p.filter(x => x.id !== id)); await Backend.mealRequests.delete(id); };
   const addMealToPlan = async (day: string, mealName: string, ingredients: string[], slot: 'breakfast' | 'lunch' | 'main' = 'main') => {
     const existing = mealPlan.find(x => x.day === day);
@@ -655,6 +722,7 @@ const App: React.FC = () => {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!enableSwipe) return;
+    if (currentRoute === AppRoute.CALENDAR) return;
     const target = e.target as HTMLElement;
     if (target.closest('input, textarea, select, button')) return;
     const t = e.touches[0];
@@ -664,6 +732,7 @@ const App: React.FC = () => {
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!enableSwipe) return;
+    if (currentRoute === AppRoute.CALENDAR) return;
     if (swipeStartX.current === null || swipeStartY.current === null) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - swipeStartX.current;
@@ -889,16 +958,16 @@ const App: React.FC = () => {
           family={family}
           currentUser={currentUser}
           onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? { ...i, checked: !i.checked } : i)); await Backend.shopping.update(id, { checked: !item.checked }); } }}
-          onAddShopping={async (name) => { const i = { id: Date.now().toString(), name, checked: false }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }}
+          onAddShopping={async (name) => { const i: ShoppingItem = { id: Date.now().toString(), name, checked: false, authorId: currentUser?.id }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }}
           onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }}
-          onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium' }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }}
+          onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium', authorId: currentUser?.id }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }}
           onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.householdTasks.update(id, { done: !t.done }); } } else { const t = personalTasks.find(x => x.id === id); if (t) { setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.personalTasks.update(id, { done: !t.done }); } } }}
-          onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium' }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }}
+          onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium', authorId: currentUser?.id }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }}
           onDeleteTask={async (id, type) => { if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }}
           onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }}
           onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }}
           onAddIngredientsToShopping={async (ings) => {
-            const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false }));
+            const items: ShoppingItem[] = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false, authorId: currentUser?.id }));
             const newList = [...shoppingList, ...items];
             setShoppingList(newList);
             await Promise.all(items.map(item => Backend.shopping.add(item)));
@@ -932,7 +1001,7 @@ const App: React.FC = () => {
       <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         { }
         <main className="flex-1 overflow-y-auto no-scrollbar relative">{PageComponent}</main>
-        <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 bg-white dark:bg-slate-900 ${effectiveLiquidGlass ? 'bg-transparent' : ''}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${effectiveLiquidGlass ? 'bg-transparent dark:bg-transparent' : 'bg-white dark:bg-slate-900'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} />
         </div>
 

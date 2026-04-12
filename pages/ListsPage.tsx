@@ -274,7 +274,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
             <div className="space-y-6">
                 {categories.map(cat => (
                     <div key={cat} className="space-y-2">
-                        <h4 className="text-[10px] font-extrabold uppercase text-gray-400 ml-2 tracking-wider flex items-center">
+                        <h4 className="text-[10px] font-extrabold text-gray-400 ml-2 tracking-wider flex items-center">
                             <Tag size={10} className="mr-1" /> {cat}
                         </h4>
                         <div className="space-y-2">
@@ -356,6 +356,8 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     activeTabId={showManualForm ? 'manual' : 'link'}
                     onTabChange={(id) => setShowManualForm(id === 'manual')}
                     liquidGlass={liquidGlass}
+                    variant="scroll"
+                    className="w-full max-w-full"
                 />
             </div>
 
@@ -389,7 +391,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     />
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Zutaten</label>
+                        <label className="text-[10px] font-bold text-gray-400 ml-1">Zutaten</label>
                         {manualIngredients.map((ing, idx) => (
                             <div key={idx} className="flex gap-2">
                                 <input
@@ -480,7 +482,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                     {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                                 </h4>
                                 <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded uppercase font-bold">
+                                    <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded font-bold">
                                         {recipe.source || 'Rezept'}
                                     </span>
                                     <span className="text-[10px] text-gray-400">{recipe.ingredients.length} Zutaten</span>
@@ -491,7 +493,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                         {recipe.description && (
                                             <div className="mb-4">
                                                 <div className="flex justify-between items-center mb-1">
-                                                    <h5 className="text-[10px] font-bold uppercase text-gray-400">Zubereitung</h5>
+                                                    <h5 className="text-[10px] font-bold text-gray-400">Zubereitung</h5>
                                                     {recipe.url && (
                                                         <a
                                                             href={recipe.url}
@@ -509,7 +511,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
 
                                         <div>
                                             <div className="flex justify-between items-center mb-1">
-                                                <h5 className="text-[10px] font-bold uppercase text-gray-400">Zutaten ({selectedIngredients.size}/{recipe.ingredients.length})</h5>
+                                                <h5 className="text-[10px] font-bold text-gray-400">Zutaten ({selectedIngredients.size}/{recipe.ingredients.length})</h5>
                                                 <button
                                                     className="text-[10px] text-blue-500 hover:underline"
                                                     onClick={() => {
@@ -598,22 +600,23 @@ const ListsPage: React.FC<ListsPageProps> = ({
 
     return (
         <main className="p-0 pb-24">
-            {/* Header / Tabs Section (Sticky) */}
-            <div className={`sticky top-0 z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-white/5 border-b border-white/20' : ''}`}>
+            {/* Header / Tabs Section (Not Sticky per user request) */}
+            <div className={`z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-white/5' : ''}`}>
                 <Header title="Listen" currentUser={currentUser} onProfileClick={onProfileClick} liquidGlass={liquidGlass} />
 
-                <div className="px-4 pb-4">
+                <div className="px-3 pb-4 max-w-5xl mx-auto">
                     <SlidingTabs
                         tabs={tabs}
                         activeTabId={activeTab}
                         onTabChange={(id) => setActiveTab(id as TabType)}
                         liquidGlass={liquidGlass}
-                        className="w-full"
+                        variant="scroll"
+                        className="w-full max-w-full"
                     />
                 </div>
             </div>
 
-            <div className="p-4 min-h-[calc(100vh-96px)]">
+            <div className="p-4 pb-8 max-w-5xl mx-auto">
                 {/* Add Form */}
                 {showAddForm && (
                     <div className={`mb-6 p-3 rounded-2xl border animate-slide-in ${liquidGlass ? 'bg-white/10 shadow-none' : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700 shadow-sm'}`}>
@@ -652,7 +655,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
 
                                     {activeTab === 'shopping' && (
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Kategorie</label>
+                                            <label className="text-[10px] font-bold text-gray-500 ml-1">Kategorie</label>
                                             <div className="flex flex-wrap gap-2 pt-1">
                                                 {SHOPPING_CATEGORIES.map(cat => (
                                                     <button
@@ -723,7 +726,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block ml-1">Wochentag wählen</label>
+                                    <label className="text-[10px] font-black text-gray-400 mb-2 block ml-1">Wochentag wählen</label>
                                     <div className="flex flex-wrap gap-2">
                                         {['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'].map(d => (
                                             <button
@@ -738,7 +741,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                 </div>
 
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block ml-1">Mahlzeit wählen</label>
+                                    <label className="text-[10px] font-black text-gray-400 mb-2 block ml-1">Mahlzeit wählen</label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {[
                                             { id: 'breakfast', label: 'Frühstück', icon: Coffee },

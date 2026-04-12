@@ -21,6 +21,13 @@ CREATE TABLE IF NOT EXISTS family (
     must_show_security_screen BOOLEAN DEFAULT FALSE
 );
 
+-- Table: fcm_tokens (device tokens for push notifications)
+CREATE TABLE IF NOT EXISTS fcm_tokens (
+    token TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES family(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Table: events
 CREATE TABLE IF NOT EXISTS events (
     id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,

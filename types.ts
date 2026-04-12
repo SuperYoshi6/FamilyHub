@@ -87,6 +87,7 @@ export interface ShoppingItem {
   checked: boolean;
   category?: string;
   note?: string;
+  authorId?: string; // New: Track who added the item
 }
 
 export type TaskPriority = 'high' | 'medium' | 'low';
@@ -99,6 +100,7 @@ export interface Task {
   type: 'household' | 'personal';
   priority?: TaskPriority;
   note?: string;
+  authorId?: string; // New: Track who created the task
 }
 
 export interface RecipeIngredient {

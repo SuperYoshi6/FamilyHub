@@ -1,0 +1,85 @@
+FamilyHub: Database Webhooks für push-notify
+============================================
+
+Supabase kann Tabellenänderungen per HTTP an deine Edge Function schicken.
+Das lässt sich nicht zuverlässig ohne dein Projekt-Ref in Git abbilden – daher hier die Schritte im Dashboard.
+
+Voraussetzungen
+---------------
+- Edge Function "push-notify" ist deployed.
+- In supabase/config.toml: verify_jwt = true (Standard) → der Webhook braucht einen gültigen Authorization-Header.
+
+Webhook-URL (überall gleich)
+-----------------------------
+https://<DEIN_PROJECT_REF>.supabase.co/functions/v1/push-notify
+
+<DEIN_PROJECT_REF> findest du unter: Dashboard → Project Settings → General → Reference ID
+
+HTTP-Header (wichtig)
+---------------------
+Name:  Authorization
+Wert:   Bearer <SERVICE_ROLE_KEY>
+
+Den Service Role Key findest du unter: Project Settings → API → service_role (secret)
+
+Body
+----
+Standard „Supabase Database Webhooks“-Payload (type, table, schema, record, old_record) – nichts anpassen, das erwartet push-notify/index.ts bereits.
+
+Pro Tabelle einen Webhook anlegen
+---------------------------------
+Dashboard → Database → Webhooks → Create a new hook
+
+Gemeinsame Einstellungen:
+- Type: Supabase Edge Functions (oder HTTP Request auf die URL oben)
+- Method: POST
+- Headers: Authorization wie oben
+
+Tabellen und Events (an die Logik in index.ts angepasst):
+
+1) public.events
+   Events: INSERT, UPDATE
+   (DELETE wird von der Function ohnehin ignoriert.)
+
+2) public.shopping
+   Events: INSERT
+   (Updates werden in der Function für Einkauf übersprungen.)
+
+3) public.household_tasks
+   Events: INSERT
+
+4) public.personal_tasks
+   Events: INSERT
+
+5) public.news
+   Events: INSERT
+
+6) public.polls
+   Events: INSERT
+
+7) public.meal_requests
+   Events: INSERT
+
+8) public.feedback
+   Events: INSERT
+
+Optional / nur wenn du dafür eine Tabelle nutzt:
+
+9) public.weather_cron
+   Events: INSERT (oder wie dein Cron die Zeile schreibt)
+
+Manueller Test ohne Webhook
+---------------------------
+Edge Functions → push-notify → Invoke mit Body:
+{"trigger":"manual_broadcast","title":"Test","body":"FamilyHub"}
+
+Web-Push (Schritt VAPID)
+------------------------
+Im Projekt-Root eine .env (nicht committen) mit:
+VITE_FIREBASE_VAPID_KEY=<Schlüssel aus Firebase Console → Projekt → Cloud Messaging → Web-Push-Zertifikate>
+
+Wert muss mit dem Schlüssel in der Firebase-Konsole übereinstimmen. Nach Änderung: npm run build / dev neu starten.
+
+Android
+-------
+Der Kanal "familyhub_notifications" wird in der App angelegt (MainActivity + LocalNotifications.createChannel) und entspricht dem channel_id in der FCM-Payload der Function.

@@ -91,8 +91,8 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     };
 
     // Calculate dynamic styles for the bubble
-    const bubbleLeft = dragX !== null ? dragX : (activeIndex * itemWidthPercent + 1);
-    const stretch = liquidGlass ? Math.min(1.4, 1 + Math.abs(velocity) * 0.2) : 1;
+    const bubbleLeft = dragX !== null ? dragX : (activeIndex >= 0 ? activeIndex * itemWidthPercent : 0);
+    const stretch = liquidGlass ? Math.min(1.08, 1 + Math.abs(velocity) * 0.06) : 1;
     const skew = liquidGlass ? Math.max(-15, Math.min(15, velocity * 10)) : 0;
     const bubbleWidth = `calc(${itemWidthPercent}% - 0.75rem)`;
 
@@ -113,10 +113,11 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                         left: `${bubbleLeft}%`,
                         transition: isDragging ? 'none' : 'all 0.6s cubic-bezier(0.68, -0.6, 0.32, 1.6)',
                         transform: `skewX(${skew}deg) scaleX(${stretch})`,
+                        transformOrigin: '50% 50%',
                         opacity: activeIndex === -1 && !isDragging ? 0 : 1,
                         borderRadius: '20px',
-                        height: '75%',
-                        boxShadow: '0 10px 30px rgba(37, 99, 235, 0.2)'
+                        height: '72%',
+                        boxShadow: 'none'
                     }}
                 />
             )}
@@ -147,7 +148,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                         style={{ width: `${itemWidthPercent}%` }}
                     >
                         <item.icon size={isActive ? 28 : 24} className={`transition-all duration-300 ${isActive && liquidGlass ? 'animate-[liquidWobble_0.25s_ease-in-out]' : ''}`} />
-                        <span className="text-[10px] font-black truncate w-full text-center uppercase tracking-tighter">
+                        <span className="text-[10px] font-black truncate w-full text-center tracking-tighter">
                             {item.label}
                         </span>
                     </button>

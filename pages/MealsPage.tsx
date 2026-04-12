@@ -100,7 +100,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
                         <div key={day.dayName} className={`rounded-2xl border ${day.isToday ? 'border-blue-200 dark:border-blue-800 ring-2 ring-blue-500/10' : 'border-gray-100 dark:border-gray-700'} ${day.isToday ? (liquidGlass ? 'liquid-shimmer-card' : 'bg-blue-50/30 dark:bg-blue-900/10') : (liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800')} overflow-hidden shadow-sm transition-all`}>
                             <div className={`p-3 flex justify-between items-center ${day.isToday ? 'bg-blue-500 text-white' : (liquidGlass ? 'bg-white/10 text-white' : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300')}`}>
                                 <span className="font-bold flex items-center gap-2">{day.dayName} <span className="text-[10px] opacity-60 font-normal">{day.dateStr}</span></span>
-                                {day.isToday && <span className="text-[10px] font-black uppercase bg-white/20 px-2 py-0.5 rounded-full">Heute</span>}
+                                {day.isToday && <span className="text-[10px] font-black bg-white/20 px-2 py-0.5 rounded-full">Heute</span>}
                             </div>
 
                             <div className="p-4 space-y-4">
@@ -109,7 +109,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
                                     <div className={`p-2 rounded-lg ${isBreakfastTime ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}><Coffee size={16} /></div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isBreakfastTime ? 'text-orange-600' : 'text-gray-400'}`}>Frühstück</span>
+                                            <span className={`text-[10px] font-bold tracking-wider ${isBreakfastTime ? 'text-orange-600' : 'text-gray-400'}`}>Frühstück</span>
                                             {!isChild && <button onClick={() => setEditingDay(isEditing('breakfast', day.dayName) ? null : day.dayName + '-breakfast')} className="text-gray-300 hover:text-blue-500 p-1"><Edit3 size={12} /></button>}
                                         </div>
                                         {isEditing('breakfast', day.dayName) ? (
@@ -125,7 +125,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
                                     <div className={`p-2 rounded-lg ${isLunchTime ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}><Sun size={16} /></div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isLunchTime ? 'text-yellow-600' : 'text-gray-400'}`}>Mittagessen</span>
+                                            <span className={`text-[10px] font-bold tracking-wider ${isLunchTime ? 'text-yellow-600' : 'text-gray-400'}`}>Mittagessen</span>
                                             {!isChild && <button onClick={() => setEditingDay(isEditing('lunch', day.dayName) ? null : day.dayName + '-lunch')} className="text-gray-300 hover:text-blue-500 p-1"><Edit3 size={12} /></button>}
                                         </div>
                                         {isEditing('lunch', day.dayName) ? (
@@ -141,7 +141,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
                                     <div className={`p-2 rounded-lg ${isDinnerTime ? 'bg-indigo-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400'}`}><Moon size={16} /></div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isDinnerTime ? 'text-indigo-600' : 'text-gray-400'}`}>Abendessen</span>
+                                            <span className={`text-[10px] font-bold tracking-wider ${isDinnerTime ? 'text-indigo-600' : 'text-gray-400'}`}>Abendessen</span>
                                             {!isChild && <button onClick={() => setEditingDay(isEditing('main', day.dayName) ? null : day.dayName)} className="text-gray-300 hover:text-blue-500 p-1"><Edit3 size={12} /></button>}
                                         </div>
                                         {isEditing('main', day.dayName) ? (
@@ -168,7 +168,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
         <>
             <Header title="Essen" currentUser={currentUser} onProfileClick={onProfileClick} liquidGlass={liquidGlass} />
 
-            <div className="px-4 mt-2 mb-4">
+            <div className="px-4 mt-2 mb-4 max-w-5xl mx-auto">
                 <SlidingTabs
                     tabs={[
                         { id: 'plan', label: 'Planer', icon: Sun },
@@ -180,7 +180,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
                 />
             </div>
 
-            <div className="p-4 min-h-[calc(100vh-96px)]">
+            <div className="p-4 min-h-[calc(100vh-96px)] max-w-5xl mx-auto">
                 {activeTab === 'plan' ? renderPlan() : (
                     <div className="animate-fade-in space-y-4 text-gray-800 dark:text-white">
                         <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-3xl">

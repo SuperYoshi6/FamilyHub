@@ -21,7 +21,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                         <Logo size={40} />
                         <span className="text-2xl font-black tracking-tight">FamilyHub</span>
                     </div>
-                    <nav className="hidden md:flex space-x-8 text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                    <nav className="hidden md:flex space-x-8 text-sm font-bold tracking-widest text-gray-500 dark:text-gray-400">
                         <a href="#features" className="hover:text-blue-500 transition-colors">Features</a>
                         <a href="#install" className="hover:text-blue-500 transition-colors">Installieren</a>
                         <button onClick={() => onNavigate(AppRoute.DASHBOARD)} className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Im Web starten</button>
@@ -32,7 +32,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
             {/* Hero Section */}
             <main className="pt-40 pb-24 px-6 relative overflow-hidden">
                 <div className="max-w-6xl mx-auto text-center relative z-10">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-widest mb-10 animate-fade-in border border-blue-500/20">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-black tracking-widest mb-10 animate-fade-in border border-blue-500/20">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
@@ -64,7 +64,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">PWA (Web-App)</div>
-                                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-widest mt-0.5">iPhone & Android</div>
+                                        <div className="text-[10px] text-blue-500 font-bold tracking-widest mt-0.5">iPhone & Android</div>
                                     </div>
                                 </a>
                                 <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
@@ -73,7 +73,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Android (APK)</div>
-                                        <div className="text-[10px] text-orange-500 font-bold uppercase tracking-widest mt-0.5">Vollversion v1.0.0</div>
+                                        <div className="text-[10px] text-orange-500 font-bold tracking-widest mt-0.5">Vollversion v1.0.0</div>
                                     </div>
                                 </a>
                                 <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub-setup.exe" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
@@ -82,7 +82,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Windows (.exe)</div>
-                                        <div className="text-[10px] text-blue-500 font-bold uppercase tracking-widest mt-0.5">Desktop App</div>
+                                        <div className="text-[10px] text-blue-500 font-bold tracking-widest mt-0.5">Desktop App</div>
                                     </div>
                                 </a>
                                 <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swiftpm.zip" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
@@ -91,7 +91,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">iOS / iPadOS</div>
-                                        <div className="text-[10px] text-pink-500 font-bold uppercase tracking-widest mt-0.5">Swift Playground</div>
+                                        <div className="text-[10px] text-pink-500 font-bold tracking-widest mt-0.5">Swift Playground</div>
                                     </div>
                                 </a>
                             </div>
@@ -201,7 +201,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm"><Globe size={16} /></div>
-                                            <h4 className="font-black uppercase tracking-widest text-xs">PWA (Web-App)</h4>
+                                            <h4 className="font-black tracking-widest text-xs">PWA (Web-App)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
@@ -222,7 +222,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-orange-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
-                                            <h4 className="font-black uppercase tracking-widest text-xs">Android (APK)</h4>
+                                            <h4 className="font-black tracking-widest text-xs">Android (APK)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
@@ -243,7 +243,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm"><Monitor size={16} /></div>
-                                            <h4 className="font-black uppercase tracking-widest text-xs">Windows (.exe)</h4>
+                                            <h4 className="font-black tracking-widest text-xs">Windows (.exe)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
@@ -264,7 +264,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-pink-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
-                                            <h4 className="font-black uppercase tracking-widest text-xs">iOS (Swift)</h4>
+                                            <h4 className="font-black tracking-widest text-xs">iOS (Swift)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">

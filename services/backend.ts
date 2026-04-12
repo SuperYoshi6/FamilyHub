@@ -207,6 +207,11 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('fcmToken' in payload) { payload.fcm_token = payload.fcmToken; delete payload.fcmToken; }
         }
 
+        if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if (this.table.includes('tasks') && 'assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
+        }
+
         return payload;
     }
 
@@ -266,6 +271,11 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'meal_plan') {
             if ('meal_name' in item) { item.mealName = item.meal_name; delete item.meal_name; }
             if ('recipe_hint' in item) { item.recipe_hint = item.recipe_hint; delete item.recipe_hint; }
+        }
+
+        if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if (this.table.includes('tasks') && 'assigned_to' in item) { item.assignedTo = item.assigned_to; delete item.assigned_to; }
         }
 
         return item as T;

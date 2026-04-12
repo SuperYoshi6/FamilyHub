@@ -401,8 +401,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     return (
         <>
             <div className="flex flex-col min-h-full pb-20">
-                {/* Sticky Header */}
-                <div className={`sticky top-0 z-40 transition-all duration-500 overflow-hidden ${liquidGlass ? 'backdrop-blur-xl bg-white/10 border-b border-white/20 shadow-xl' : 'bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800'}`}>
+                {/* Header */}
+                <div className={`z-40 transition-all duration-500 overflow-hidden ${liquidGlass ? 'backdrop-blur-xl bg-white/10 shadow-[0_8px_24px_rgba(31,38,135,0.05)]' : 'bg-white dark:bg-gray-900 shadow-[0_1px_0_rgba(0,0,0,0.03)]'}`}>
                     <div className="px-4 py-4 flex items-center">
                         <button onClick={onClose} className={`mr-4 p-2 rounded-full transition active:scale-95 ${liquidGlass ? 'bg-white/20 text-slate-900 dark:text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
                             <ArrowLeft size={24} />
@@ -415,7 +415,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     {/* Profile Section */}
 
                     <section className="space-y-6">
-                        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">{t('settings.profile', lang)}</h2>
+                        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 tracking-wider ml-1">{t('settings.profile', lang)}</h2>
 
                         <div className="flex flex-col items-center space-y-4">
                             <div className="relative group">
@@ -447,7 +447,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                         <div className={`p-4 rounded-2xl shadow-sm space-y-4 ${sectionBgClass}`}>
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">{t('settings.display_name', lang)}</label>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">{t('settings.display_name', lang)}</label>
                                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 font-semibold text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             </div>
 
@@ -458,7 +458,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             )}
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">{t('settings.your_color', lang)}</label>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">{t('settings.your_color', lang)}</label>
                                 <div className="grid grid-cols-6 gap-3">
                                     {EXPANDED_COLORS.map((c) => (
                                         <button key={c.val} onClick={() => setSelectedColor(c.val)} className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm hover:shadow-md relative overflow-hidden" style={{ backgroundColor: c.hex }}>
@@ -472,7 +472,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                     {/* App Settings */}
                     <section className="space-y-4">
-                        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">{t('settings.app_settings', lang)}</h2>
+                        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 tracking-wider ml-1">{t('settings.app_settings', lang)}</h2>
                         <div className={`p-4 rounded-2xl shadow-sm space-y-2 ${sectionBgClass}`}>
 
                             {/* 1. Nachrichten */}
@@ -586,7 +586,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     {currentUser.role === 'admin' && (
                         <section className="space-y-4">
                             <div className="flex justify-between items-end px-1">
-                                <h2 className="text-sm font-bold text-red-600 dark:text-red-300 uppercase tracking-wider">Admin Panel</h2>
+                                <h2 className="text-sm font-bold text-red-600 dark:text-red-300 tracking-wider">Admin Panel</h2>
                                 <span className="text-[10px] text-white bg-red-600 dark:bg-red-500 px-2 py-0.5 rounded-full font-bold">Sicherheitsmodus</span>
                             </div>
                             <div className="p-3 rounded-xl border border-red-400 bg-red-100 dark:bg-red-950/60 dark:border-red-700 text-red-800 dark:text-red-200 mb-3">
@@ -661,7 +661,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                     <div className="mt-3 grid grid-cols-1 gap-3">
                                                         {onChangeMaintenanceStart && (
                                                             <div>
-                                                                <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Start (optional)</label>
+                                                                <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Start (optional)</label>
                                                                 <input
                                                                     type="datetime-local"
                                                                     value={maintenanceStart || ''}
@@ -672,7 +672,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                         )}
                                                         {onChangeMaintenanceEnd && (
                                                             <div>
-                                                                <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Ende (optional)</label>
+                                                                <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1">Ende (optional)</label>
                                                                 <input
                                                                     type="datetime-local"
                                                                     value={maintenanceEnd || ''}
@@ -847,10 +847,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     </div>
 
                     {/* Actions */}
-                    <div className="pt-8 space-y-4">
+                    <div className="pt-12 pb-8 space-y-4">
                         <button
                             onClick={handleSave}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            className={`w-full ${liquidGlass ? 'bg-blue-600/80' : 'bg-blue-600'} hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2`}
                         >
                             <Save size={20} />
                             Speichern
@@ -858,7 +858,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                         <button
                             onClick={onLogout}
-                            className="w-full bg-white dark:bg-transparent -500 text-red-500 font-black py-4 rounded-2xl hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2"
+                            className="w-full bg-transparent text-red-500 font-bold py-4 rounded-2xl hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                         >
                             <LogOut size={20} />
                             Abmelden
@@ -1076,24 +1076,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Sync Card */}
-                                <div
-                                    className={`p-6 rounded-3xl cursor-pointer transition active:scale-[0.98] flex items-center justify-between group bg-blue-600 text-white shadow-xl relative overflow-hidden`}
-                                    onClick={handleFullSync}
-                                >
-                                    {syncingCalendar && (
-                                        <div className="absolute inset-0 bg-blue-700/80 backdrop-blur-sm flex items-center justify-center z-10">
-                                            <Loader2 className="animate-spin text-white" size={32} />
-                                        </div>
-                                    )}
-                                    <div>
-                                        <h3 className="font-bold text-xl text-white mb-1">Kalender Sync</h3>
-                                        <p className="text-blue-100 text-sm">Termine auf Handy übertragen.</p>
-                                    </div>
-                                    <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-white group-hover:bg-white/30 transition">
-                                        <Smartphone size={28} />
-                                    </div>
-                                </div>
 
                                 <div className="text-center pt-8 space-y-1">
                                     <p className={`text-[10px] font-medium text-gray-400`}>&copy; 2026 FamilyHub. Alle Rechte vorbehalten.</p>

@@ -402,6 +402,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
+# Database Webhooks für push-notify: siehe functions/push-notify/DATABASE_WEBHOOKS_DE.txt
 [functions.push-notify]
 enabled = true
 verify_jwt = true

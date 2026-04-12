@@ -80,8 +80,12 @@ const requestWebToken = async (userId: string) => {
       scope: './'
     });
 
+    const vapidKey =
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
+      'BC0NJwKk4sV6MN7rkHFXZD0mDdCuDPmnTEl_ecM0erwohcVesZKPOZQuiYhuEMtV_mvuGvrK-6jToJKUqbibR6k';
+
     const token = await getToken(messaging, {
-      vapidKey: 'BC0NJwKk4sV6MN7rkHFXZD0mDdCuDPmnTEl_ecM0erwohcVesZKPOZQuiYhuEMtV_mvuGvrK-6jToJKUqbibR6k',
+      vapidKey: String(vapidKey).trim(),
       serviceWorkerRegistration: registration
     });
 
@@ -97,12 +101,20 @@ const requestWebToken = async (userId: string) => {
 
 const saveTokenToSupabase = async (userId: string, token: string) => {
   if (!supabase) return;
-  const { error } = await supabase
+  const { error: tokenError } = await supabase
     .from('fcm_tokens')
     .upsert({ user_id: userId, token: token }, { onConflict: 'token' });
-  
-  if (error) console.error('Supabase Token Error:', error.message);
-  else console.log('Token in DB registriert.');
+
+  if (tokenError) console.error('Supabase Token Error (fcm_tokens):', tokenError.message);
+  else console.log('Token in DB registriert (fcm_tokens).');
+
+  // Fallback: store token on the family row (useful if fcm_tokens is missing)
+  const { error: familyError } = await supabase
+    .from('family')
+    .update({ fcm_token: token })
+    .eq('id', userId);
+
+  if (familyError) console.error('Supabase Token Error (family):', familyError.message);
 };
 
 /**
