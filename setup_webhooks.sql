@@ -1,5 +1,5 @@
 -- FamilyHub push setup
--- Replace <PROJECT_REF> and <SERVICE_ROLE_KEY> before running.
+-- Replace YOUR_SERVICE_ROLE_KEY_HERE before running.
 -- If pg_cron or pg_net are disabled in your project, enable them in Supabase first.
 
 create extension if not exists pg_net;
@@ -29,14 +29,18 @@ begin
     end
   );
 
-  perform net.http_post(
-    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/push-notify',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
-    ),
-    body := payload
-  );
+  begin
+    perform net.http_post(
+      url := 'https://hjkmfodzhradtkeiyele.supabase.co/functions/v1/push-notify',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY_HERE'
+      ),
+      body := payload
+    );
+  exception when others then
+    raise warning 'Push notification webhook failed (non-fatal): %', SQLERRM;
+  end;
 
   return coalesce(NEW, OLD);
 end;
@@ -89,10 +93,10 @@ select cron.schedule(
   '0 * * * *',
   $$
   select net.http_post(
-    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/push-notify',
+    url := 'https://hjkmfodzhradtkeiyele.supabase.co/functions/v1/push-notify',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
+      'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY_HERE'
     ),
     body := '{"trigger":"weather_cron","table":"weather_cron","type":"CRON"}'::jsonb
   );

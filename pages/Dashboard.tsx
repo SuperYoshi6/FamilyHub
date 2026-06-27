@@ -104,8 +104,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [lang]);
 
-  const getWeatherGradient = (code: number, day: number) => {
-    if (!day) return 'from-slate-800 to-indigo-950';
+  const getWeatherGradient = (code: number, _day: number) => {
     if (code === 0) return 'from-blue-500 via-blue-600 to-indigo-700';
     if (code >= 1 && code <= 3) return 'from-blue-400 to-slate-400';
     if (code >= 51) return 'from-slate-600 to-gray-700';
@@ -139,8 +138,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             <h2 className="text-4xl font-extrabold tracking-tight mb-2">{greeting.main}</h2>
             <p className="text-blue-100/90 text-lg font-medium italic">{greeting.sub} {currentUser.name}</p>
           </div>
-          <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-20 transform rotate-12">
-            <Cloud size={120} strokeWidth={1} />
+          <div className="absolute top-1/2 -right-4 -translate-y-1/2 transform rotate-12" style={{ opacity: liquidGlass ? 0.35 : 0.2 }}>
+            <Cloud size={120} strokeWidth={1} className="text-white drop-shadow-lg" />
           </div>
           {/* Subtle Decorative Shapes */}
           <div className="absolute -top-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>

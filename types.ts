@@ -82,6 +82,9 @@ export interface AppSettings {
   disabled_tabs?: Record<string, boolean>;
   global_easter_enabled?: boolean;
   global_liquid_glass_enabled?: boolean;
+  push_test_at?: string | null;
+  push_test_title?: string | null;
+  push_test_message?: string | null;
 }
 
 export interface ShoppingItem {

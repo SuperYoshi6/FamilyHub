@@ -4,8 +4,9 @@ import { defineConfig, loadEnv } from 'vite';
 export default defineConfig(({ mode }) => {
   const root = path.resolve('.');
   const env = loadEnv(mode, root, '');
+  const isProd = mode === 'production';
   return {
-    base: './',
+    base: isProd ? '/FamilyHub/' : './',
     server: {
       port: 5000,
       host: '0.0.0.0',

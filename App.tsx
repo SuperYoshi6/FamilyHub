@@ -56,8 +56,8 @@ const hashCode = (str: string): number => {
 // --- APP VERSION CONFIGURATION ---
 const CURRENT_APP_VERSION = "1.0.0";
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
-const EXE_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub-setup.exe";
-const SWIFT_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swiftpm.zip";
+const EXE_DOWNLOAD_LINK: string = "#";
+const SWIFT_DOWNLOAD_LINK: string = "#";
 const POLLING_INTERVAL = 30000;
 const DEFAULT_APP_SETTINGS = {
   id: 'global',
@@ -67,6 +67,9 @@ const DEFAULT_APP_SETTINGS = {
   disabled_tabs: {},
   global_easter_enabled: true,
   global_liquid_glass_enabled: true,
+  push_test_at: null,
+  push_test_title: null,
+  push_test_message: null,
 };
 
 const formatForDateTimeLocal = (isoString: string | null) => {
@@ -594,6 +597,15 @@ const App: React.FC = () => {
   };
   const markNewsRead = async (id: string) => { const n = news.find(x => x.id === id); if (n && currentUser) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? { ...x, readBy: readers } : x)); await Backend.news.update(id, { readBy: readers }); } };
   const sendAdminBroadcast = async (title: string, msg: string) => { await addNotification(title, msg); };
+  const triggerPushTest = async () => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    const testPayload = {
+      push_test_at: new Date().toISOString(),
+      push_test_title: '🔔 Push-Test',
+      push_test_message: 'FamilyHub hat gerade eine Test-Benachrichtigung gesendet.',
+    };
+    await Backend.appSettings.update('global', testPayload as any);
+  };
   const triggerSecurityScreen = async (id: string) => {
     await Backend.family.update(id, { mustShowSecurityScreen: true });
     setFamily(p => p.map(m => m.id === id ? { ...m, mustShowSecurityScreen: true } : m));
@@ -772,8 +784,8 @@ const App: React.FC = () => {
         const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (ua.includes('android')) return { link: APK_DOWNLOAD_LINK, label: 'Android Update (.apk)' };
-        if (ua.includes('win')) return { link: EXE_DOWNLOAD_LINK, label: 'Windows Update (.exe)' };
-        if (isIOS) return { link: SWIFT_DOWNLOAD_LINK, label: 'iOS Update (Swift)' };
+        if (ua.includes('win')) return { link: '#', label: 'Windows bald verfügbar' };
+        if (isIOS) return { link: '#', label: 'Apple bald verfügbar' };
         return { link: APK_DOWNLOAD_LINK, label: t('maintenance.download_update', language) };
       };
       const updateInfo = getUpdateInfo();
@@ -990,7 +1002,7 @@ const App: React.FC = () => {
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
             setMaintenanceEnd('');
           }
-        }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onNavigate={setCurrentRoute} events={events} />;
+        }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onTriggerPushTest={triggerPushTest} onNavigate={setCurrentRoute} events={events} />;
         break;
       default:
         PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} />;

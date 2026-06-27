@@ -55,6 +55,7 @@ interface SettingsPageProps {
     onResetPassword?: (member: FamilyMember) => void;
     onMarkNewsRead?: (id: string) => void;
     onSendAdminNotification?: (title: string, message: string) => void;
+    onTriggerPushTest?: () => void;
     onNavigate?: (route: AppRoute) => void;
     events?: CalendarEvent[];
 }
@@ -81,7 +82,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onNavigate, events = []
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e293b&color=fff&bold=true`);
@@ -793,6 +794,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         >
                                             <Send size={16} />
                                             {broadcastStatus === 'sending' ? 'Wird gesendet...' : 'Broadcast senden'}
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                try {
+                                                    await onTriggerPushTest?.();
+                                                    setBroadcastStatus('sent');
+                                                    setTimeout(() => setBroadcastStatus('idle'), 2500);
+                                                } catch (err) {
+                                                    console.error(err);
+                                                    setBroadcastStatus('error');
+                                                    setTimeout(() => setBroadcastStatus('idle'), 3000);
+                                                }
+                                            }}
+                                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-700 text-white font-bold hover:bg-slate-800 transition"
+                                        >
+                                            <Bell size={16} />
+                                            Push-Test senden
                                         </button>
                                         {broadcastStatus === 'sent' && <p className="text-xs text-green-600 mt-2 flex items-center"><Check size={14} className="mr-1" /> Broadcast erfolgreich gesendet!</p>}
                                         {broadcastStatus === 'error' && <p className="text-xs text-red-600 mt-2">Fehler beim Versand. Bitte erneut versuchen.</p>}

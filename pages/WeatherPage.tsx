@@ -66,11 +66,11 @@ const getBigWeatherIcon = (code: number, isDay: number = 1, liquidGlass: boolean
             );
         }
     }
-    if (code >= 1 && code <= 3) return <Cloud size={80} className="text-gray-200 animate-float" />;
-    if (code >= 45 && code <= 48) return <CloudFog size={80} className="text-gray-300 animate-float" />;
-    if (code >= 51 && code <= 67) return <CloudRain size={80} className="text-blue-300" />;
-    if (code >= 71 && code <= 77) return <CloudSnow size={80} className="text-white" />;
-    if (code >= 95) return <CloudLightning size={80} className="text-purple-300" />;
+    if (code >= 1 && code <= 3) return <Cloud size={80} className={liquidGlass ? 'text-slate-400 animate-float drop-shadow-lg' : 'text-gray-200 animate-float'} />;
+    if (code >= 45 && code <= 48) return <CloudFog size={80} className={liquidGlass ? 'text-slate-400 animate-float drop-shadow-lg' : 'text-gray-300 animate-float'} />;
+    if (code >= 51 && code <= 67) return <CloudRain size={80} className={liquidGlass ? 'text-blue-300 drop-shadow' : 'text-blue-300'} />;
+    if (code >= 71 && code <= 77) return <CloudSnow size={80} className={liquidGlass ? 'text-slate-300 drop-shadow' : 'text-white'} />;
+    if (code >= 95) return <CloudLightning size={80} className={liquidGlass ? 'text-purple-300 drop-shadow' : 'text-purple-300'} />;
     return <Sun size={80} className="text-yellow-400" />;
 };
 

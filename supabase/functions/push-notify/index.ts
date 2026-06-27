@@ -430,6 +430,11 @@ serve(async (req) => {
           break;
         case "app_settings":
           if (type !== "UPDATE") return new Response("Skipped settings update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+          if (record?.push_test_at && record?.push_test_at !== oldRecord?.push_test_at) {
+            notificationTitle = record?.push_test_title || "🔔 Push-Test";
+            notificationBody = record?.push_test_message || "Das ist eine Test-Benachrichtigung von FamilyHub.";
+            break;
+          }
           if (record?.maintenance_mode === true && oldRecord?.maintenance_mode !== true) {
             notificationTitle = "🔧 Wartungsmodus aktiv";
             notificationBody = "FamilyHub ist kurz offline. Wir sind gleich wieder da.";

@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS events (
     end_time TIME,
     location TEXT,
     description TEXT,
-    assigned_to TEXT[] -- Array of family member IDs
+    assigned_to TEXT[], -- Array of family member IDs
+    author_id TEXT REFERENCES family(id) -- Who created the event
 );
 
 -- Table: news
@@ -82,7 +83,8 @@ CREATE TABLE IF NOT EXISTS shopping (
     name TEXT NOT NULL,
     checked BOOLEAN DEFAULT FALSE,
     category TEXT,
-    note TEXT
+    note TEXT,
+    author_id TEXT REFERENCES family(id) -- Who added the item
 );
 
 -- Table: household_tasks
@@ -93,7 +95,8 @@ CREATE TABLE IF NOT EXISTS household_tasks (
     assigned_to TEXT REFERENCES family(id),
     type TEXT CHECK (type = 'household'),
     priority TEXT CHECK (priority IN ('high', 'medium', 'low')),
-    note TEXT
+    note TEXT,
+    author_id TEXT REFERENCES family(id) -- Who created the task
 );
 
 -- Table: personal_tasks
@@ -103,7 +106,8 @@ CREATE TABLE IF NOT EXISTS personal_tasks (
     done BOOLEAN DEFAULT FALSE,
     type TEXT CHECK (type = 'personal'),
     priority TEXT CHECK (priority IN ('high', 'medium', 'low')),
-    note TEXT
+    note TEXT,
+    author_id TEXT REFERENCES family(id) -- Who created the task
 );
 
 -- Table: meal_plans
@@ -175,6 +179,9 @@ CREATE TABLE IF NOT EXISTS app_settings (
     disabled_tabs JSONB DEFAULT '{}'::jsonb,
     global_easter_enabled BOOLEAN DEFAULT TRUE,
     global_liquid_glass_enabled BOOLEAN DEFAULT TRUE,
+    push_test_at TIMESTAMPTZ,
+    push_test_title TEXT,
+    push_test_message TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -187,3 +194,20 @@ ALTER TABLE IF EXISTS family
     ADD COLUMN IF NOT EXISTS weather_lat DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS weather_lng DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS weather_location_name TEXT;
+
+ALTER TABLE IF EXISTS app_settings
+    ADD COLUMN IF NOT EXISTS push_test_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS push_test_title TEXT,
+    ADD COLUMN IF NOT EXISTS push_test_message TEXT;
+
+ALTER TABLE IF EXISTS shopping
+    ADD COLUMN IF NOT EXISTS author_id TEXT REFERENCES family(id);
+
+ALTER TABLE IF EXISTS events
+    ADD COLUMN IF NOT EXISTS author_id TEXT REFERENCES family(id);
+
+ALTER TABLE IF EXISTS household_tasks
+    ADD COLUMN IF NOT EXISTS author_id TEXT REFERENCES family(id);
+
+ALTER TABLE IF EXISTS personal_tasks
+    ADD COLUMN IF NOT EXISTS author_id TEXT REFERENCES family(id);

@@ -91,10 +91,11 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     };
 
     // Calculate dynamic styles for the bubble
-    const bubbleLeft = dragX !== null ? dragX : (activeIndex >= 0 ? activeIndex * itemWidthPercent : 0);
+    const bubbleWidth = `calc(${itemWidthPercent}% * 0.85)`;
+    const bubbleLeftBase = activeIndex >= 0 ? activeIndex * itemWidthPercent : 0;
+    const bubbleLeft = dragX !== null ? dragX : (bubbleLeftBase + (itemWidthPercent * 0.075));
     const stretch = liquidGlass ? Math.min(1.08, 1 + Math.abs(velocity) * 0.06) : 1;
     const skew = liquidGlass ? Math.max(-15, Math.min(15, velocity * 10)) : 0;
-    const bubbleWidth = `calc(${itemWidthPercent}% - 0.75rem)`;
 
     return (
         <nav
@@ -111,12 +112,13 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                     style={{
                         width: bubbleWidth,
                         left: `${bubbleLeft}%`,
+                        top: '50%',
                         transition: isDragging ? 'none' : 'all 0.6s cubic-bezier(0.68, -0.6, 0.32, 1.6)',
-                        transform: `skewX(${skew}deg) scaleX(${stretch})`,
+                        transform: `translateY(-50%) skewX(${skew}deg) scaleX(${stretch})`,
                         transformOrigin: '50% 50%',
                         opacity: activeIndex === -1 && !isDragging ? 0 : 1,
                         borderRadius: '20px',
-                        height: '72%',
+                        height: '55%',
                         boxShadow: 'none'
                     }}
                 />
@@ -134,7 +136,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                 } else if (christmasMode) {
                     textColor = isActive ? 'text-red-600 dark:text-red-500' : 'text-green-800/70 dark:text-green-400/60';
                 } else if (liquidGlass) {
-                    textColor = isActive ? 'text-blue-600 dark:text-blue-500 font-black' : 'text-slate-500 dark:text-slate-400';
+                    textColor = isActive ? 'text-blue-600 dark:text-blue-400 font-black' : 'text-slate-500 dark:text-slate-300';
                 } else {
                     textColor = isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-400 dark:text-gray-500';
                 }

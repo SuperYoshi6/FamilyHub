@@ -372,8 +372,11 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                 const payload = this.sanitize(updates);
                 if (Object.keys(payload).length > 0) {
                     if (this.table === 'app_settings') {
-                        const { error } = await supabase.from(this.table).upsert({ id, ...payload });
-                        if (error) console.error(`[Supabase] Upsert error (${this.table}):`, error.message);
+                        const { error: updateError } = await supabase.from(this.table).update(payload).eq('id', id);
+                        if (updateError) {
+                            const { error: insertError } = await supabase.from(this.table).insert({ id, ...payload });
+                            if (insertError) console.error(`[Supabase] Upsert error (${this.table}):`, insertError.message);
+                        }
                     } else {
                         const { error } = await supabase.from(this.table).update(payload).eq('id', id);
                         if (error) {
@@ -412,14 +415,18 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                 if (items.length === 0) {
                     // Case 1: Empty list -> Delete ALL items in the table
                     // We use neq '0' to match all string IDs (assuming no ID is exactly "0")
-                    const { error: deleteError } = await supabase.from(this.table).delete().neq('id', '0');
-                    if (deleteError) console.error(`[Supabase] Clear error (${this.table}):`, deleteError.message);
-                    else console.log(`[Supabase] Cleared table ${this.table}`);
+                    if (this.table === 'app_settings') {
+                        console.log('[Supabase] Skip clearing singleton app_settings table');
+                    } else {
+                        const { error: deleteError } = await supabase.from(this.table).delete().neq('id', '0');
+                        if (deleteError) console.error(`[Supabase] Clear error (${this.table}):`, deleteError.message);
+                        else console.log(`[Supabase] Cleared table ${this.table}`);
+                    }
                 } else {
                     // Case 2: Items exist -> Sync
                     const ids = items.map(i => i.id).filter(id => id); // Ensure no undefined IDs
 
-                    if (ids.length > 0) {
+                    if (ids.length > 0 && this.table !== 'app_settings') {
                         // 1. Delete items that are NOT in the new list
                         const { error: deleteError } = await supabase.from(this.table).delete().not('id', 'in', `(${ids.join(',')})`);
                         if (deleteError) {
@@ -429,8 +436,17 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
                     // 2. Upsert (Insert or Update) the items
                     const sanitizedItems = items.map(i => this.sanitize(i));
-                    const { error: upsertError } = await supabase.from(this.table).upsert(sanitizedItems);
-                    if (upsertError) console.error(`[Supabase] Sync/Upsert error (${this.table}):`, upsertError.message);
+                    if (this.table === 'app_settings') {
+                        const row = sanitizedItems[0];
+                        const { error: updateError } = await supabase.from(this.table).update(row).eq('id', row.id);
+                        if (updateError) {
+                            const { error: insertError } = await supabase.from(this.table).insert(row);
+                            if (insertError) console.error(`[Supabase] Sync/Upsert error (${this.table}):`, insertError.message);
+                        }
+                    } else {
+                        const { error: upsertError } = await supabase.from(this.table).upsert(sanitizedItems);
+                        if (upsertError) console.error(`[Supabase] Sync/Upsert error (${this.table}):`, upsertError.message);
+                    }
                 }
             } catch (err) {
                 console.error(`[Supabase] setAll exception`, err);

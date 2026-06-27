@@ -76,24 +76,24 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <div className="text-[10px] text-orange-500 font-bold tracking-widest mt-0.5">Vollversion v1.0.0</div>
                                     </div>
                                 </a>
-                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub-setup.exe" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
-                                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center text-blue-500">
+                                <div className="flex items-center gap-4 p-4 rounded-2xl transition-all text-left mt-1 opacity-60 cursor-not-allowed">
+                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700/40 rounded-xl flex items-center justify-center text-slate-400">
                                         <Monitor size={24} />
                                     </div>
                                     <div>
-                                        <div className="font-black text-sm">Windows (.exe)</div>
-                                        <div className="text-[10px] text-blue-500 font-bold tracking-widest mt-0.5">Desktop App</div>
+                                        <div className="font-black text-sm">Windows (bald verfügbar)</div>
+                                        <div className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">Desktop App</div>
                                     </div>
-                                </a>
-                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swiftpm.zip" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
-                                    <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 rounded-xl flex items-center justify-center text-pink-500">
+                                </div>
+                                <div className="flex items-center gap-4 p-4 rounded-2xl transition-all text-left mt-1 opacity-60 cursor-not-allowed">
+                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700/40 rounded-xl flex items-center justify-center text-slate-400">
                                         <Smartphone size={24} />
                                     </div>
                                     <div>
-                                        <div className="font-black text-sm">iOS / iPadOS</div>
-                                        <div className="text-[10px] text-pink-500 font-bold tracking-widest mt-0.5">Swift Playground</div>
+                                        <div className="font-black text-sm">Apple (bald verfügbar)</div>
+                                        <div className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">iPhone & iPad</div>
                                     </div>
-                                </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -243,7 +243,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm"><Monitor size={16} /></div>
-                                            <h4 className="font-black tracking-widest text-xs">Windows (.exe)</h4>
+                                            <h4 className="font-black tracking-widest text-xs">Windows (bald verfügbar)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
@@ -264,7 +264,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-pink-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
-                                            <h4 className="font-black tracking-widest text-xs">iOS (Swift)</h4>
+                                            <h4 className="font-black tracking-widest text-xs">Apple (bald verfügbar)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
