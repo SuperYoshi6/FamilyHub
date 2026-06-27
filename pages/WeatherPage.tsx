@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { WeatherMetric, WeatherData, SavedLocation } from '../types';
-import { fetchWeather, getWeatherDescription, searchCity } from '../services/weather';
+import { fetchWeather, getWeatherDescription, searchCity, searchCitySuggestions } from '../services/weather';
 import { Sun, CloudRain, Wind, Droplets, Thermometer, MapPinOff, ArrowLeft, Cloud, CloudSnow, CloudLightning, CloudFog, Moon, Umbrella, Calendar, Eye, Gauge, Sunrise, Sunset, Search, MapPin, Loader2, Star, ArrowRightLeft, ArrowUp, ArrowDown, Navigation, GripHorizontal, Clock } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -241,7 +241,7 @@ const LocationClock = ({ utcOffsetSeconds, isSnowyBg, liquidGlass }: { utcOffset
     }, [utcOffsetSeconds]);
 
     return (
-        <div className={`text-[10px] font-medium opacity-80 flex items-center justify-center mt-0.5 ${isSnowyBg && !liquidGlass ? 'text-slate-700' : 'text-white'}`}>
+        <div className={`text-[10px] font-medium opacity-80 flex items-center justify-center mt-0.5 ${liquidGlass ? 'text-slate-900 dark:text-white' : (isSnowyBg ? 'text-slate-700' : 'text-white')}`}>
             <Clock size={10} className="mr-1" />
             {timeStr} Ortszeit
         </div>
@@ -256,6 +256,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     // Search State
     const [isSearching, setIsSearching] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [suggestions, setSuggestions] = useState<{lat: number, lng: number, name: string}[]>([]);
     const [locationName, setLocationName] = useState<string>('Standort');
     const [currentCoords, setCurrentCoords] = useState<{ lat: number, lng: number } | null>(null);
 
@@ -279,15 +280,15 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
             if (name) setLocationName(name);
             onUpdateCurrentWeatherLocation({ lat, lng, name: name || 'Unbekannt' });
 
-            const sunrise = new Date(result.daily.sunrise[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            const sunset = new Date(result.daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const sunrise = result.daily.sunrise && result.daily.sunrise[0] ? new Date(result.daily.sunrise[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+            const sunset = result.daily.sunset && result.daily.sunset[0] ? new Date(result.daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
             const visibilityKm = result.current.visibility ? (result.current.visibility / 1000).toFixed(1) : '--';
 
             setMetrics([
                 { id: '1', label: 'Gefühlt', value: `${Math.round(result.current.apparent_temperature)}°`, icon: 'thermometer', colorClass: 'bg-orange-500/20 text-orange-200' },
                 { id: '2', label: 'Feuchtigkeit', value: `${result.current.relative_humidity_2m}%`, icon: 'humidity', colorClass: 'bg-blue-500/20 text-blue-200' },
                 { id: '3', label: 'Wind', value: `${Math.round(result.current.wind_speed_10m)} km/h`, icon: 'wind', colorClass: 'bg-teal-500/20 text-teal-200' },
-                { id: '4', label: 'UV Index', value: `${result.daily.uv_index_max[0].toFixed(1)}`, icon: 'sun', colorClass: 'bg-yellow-500/20 text-yellow-200' },
+                { id: '4', label: 'UV Index', value: result.daily.uv_index_max && result.daily.uv_index_max[0] != null ? result.daily.uv_index_max[0].toFixed(1) : '--', icon: 'sun', colorClass: 'bg-yellow-500/20 text-yellow-200' },
                 { id: '5', label: 'Luftdruck', value: `${Math.round(result.current.surface_pressure)} hPa`, icon: 'gauge', colorClass: 'bg-purple-500/20 text-purple-200' },
                 { id: '6', label: 'Sichtweite', value: `${visibilityKm} km`, icon: 'eye', colorClass: 'bg-indigo-500/20 text-indigo-200' },
                 { id: '7', label: 'Sonnenaufgang', value: sunrise, icon: 'sunrise', colorClass: 'bg-amber-500/20 text-amber-200' },
@@ -349,18 +350,33 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         }
     }, []);
 
+    useEffect(() => {
+        const fetchSuggestions = async () => {
+            if (searchQuery.trim().length > 2) {
+                const results = await searchCitySuggestions(searchQuery);
+                setSuggestions(results);
+            } else {
+                setSuggestions([]);
+            }
+        };
+        const timeoutId = setTimeout(fetchSuggestions, 300);
+        return () => clearTimeout(timeoutId);
+    }, [searchQuery]);
+
     const handleSearchSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!searchQuery.trim()) return;
+        const trimmedQuery = searchQuery.trim();
+        if (!trimmedQuery) return;
         setLoading(true);
         setIsSearching(false);
+        setSuggestions([]);
 
-        const coords = await searchCity(searchQuery);
+        const coords = await searchCity(trimmedQuery);
 
         if (coords) {
             loadWeather(coords.lat, coords.lng, coords.name);
         } else {
-            setError(`Konnte Ort "${searchQuery}" nicht finden.`);
+            setError(`Konnte Ort "${trimmedQuery}" nicht finden.`);
             setLoading(false);
         }
         setSearchQuery('');
@@ -696,6 +712,26 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                                 <Search size={20} />
                             </button>
                         </form>
+                        {suggestions.length > 0 && (
+                            <div className="mb-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden shadow-sm">
+                                {suggestions.map((s, i) => (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => {
+                                            loadWeather(s.lat, s.lng, s.name);
+                                            setIsSearching(false);
+                                            setSuggestions([]);
+                                            setSearchQuery('');
+                                        }}
+                                        className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 text-sm text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-600 last:border-b-0 transition-colors"
+                                    >
+                                        <MapPin size={12} className="inline mr-2 opacity-50" />
+                                        {s.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         {favorites.length > 0 && (
                             <div className="flex flex-wrap gap-2 px-1 pb-2">
                                 {favorites.map(fav => (

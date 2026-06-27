@@ -10,6 +10,9 @@ export interface FamilyMember {
   mustChangePassword?: boolean;
   mustShowSecurityScreen?: boolean;
   fcmToken?: string;
+  weatherLat?: number | null;
+  weatherLng?: number | null;
+  weatherLocationName?: string | null;
 }
 
 export interface CalendarEvent {

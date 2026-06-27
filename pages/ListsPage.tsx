@@ -356,7 +356,6 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     activeTabId={showManualForm ? 'manual' : 'link'}
                     onTabChange={(id) => setShowManualForm(id === 'manual')}
                     liquidGlass={liquidGlass}
-                    variant="scroll"
                     className="w-full max-w-full"
                 />
             </div>
@@ -610,7 +609,6 @@ const ListsPage: React.FC<ListsPageProps> = ({
                         activeTabId={activeTab}
                         onTabChange={(id) => setActiveTab(id as TabType)}
                         liquidGlass={liquidGlass}
-                        variant="scroll"
                         className="w-full max-w-full"
                     />
                 </div>

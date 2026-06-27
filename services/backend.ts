@@ -40,9 +40,6 @@ if (SUPABASE_URL && SUPABASE_KEY) {
     try {
         supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
             auth: { persistSession: false },
-            global: {
-                headers: { 'x-my-custom-header': 'familienhub' },
-            },
         });
         console.log("🔌 Connected to Supabase");
     } catch (e) {
@@ -205,6 +202,9 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('mustChangePassword' in payload) { payload.must_change_password = payload.mustChangePassword; delete payload.mustChangePassword; }
             if ('mustShowSecurityScreen' in payload) { payload.must_show_security_screen = payload.mustShowSecurityScreen; delete payload.mustShowSecurityScreen; }
             if ('fcmToken' in payload) { payload.fcm_token = payload.fcmToken; delete payload.fcmToken; }
+            if ('weatherLat' in payload) { payload.weather_lat = payload.weatherLat; delete payload.weatherLat; }
+            if ('weatherLng' in payload) { payload.weather_lng = payload.weatherLng; delete payload.weatherLng; }
+            if ('weatherLocationName' in payload) { payload.weather_location_name = payload.weatherLocationName; delete payload.weatherLocationName; }
         }
 
         if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
@@ -256,6 +256,9 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('must_change_password' in item) { item.mustChangePassword = item.must_change_password; delete item.must_change_password; }
             if ('must_show_security_screen' in item) { item.mustShowSecurityScreen = item.must_show_security_screen; delete item.must_show_security_screen; }
             if ('fcm_token' in item) { item.fcmToken = item.fcm_token; delete item.fcm_token; }
+            if ('weather_lat' in item) { item.weatherLat = item.weather_lat; delete item.weather_lat; }
+            if ('weather_lng' in item) { item.weatherLng = item.weather_lng; delete item.weather_lng; }
+            if ('weather_location_name' in item) { item.weatherLocationName = item.weather_location_name; delete item.weather_location_name; }
         }
         if (this.table === 'notifications') {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }

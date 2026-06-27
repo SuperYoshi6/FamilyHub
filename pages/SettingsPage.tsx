@@ -806,7 +806,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             <div className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 p-2 rounded-full">
                                                 <Inbox size={18} />
                                             </div>
-                                            <span className="font-bold text-gray-800 dark:text-white">Feedback-Posteingang</span>
+                                            <span className="font-bold text-gray-800 dark:text-white">Fehlerberichte</span>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {unreadCount > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>}
@@ -827,7 +827,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 <button onClick={() => setActiveModal('feedback')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
                                     <div className="flex items-center space-x-3">
                                         <div className="bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 p-2 rounded-full"><MessageSquare size={18} /></div>
-                                        <span className="font-medium text-gray-800 dark:text-white">Feedback</span>
+                                        <span className="font-medium text-gray-800 dark:text-white">Fehler melden</span>
                                     </div>
                                     <ChevronRight size={18} className="text-gray-400" />
                                 </button>
@@ -1252,18 +1252,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             <button onClick={() => setActiveModal('none')} className={`absolute top-4 right-4 ${closeBtnClass}`}><X size={24} /></button>
                             {!feedbackSent ? (
                                 <form onSubmit={submitFeedback} className="space-y-4">
-                                    <h3 className={`text-lg font-bold ${titleClass} flex items-center`}><MessageSquare size={20} className="mr-2 text-pink-500" /> {t('settings.feedback', lang)}</h3>
-                                    <div className="flex justify-center space-x-2 py-2">
-                                        {[1, 2, 3, 4, 5].map((star) => (
-                                            <button key={star} type="button" onClick={() => setRating(star)} className="focus:outline-none transition transform hover:scale-110">
-                                                <Star size={32} className={`${rating >= star ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} />
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <h3 className={`text-lg font-bold ${titleClass} flex items-center`}><MessageSquare size={20} className="mr-2 text-pink-500" /> Fehler melden</h3>
                                     <textarea
                                         value={feedbackText}
                                         onChange={(e) => setFeedbackText(e.target.value)}
-                                        placeholder="Wie findest du die App?"
+                                        placeholder="Bitte beschreibe den Fehler oder das Problem..."
                                         rows={4}
                                         required
                                         className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-pink-500 outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
@@ -1287,7 +1280,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
                         <div className={`${modalBgClass} w-full max-w-md rounded-2xl shadow-2xl p-6 relative max-h-[80vh] flex flex-col ${modalBorderClass}`}>
                             <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">
-                                <h3 className={`text-lg font-bold ${titleClass}`}>Nutzer Feedback</h3>
+                                <h3 className={`text-lg font-bold ${titleClass}`}>Fehlerberichte</h3>
                                 <button onClick={() => setActiveModal('none')} className={closeBtnClass}><X size={24} /></button>
                             </div>
 
@@ -1298,7 +1291,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             <div className="flex justify-between items-start mb-1">
                                                 <span className={`font-bold text-sm text-gray-800 dark:text-white`}>{fb.userName}</span>
                                                 <div className="flex">
-                                                    {Array.from({ length: fb.rating }).map((_, i) => <Star key={i} size={10} className="fill-yellow-400 text-yellow-400" />)}
                                                 </div>
                                             </div>
                                             <p className={`text-sm mb-2 text-gray-600 dark:text-gray-300`}>{fb.text}</p>
@@ -1306,7 +1298,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="text-center py-8 text-gray-400">Kein Feedback vorhanden.</div>
+                                    <div className="text-center py-8 text-gray-400">Keine Fehlerberichte vorhanden.</div>
                                 )}
                             </div>
                         </div>

@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS family (
     role TEXT CHECK (role IN ('parent', 'child', 'admin')),
     password TEXT,
     fcm_token TEXT,
+    weather_lat DOUBLE PRECISION,
+    weather_lng DOUBLE PRECISION,
+    weather_location_name TEXT,
     must_change_password BOOLEAN DEFAULT FALSE,
     must_show_security_screen BOOLEAN DEFAULT FALSE
 );
@@ -178,3 +181,9 @@ CREATE TABLE IF NOT EXISTS app_settings (
 -- Enable RLS on all tables (Optional but recommended)
 -- ALTER TABLE family ENABLE ROW LEVEL SECURITY;
 -- ... etc
+
+-- Existing installations need these ALTER statements too:
+ALTER TABLE IF EXISTS family
+    ADD COLUMN IF NOT EXISTS weather_lat DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS weather_lng DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS weather_location_name TEXT;

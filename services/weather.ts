@@ -36,6 +36,28 @@ export const searchCity = async (query: string): Promise<{lat: number, lng: numb
   }
 };
 
+export const searchCitySuggestions = async (query: string): Promise<{lat: number, lng: number, name: string}[]> => {
+  if (!query.trim()) return [];
+  try {
+    const response = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=5&language=de&format=json`
+    );
+    const data = await response.json();
+    
+    if (data.results && data.results.length > 0) {
+      return data.results.map((result: any) => ({
+        lat: result.latitude,
+        lng: result.longitude,
+        name: `${result.name}${result.admin1 ? ', ' + result.admin1 : ''}${result.country ? ', ' + result.country : ''}`
+      }));
+    }
+    return [];
+  } catch (e) {
+    console.error("Geocoding suggestions error:", e);
+    return [];
+  }
+};
+
 export const getWeatherDescription = (code: number): string => {
   // Simple WMO code mapping to German descriptions
   if (code === 0) return 'Klar';

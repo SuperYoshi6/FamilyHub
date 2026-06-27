@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AppRoute, FamilyMember, CalendarEvent, ShoppingItem, MealPlan, Task, MealRequest, SavedLocation, Recipe, NewsItem, TaskPriority, FeedbackItem, Poll, AppNotification, VoiceAction } from './types';
 import Navigation from './components/Navigation';
@@ -17,7 +17,6 @@ import { Lock, X, Loader2, ArrowRight, UserPlus, Eye, EyeOff, ShieldAlert, Alert
 import { t, Language } from './services/translations';
 import { Backend } from './services/backend';
 import { Geolocation } from '@capacitor/geolocation';
-import { fetchWeather, getWeatherDescription } from './services/weather';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -286,6 +285,17 @@ const App: React.FC = () => {
   }, [loadingData, family, currentUser]);
 
   useEffect(() => {
+    if (!currentUser) return;
+    if (currentWeatherLocation) return;
+    if (typeof currentUser.weatherLat !== 'number' || typeof currentUser.weatherLng !== 'number') return;
+    setCurrentWeatherLocation({
+      lat: currentUser.weatherLat,
+      lng: currentUser.weatherLng,
+      name: currentUser.weatherLocationName || 'Standort',
+    });
+  }, [currentUser, currentWeatherLocation]);
+
+  useEffect(() => {
     const loadAll = async () => {
       try {
         const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData, appSettings] = await Promise.all([
@@ -295,7 +305,21 @@ const App: React.FC = () => {
           Backend.feedback.getAll(), Backend.polls.getAll(), Backend.appSettings.getAll()
         ]);
         setFamily(fam); setEvents(ev); setNews(newsData); setShoppingList(shop);
-        setHouseholdTasks(house); setPersonalTasks(pers); setMealPlan(meals);
+        const today = new Date();
+        const diffToMonday = today.getDay() === 0 ? 6 : today.getDay() - 1;
+        const currentMonday = new Date(today);
+        currentMonday.setDate(today.getDate() - diffToMonday);
+        const currentMondayStr = currentMonday.toISOString().split('T')[0];
+        
+        let currentMealPlan = meals;
+        const storedMondayStr = localStorage.getItem('fh_meal_plan_week');
+        if (storedMondayStr !== currentMondayStr) {
+            currentMealPlan = [];
+            await Backend.mealPlan.setAll([]);
+            localStorage.setItem('fh_meal_plan_week', currentMondayStr);
+        }
+
+        setHouseholdTasks(house); setPersonalTasks(pers); setMealPlan(currentMealPlan);
         setMealRequests(reqs); setWeatherFavorites(weath); setRecipes(rec);
         setFeedbacks(fbs); setPolls(pollsData);
         const settingsRow = appSettings && appSettings.length > 0 ? appSettings[0] : null;
@@ -358,6 +382,20 @@ const App: React.FC = () => {
     setupFCM();
     return () => { if (unsubscribeFCM) unsubscribeFCM(); };
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser || !currentWeatherLocation) return;
+    const weatherProfile = {
+      weatherLat: currentWeatherLocation.lat,
+      weatherLng: currentWeatherLocation.lng,
+      weatherLocationName: currentWeatherLocation.name,
+    };
+
+    setFamily(prev => prev.map(member => member.id === currentUser.id ? { ...member, ...weatherProfile } : member));
+    Backend.family.update(currentUser.id, weatherProfile).catch((err) => {
+      console.warn('[Weather] Standort konnte nicht gespeichert werden:', err);
+    });
+  }, [currentUser, currentWeatherLocation]);
 
   useEffect(() => {
     if (currentUser?.mustShowSecurityScreen) {
@@ -464,45 +502,6 @@ const App: React.FC = () => {
       });
     }
   }, [currentRoute, currentUser, loginStep]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    const scheduleWeather = async () => {
-      try {
-        if (!navigator.geolocation) return;
-        const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 15000 }));
-        const data = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
-        if (!data) return;
-        const temp = Math.round(data.current.temperature_2m);
-        const title = `Stündliches Wetterupdate: ${temp}°C`;
-        const body = `Jetzt: ${getWeatherDescription(data.current.weather_code)}.`;
-
-        if (Capacitor.isNativePlatform()) {
-          try {
-            await LocalNotifications.cancel({ notifications: [{ id: 9001 }] });
-          } catch (e) {
-            // ignore if no existing notification is set
-          }
-          LocalNotifications.schedule({
-            notifications: [{
-              id: 9001,
-              title,
-              body,
-              smallIcon: 'notification_icon',
-              schedule: { every: 'hour', allowWhileIdle: true },
-              ...androidNotificationChannelFields(),
-            }],
-          });
-        }
-      } catch (e) { }
-    };
-    const startup = setTimeout(scheduleWeather, 10000);
-    let interval: ReturnType<typeof setInterval> | null = null;
-    if (!Capacitor.isNativePlatform()) {
-      interval = setInterval(scheduleWeather, 3600000);
-    }
-    return () => { clearTimeout(startup); if (interval) clearInterval(interval); };
-  }, [currentUser]);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -1074,3 +1073,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+

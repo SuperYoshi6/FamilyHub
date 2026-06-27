@@ -1,97 +1,100 @@
--- ==========================================
--- SUPABASE DATABASE WEBHOOKS SETUP
--- Execute these in the Supabase SQL Editor
--- ==========================================
+-- FamilyHub push setup
+-- Replace <PROJECT_REF> and <SERVICE_ROLE_KEY> before running.
+-- If pg_cron or pg_net are disabled in your project, enable them in Supabase first.
 
--- Die URL ändert sich auf die URL deiner tatsächlichen Edge Function
--- Beispiel: https://dein-projekt-id.supabase.co/functions/v1/push-notify
+create extension if not exists pg_net;
+create extension if not exists pg_cron;
 
--- 1. Events Webhook (Kalender)
-CREATE TRIGGER notify_events_insert
-AFTER INSERT OR UPDATE ON events
-FOR EACH ROW
-EXECUTE FUNCTION supabase_functions.http_request(
-  'https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify',
-  'POST',
-  '{"Content-Type": "application/json"}',
-  '{}',
-  '1000'
+create or replace function public.notify_familyhub_push()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  payload jsonb;
+begin
+  payload := jsonb_build_object(
+    'schema', TG_TABLE_SCHEMA,
+    'table', TG_TABLE_NAME,
+    'type', TG_OP,
+    'record', case
+      when TG_OP = 'DELETE' then to_jsonb(OLD)
+      else to_jsonb(NEW)
+    end,
+    'old_record', case
+      when TG_OP = 'UPDATE' then to_jsonb(OLD)
+      when TG_OP = 'DELETE' then to_jsonb(OLD)
+      else null
+    end
+  );
+
+  perform net.http_post(
+    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/push-notify',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
+    ),
+    body := payload
+  );
+
+  return coalesce(NEW, OLD);
+end;
+$$;
+
+drop trigger if exists notify_events_push on public.events;
+create trigger notify_events_push
+after insert or update on public.events
+for each row execute function public.notify_familyhub_push();
+
+drop trigger if exists notify_shopping_push on public.shopping;
+create trigger notify_shopping_push
+after insert on public.shopping
+for each row execute function public.notify_familyhub_push();
+
+drop trigger if exists notify_household_tasks_push on public.household_tasks;
+create trigger notify_household_tasks_push
+after insert on public.household_tasks
+for each row execute function public.notify_familyhub_push();
+
+drop trigger if exists notify_personal_tasks_push on public.personal_tasks;
+create trigger notify_personal_tasks_push
+after insert on public.personal_tasks
+for each row execute function public.notify_familyhub_push();
+
+drop trigger if exists notify_news_push on public.news;
+create trigger notify_news_push
+after insert on public.news
+for each row execute function public.notify_familyhub_push();
+
+drop trigger if exists notify_polls_push on public.polls;
+create trigger notify_polls_push
+after insert on public.polls
+for each row execute function public.notify_familyhub_push();
+
+drop trigger if exists notify_meal_requests_push on public.meal_requests;
+create trigger notify_meal_requests_push
+after insert on public.meal_requests
+for each row execute function public.notify_familyhub_push();
+
+drop trigger if exists notify_app_settings_push on public.app_settings;
+create trigger notify_app_settings_push
+after update on public.app_settings
+for each row execute function public.notify_familyhub_push();
+
+-- Hourly weather push at the full hour.
+-- This calls the same edge function with a special weather_cron payload.
+select cron.schedule(
+  'familyhub-weather-hourly',
+  '0 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/push-notify',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
+    ),
+    body := '{"trigger":"weather_cron","table":"weather_cron","type":"CRON"}'::jsonb
+  );
+  $$
 );
-
--- 2. Meal Requests Webhook (Essen)
-CREATE TRIGGER notify_meal_requests_insert
-AFTER INSERT ON meal_requests
-FOR EACH ROW
-EXECUTE FUNCTION supabase_functions.http_request(
-  'https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify',
-  'POST',
-  '{"Content-Type": "application/json"}',
-  '{}',
-  '1000'
-);
-
--- 3. Household Tasks Webhook (Hausarbeiten)
-CREATE TRIGGER notify_household_tasks_insert
-AFTER INSERT ON household_tasks
-FOR EACH ROW
-EXECUTE FUNCTION supabase_functions.http_request(
-  'https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify',
-  'POST',
-  '{"Content-Type": "application/json"}',
-  '{}',
-  '1000'
-);
-
--- 4. Shopping Webhook (Einkaufsliste)
-CREATE TRIGGER notify_shopping_insert
-AFTER INSERT ON shopping
-FOR EACH ROW
-EXECUTE FUNCTION supabase_functions.http_request(
-  'https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify',
-  'POST',
-  '{"Content-Type": "application/json"}',
-  '{}',
-  '1000'
-);
-
--- 5. News Webhook (Pinwand)
-CREATE TRIGGER notify_news_insert
-AFTER INSERT ON news
-FOR EACH ROW
-EXECUTE FUNCTION supabase_functions.http_request(
-  'https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify',
-  'POST',
-  '{"Content-Type": "application/json"}',
-  '{}',
-  '1000'
-);
-
--- 6. Polls Webhook (Umfragen)
-CREATE TRIGGER notify_polls_insert
-AFTER INSERT ON polls
-FOR EACH ROW
-EXECUTE FUNCTION supabase_functions.http_request(
-  'https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify',
-  'POST',
-  '{"Content-Type": "application/json"}',
-  '{}',
-  '1000'
-);
-
--- =======================================================
--- ANMERKUNG ZU CRONJOBS FÜR DAS STÜNDLICHE WETTER
--- =======================================================
--- Falls pg_cron bei dir aktiv ist, kannst du die stündliche
--- Abfrage so an die Function weiterleiten:
-
--- SELECT cron.schedule(
---   'weather-hourly',
---   '0 * * * *',
---   $$
---   SELECT net.http_post(
---     url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify',
---     headers := '{"Content-Type": "application/json"}'::jsonb,
---     body := '{"table": "weather_cron", "type": "CRON"}'::jsonb
---   )
---   $$
--- );
