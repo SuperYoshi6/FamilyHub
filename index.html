@@ -16,13 +16,18 @@
 
   <script type="text/javascript">
     // Single Page Apps for GitHub Pages Fix
+    // Handles /FamilyHub/install and /FamilyHub/app routing
+    // This reverses the redirect done by 404.html
     (function (l) {
+      var base = '/FamilyHub/';
+      // Check if we came from the 404.html redirect (search starts with '/')
       if (l.search[1] === '/') {
         var decoded = l.search.slice(1).split('&').map(function (s) {
           return s.replace(/~and~/g, '&')
         }).join('?');
+        // Reconstruct the full path including the base folder
         window.history.replaceState(null, null,
-          l.pathname.slice(0, -1) + decoded + l.hash
+          base + decoded + l.hash
         );
       }
     }(window.location))
@@ -149,7 +154,7 @@
     /* Nav Wobble Bubble */
     .nav-wobble-bubble {
       position: absolute;
-      height: 90%;
+      height: 55%;
       background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.12));
       border-radius: 20px;
       z-index: 0;
@@ -384,7 +389,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="./assets/index-BMdxU-fi.js"></script>
+  <script type="module" crossorigin src="./assets/index-C5K-eEly.js"></script>
 </head>
 
 <body class="transition-colors duration-300">
