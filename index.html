@@ -25,14 +25,27 @@
         var decoded = l.search.slice(1).split('&').map(function (s) {
           return s.replace(/~and~/g, '&')
         }).join('?');
-        // Reconstruct the full path including the base folder
+        // Remove leading slash from decoded path to avoid double slashes
+        var cleanPath = decoded.replace(/^\//, '');
         window.history.replaceState(null, null,
-          base + decoded + l.hash
+          base + cleanPath + l.hash
         );
       }
     }(window.location))
   </script>
 
+  <!-- Tailwind CSS (CDN) -->
+  <script>
+    // Temporarily suppress the "should not be used in production" warning
+    // (Tailwind CDN is intentional here; proper PostCSS install will come later)
+    (function() {
+      var origWarn = console.warn;
+      console.warn = function(msg) {
+        if (typeof msg === 'string' && msg.indexOf('cdn.tailwindcss.com should not be used') !== -1) return;
+        origWarn.apply(console, arguments);
+      };
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {

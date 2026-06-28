@@ -16,7 +16,7 @@ interface MealsPageProps {
     onProfileClick: () => void;
     recipes?: Recipe[];
     onAddRecipe?: (recipe: Recipe) => void;
-    onPlanGenerated?: () => void;
+    onPlanGenerated?: (plan: MealPlan[]) => void;
     liquidGlass?: boolean;
 }
 

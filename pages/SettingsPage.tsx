@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FamilyMember, FeedbackItem, NewsItem, AppRoute, CalendarEvent } from '../types';
-import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils, Palmtree } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
 import Logo from '../components/Logo';
@@ -23,6 +23,8 @@ interface SettingsPageProps {
     onToggleSwipe: () => void;
     christmasMode?: boolean;
     onToggleChristmasMode?: () => void;
+    summerMode?: boolean;
+    onToggleSummerMode?: () => void;
     easterMode?: boolean;
     liquidGlass?: boolean;
     onToggleLiquidGlass?: () => void;
@@ -30,6 +32,8 @@ interface SettingsPageProps {
     onToggleGlobalEaster?: () => void;
     globalLiquidGlassEnabled?: boolean;
     onToggleGlobalLiquidGlass?: () => void;
+    globalSummerEnabled?: boolean;
+    onToggleGlobalSummer?: () => void;
     onTriggerSecurityScreen?: (id: string) => void;
     disabledTabs?: Record<string, boolean>;
     onToggleTabDisabled?: (route: AppRoute) => void;
@@ -82,7 +86,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, summerMode, onToggleSummerMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, globalSummerEnabled, onToggleGlobalSummer, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e293b&color=fff&bold=true`);
@@ -135,6 +139,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const isAdmin = currentUser.role === 'admin';
     const isEasterLocked = !isAdmin && globalEasterEnabled === false;
     const isLiquidLocked = !isAdmin && globalLiquidGlassEnabled === false;
+    const isSummerLocked = !isAdmin && globalSummerEnabled === false;
     const tabOptions = [
         { route: AppRoute.WEATHER, label: 'Wetter', icon: Droplets },
         { route: AppRoute.CALENDAR, label: 'Kalender', icon: Calendar },
@@ -557,7 +562,28 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 </>
                             )}
 
-                            {/* 6. Liquid Glass Mode (Interactive) */}
+                            {/* 6. Summer Mode */}
+                            {onToggleSummerMode && (
+                                <>
+                                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                                    <div className="flex items-center justify-between py-2">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full text-amber-600 dark:text-amber-400">
+                                                <Palmtree size={20} />
+                                            </div>
+                                            <span className="font-bold text-gray-800 dark:text-white">Sommer-Modus</span>
+                                        </div>
+                                        <button onClick={() => { if (!isSummerLocked) onToggleSummerMode(); }} disabled={isSummerLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${summerMode ? 'bg-amber-500' : 'bg-gray-300'} ${isSummerLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${summerMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                    {isSummerLocked && (
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 ml-12">Vom Admin deaktiviert</div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* 7. Liquid Glass Mode (Interactive) */}
                             {onToggleLiquidGlass && (
                                 <>
                                     <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
@@ -595,7 +621,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             </div>
                             <div className="rounded-2xl shadow-lg border border-red-500/40 overflow-hidden bg-red-50/40 dark:bg-red-900/40">
                                 {/* Global Feature Gates */}
-                                {(onToggleGlobalEaster || onToggleGlobalLiquidGlass) && (
+                                {(onToggleGlobalEaster || onToggleGlobalLiquidGlass || onToggleGlobalSummer) && (
                                     <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                                         <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                                             <Layout size={16} className="mr-2 text-blue-500" />
@@ -612,6 +638,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                     </div>
                                                     <button onClick={onToggleGlobalLiquidGlass} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalLiquidGlassEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}>
                                                         <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalLiquidGlassEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {onToggleGlobalSummer && (
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full text-amber-600 dark:text-amber-400">
+                                                            <Palmtree size={16} />
+                                                        </div>
+                                                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Sommer-Modus für alle</span>
+                                                    </div>
+                                                    <button onClick={onToggleGlobalSummer} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalSummerEnabled ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalSummerEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </button>
                                                 </div>
                                             )}

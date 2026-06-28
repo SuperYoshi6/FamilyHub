@@ -324,16 +324,9 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
                 if (!error && data) {
                     const mapped = data.map(d => this.desanitize(d));
-                    
-                    // Safety check: Don't wipe local data if Supabase returns 0 but we have local data.
-                    // This can happen with intermittent connectivity / delayed sync.
-                    const localData = await this.localFallback.getAll();
-                    if (mapped.length === 0 && localData.length > 0) {
-                        // Keep local cache in this case; avoid Supabase write conflicts.
-                        return localData;
-                    }
 
-                    // Success: Update local cache and return fresh data
+                    // Supabase is the source of truth — always trust its response
+                    // (even if it returns 0 rows, that means items were deleted)
                     await this.localFallback.setAll(mapped);
                     return mapped;
                 } else if (error) {
@@ -344,7 +337,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             }
         }
 
-        // Fallback
+        // Fallback: only when Supabase is unavailable or errored
         return this.localFallback.getAll();
     }
 
@@ -397,8 +390,13 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
 
         if (supabase) {
             try {
-                const { error } = await supabase.from(this.table).delete().eq('id', id);
-                if (error) console.error(`[Supabase] Delete sync error (${this.table}):`, error.message);
+                console.log(`[Supabase] Deleting ${this.table}:${id}...`);
+                const { error, data: deleteData } = await supabase.from(this.table).delete().eq('id', id);
+                if (error) {
+                    console.error(`[Supabase] Delete sync error (${this.table}):`, error.message, error.code);
+                } else {
+                    console.log(`[Supabase] Deleted ${this.table}:${id} successfully`);
+                }
             } catch (err) {
                 console.error(`[Supabase] Delete network error (${this.table}):`, err);
             }

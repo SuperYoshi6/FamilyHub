@@ -67,6 +67,7 @@ const DEFAULT_APP_SETTINGS = {
   disabled_tabs: {},
   global_easter_enabled: true,
   global_liquid_glass_enabled: true,
+  global_summer_enabled: true,
   push_test_at: null,
   push_test_title: null,
   push_test_message: null,
@@ -103,6 +104,8 @@ const App: React.FC = () => {
   const [liquidGlass, setLiquidGlass] = useLocalSetting<boolean>('fh_liquidglass', true);
   const [globalEasterEnabled, setGlobalEasterEnabled] = useLocalSetting<boolean>('fh_global_easter_enabled', true);
   const [globalLiquidGlassEnabled, setGlobalLiquidGlassEnabled] = useLocalSetting<boolean>('fh_global_liquidglass_enabled', true);
+  const [summerMode, setSummerMode] = useLocalSetting<boolean>('fh_summermode', false);
+  const [globalSummerEnabled, setGlobalSummerEnabled] = useLocalSetting<boolean>('fh_global_summer_enabled', true);
   const [maintenanceMode, setMaintenanceMode] = useLocalSetting<boolean>('fh_maintenance_mode', false);
   const [maintenanceStart, setMaintenanceStart] = useLocalSetting<string>('fh_maintenance_start', '');
   const [maintenanceEnd, setMaintenanceEnd] = useLocalSetting<string>('fh_maintenance_end', '');
@@ -115,10 +118,25 @@ const App: React.FC = () => {
     [AppRoute.ACTIVITIES]: false,
   });
   const language: Language = 'de';
+  // --- Pull-to-Refresh State ---
+  const [pullY, setPullY] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState<FamilyMember | null>(null);
   const [currentRoute, setCurrentRoute] = useState<AppRoute>(() => {
+    // 1) Check if we came from 404.html redirect: /FamilyHub/?/app or /FamilyHub/?/install
+    const search = window.location.search;
+    if (search.startsWith('?/')) {
+      const routePath = search.slice(2).split('&')[0].toLowerCase();
+      if (routePath === 'install' || routePath.startsWith('install')) return AppRoute.LANDING;
+      return AppRoute.APP;
+    }
+
+    // 2) Direct path check
     const path = window.location.pathname.toLowerCase();
     if (path.includes('/install')) return AppRoute.LANDING;
+    if (path.includes('/app')) return AppRoute.APP;
+
+    // 3) Fallback to saved route
     const savedRoute = localStorage.getItem('fh_last_route');
     const hasBooted = localStorage.getItem('fh_has_booted');
     if (hasBooted && savedRoute && Object.values(AppRoute).includes(savedRoute as AppRoute)) {
@@ -126,6 +144,27 @@ const App: React.FC = () => {
     }
     return AppRoute.DASHBOARD;
   });
+
+  // Sync route state to browser URL (so reloads & deep links work on GitHub Pages)
+  useEffect(() => {
+    const routeSuffix = currentRoute === AppRoute.LANDING ? 'install' : 'app';
+
+    // Determine the base path from the current URL (e.g. /FamilyHub/)
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const basePath = pathParts.length > 0 ? '/' + pathParts[0] + '/' : '/';
+
+    const targetPath = basePath + routeSuffix;
+    const currentPath = window.location.pathname.toLowerCase();
+
+    // Clean up 404.html redirect format (/?/app) or fix wrong suffix
+    const has404Redirect = window.location.search.startsWith('?/');
+    if (has404Redirect || !currentPath.endsWith(routeSuffix)) {
+      window.history.replaceState({ route: currentRoute }, '', targetPath);
+    }
+    localStorage.setItem('fh_last_route', currentRoute);
+    localStorage.setItem('fh_has_booted', 'true');
+  }, [currentRoute]);
+
   const [currentWeatherLocation, setCurrentWeatherLocation] = useState<{ lat: number, lng: number, name: string } | null>(null);
 
   // Login State
@@ -150,6 +189,8 @@ const App: React.FC = () => {
   const lastPollTimeRef = useRef<number>(Date.now());
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
+  const pullStartY = useRef<number | null>(null);
+  const mainScrollRef = useRef<HTMLDivElement>(null);
   const lastSentPayloadRef = useRef<string>('');
 
   // --- 4. Helper Logic (Non-Conditional) ---
@@ -158,6 +199,9 @@ const App: React.FC = () => {
   const userWeatherFavorites = (currentUser && weatherFavorites) ? weatherFavorites.filter(f => f.userId === currentUser.id) : [];
   const allowEasterForUser = currentUser ? (currentUser.role === 'admin' || globalEasterEnabled) : globalEasterEnabled;
   const allowLiquidGlassForUser = currentUser ? (currentUser.role === 'admin' || globalLiquidGlassEnabled) : globalLiquidGlassEnabled;
+  const allowSummerForUser = currentUser ? (currentUser.role === 'admin' || globalSummerEnabled) : globalSummerEnabled;
+
+  const effectiveSummerMode = allowSummerForUser ? summerMode : false;
 
   const effectiveLiquidGlass = allowLiquidGlassForUser ? liquidGlass : false;
   const tabOrder: AppRoute[] = [AppRoute.DASHBOARD, AppRoute.WEATHER, AppRoute.CALENDAR, AppRoute.MEALS, AppRoute.LISTS];
@@ -298,60 +342,133 @@ const App: React.FC = () => {
     });
   }, [currentUser, currentWeatherLocation]);
 
-  useEffect(() => {
-    const loadAll = async () => {
-      try {
-        const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData, appSettings] = await Promise.all([
-          Backend.family.getAll(), Backend.events.getAll(), Backend.news.getAll(), Backend.shopping.getAll(),
-          Backend.householdTasks.getAll(), Backend.personalTasks.getAll(), Backend.mealPlan.getAll(),
-          Backend.mealRequests.getAll(), Backend.weatherFavorites.getAll(), Backend.recipes.getAll(),
-          Backend.feedback.getAll(), Backend.polls.getAll(), Backend.appSettings.getAll()
-        ]);
-        setFamily(fam); setEvents(ev); setNews(newsData); setShoppingList(shop);
-        const today = new Date();
-        const diffToMonday = today.getDay() === 0 ? 6 : today.getDay() - 1;
-        const currentMonday = new Date(today);
-        currentMonday.setDate(today.getDate() - diffToMonday);
-        const currentMondayStr = currentMonday.toISOString().split('T')[0];
-        
-        let currentMealPlan = meals;
-        const storedMondayStr = localStorage.getItem('fh_meal_plan_week');
-        if (storedMondayStr !== currentMondayStr) {
-            currentMealPlan = [];
-            await Backend.mealPlan.setAll([]);
-            localStorage.setItem('fh_meal_plan_week', currentMondayStr);
-        }
+  // --- CENTRAL DATA LOADER (reusable for initial load + resume) ---
+  const loadAllData = useCallback(async () => {
+    try {
+      const [fam, ev, newsData, shop, house, pers, meals, reqs, weath, rec, fbs, pollsData, appSettings] = await Promise.all([
+        Backend.family.getAll(), Backend.events.getAll(), Backend.news.getAll(), Backend.shopping.getAll(),
+        Backend.householdTasks.getAll(), Backend.personalTasks.getAll(), Backend.mealPlan.getAll(),
+        Backend.mealRequests.getAll(), Backend.weatherFavorites.getAll(), Backend.recipes.getAll(),
+        Backend.feedback.getAll(), Backend.polls.getAll(), Backend.appSettings.getAll()
+      ]);
+      setFamily(fam); setEvents(ev); setNews(newsData); setShoppingList(shop);
+      const today = new Date();
+      const diffToMonday = today.getDay() === 0 ? 6 : today.getDay() - 1;
+      const currentMonday = new Date(today);
+      currentMonday.setDate(today.getDate() - diffToMonday);
+      const currentMondayStr = currentMonday.toISOString().split('T')[0];
 
-        setHouseholdTasks(house); setPersonalTasks(pers); setMealPlan(currentMealPlan);
-        setMealRequests(reqs); setWeatherFavorites(weath); setRecipes(rec);
-        setFeedbacks(fbs); setPolls(pollsData);
-        const settingsRow = appSettings && appSettings.length > 0 ? appSettings[0] : null;
-        if (settingsRow) {
-          setMaintenanceMode(!!settingsRow.maintenance_mode);
-          setMaintenanceStart(settingsRow.maintenance_start || '');
-          setMaintenanceEnd(settingsRow.maintenance_end || '');
-          setDisabledTabs(settingsRow.disabled_tabs || {});
-          if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
-          if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
-        } else {
-          await Backend.appSettings.add(DEFAULT_APP_SETTINGS as any);
-        }
+      let currentMealPlan = meals;
+      const storedMondayStr = localStorage.getItem('fh_meal_plan_week');
+      if (storedMondayStr !== currentMondayStr) {
+          currentMealPlan = [];
+          await Backend.mealPlan.setAll([]);
+          localStorage.setItem('fh_meal_plan_week', currentMondayStr);
+      }
 
-        // --- AUTOMATIC CALENDAR SYNC ---
-        if (Capacitor.isNativePlatform() && ev.length > 0) {
-          try {
-            const { NativeCalendarService } = await import('./services/nativeCalendar');
-            // Trigger background sync for new events
-            setTimeout(() => NativeCalendarService.syncAllToNative(ev), 5000);
-          } catch (e) {
-            console.error('Auto Calendar Sync fail:', e);
-          }
-        }
+      setHouseholdTasks(house); setPersonalTasks(pers); setMealPlan(currentMealPlan);
+      setMealRequests(reqs); setWeatherFavorites(weath); setRecipes(rec);
+      setFeedbacks(fbs); setPolls(pollsData);
+      const settingsRow = appSettings && appSettings.length > 0 ? appSettings[0] : null;
+      if (settingsRow) {
+        setMaintenanceMode(!!settingsRow.maintenance_mode);
+        setMaintenanceStart(settingsRow.maintenance_start || '');
+        setMaintenanceEnd(settingsRow.maintenance_end || '');
+        setDisabledTabs(settingsRow.disabled_tabs || {});
+        if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
+        if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
+        if (typeof settingsRow.global_summer_enabled === 'boolean') setGlobalSummerEnabled(settingsRow.global_summer_enabled);
+      } else {
+        await Backend.appSettings.add(DEFAULT_APP_SETTINGS as any);
+      }
 
-      } finally { setLoadingData(false); }
-    };
-    loadAll();
+      // --- AUTOMATIC CALENDAR SYNC ---
+      if (Capacitor.isNativePlatform() && ev.length > 0) {
+        try {
+          const { NativeCalendarService } = await import('./services/nativeCalendar');
+          setTimeout(() => NativeCalendarService.syncAllToNative(ev), 5000);
+        } catch (e) {
+          console.error('Auto Calendar Sync fail:', e);
+        }
+      }
+
+    } finally { setLoadingData(false); }
   }, []);
+
+  // Initial data load
+  useEffect(() => {
+    loadAllData();
+  }, [loadAllData]);
+
+  // Reload data when app returns from background (mobile) or window gets focus (web)
+  useEffect(() => {
+    // Native: listen for appStateChange (background -> foreground)
+    let nativeUnsubscribe: (() => void) | undefined;
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appStateChange', (state) => {
+        if (state.isActive) {
+          console.log('📱 App returned to foreground, reloading data from Supabase...');
+          loadAllData();
+        }
+      }).then(listener => { nativeUnsubscribe = listener.remove.bind(listener); });
+    }
+
+    // Web: listen for window focus to catch up on data changes
+    const onFocus = () => {
+      if (!Capacitor.isNativePlatform()) {
+        console.log('🌐 Window focused, reloading data from Supabase...');
+        loadAllData();
+      }
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      nativeUnsubscribe?.();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadAllData]);
+
+  // Supabase Realtime subscription for live sync (news, events, shopping, tasks)
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('fh-realtime-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'news' },
+        () => { loadAllData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        () => { loadAllData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shopping' },
+        () => { loadAllData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'household_tasks' },
+        () => { loadAllData(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'family' },
+        () => { loadAllData(); }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('🔔 Supabase Realtime connected for live sync');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadAllData]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -441,6 +558,7 @@ const App: React.FC = () => {
       disabled_tabs: disabledTabs || {},
       global_easter_enabled: globalEasterEnabled,
       global_liquid_glass_enabled: globalLiquidGlassEnabled,
+      global_summer_enabled: globalSummerEnabled,
     };
 
     const payloadStr = JSON.stringify(payload);
@@ -453,7 +571,7 @@ const App: React.FC = () => {
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [loadingData, currentUser, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled]);
+  }, [loadingData, currentUser, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled, globalSummerEnabled]);
 
   const applyAppSettings = (settingsRow: any) => {
     if (!settingsRow) return;
@@ -467,6 +585,7 @@ const App: React.FC = () => {
     });
     if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
     if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
+    if (typeof settingsRow.global_summer_enabled === 'boolean') setGlobalSummerEnabled(settingsRow.global_summer_enabled);
   };
 
   useEffect(() => {
@@ -596,15 +715,77 @@ const App: React.FC = () => {
     }
   };
   const markNewsRead = async (id: string) => { const n = news.find(x => x.id === id); if (n && currentUser) { const readers = [...(n.readBy || []), currentUser.id]; setNews(p => p.map(x => x.id === id ? { ...x, readBy: readers } : x)); await Backend.news.update(id, { readBy: readers }); } };
-  const sendAdminBroadcast = async (title: string, msg: string) => { await addNotification(title, msg); };
+  const sendAdminBroadcast = async (title: string, msg: string) => {
+    await addNotification(title, msg);
+    // Trigger push notification via edge function
+    try {
+      console.log('📡 Sending admin broadcast to edge function...');
+      const { data: { session } } = await supabase?.auth?.getSession() || { data: { session: null } };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8',
+      };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const body = JSON.stringify({
+        trigger: 'manual_broadcast',
+        title,
+        body: msg,
+        exclude_user_id: currentUser?.id,
+      });
+      console.log('📡 Broadcast payload:', body);
+      const resp = await fetch('https://hjkmfodzhradtkeiyele.supabase.co/functions/v1/push-notify', {
+        method: 'POST',
+        headers,
+        body,
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error('❌ Push-notify edge function failed:', resp.status, errText);
+      } else {
+        const result = await resp.json();
+        console.log('✅ Broadcast push sent to', result.sent_to, 'devices:', JSON.stringify(result.results)?.substring(0, 200));
+      }
+    } catch (err) {
+      console.error('❌ Broadcast push failed:', err);
+    }
+  };
   const triggerPushTest = async () => {
     if (!currentUser || currentUser.role !== 'admin') return;
+    // 1. Save to app_settings (for webhook-based push)
     const testPayload = {
       push_test_at: new Date().toISOString(),
       push_test_title: '🔔 Push-Test',
       push_test_message: 'FamilyHub hat gerade eine Test-Benachrichtigung gesendet.',
     };
     await Backend.appSettings.update('global', testPayload as any);
+    // 2. Also trigger edge function directly (works without webhook config)
+    try {
+      console.log('📡 Triggering push-test via edge function...');
+      const resp = await fetch('https://hjkmfodzhradtkeiyele.supabase.co/functions/v1/push-notify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8',
+        },
+        body: JSON.stringify({
+          trigger: 'manual_broadcast',
+          title: '🔔 Push-Test',
+          body: 'Das ist eine Test-Benachrichtigung von FamilyHub.',
+          exclude_user_id: currentUser.id,
+        }),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error('Push-Test edge function failed:', resp.status, errText);
+      } else {
+        const result = await resp.json();
+        console.log('Push-Test sent to', result.sent_to, 'devices:', JSON.stringify(result.results)?.substring(0, 200));
+      }
+    } catch (err) {
+      console.error('Push-Test failed:', err);
+    }
   };
   const triggerSecurityScreen = async (id: string) => {
     await Backend.family.update(id, { mustShowSecurityScreen: true });
@@ -753,6 +934,39 @@ const App: React.FC = () => {
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
     const nextRoute = dx < 0 ? getNextSwipeRoute(1) : getNextSwipeRoute(-1);
     if (nextRoute !== currentRoute) setCurrentRoute(nextRoute);
+  };
+
+  // --- Pull-to-Refresh ---
+  const PULL_THRESHOLD = 80;
+
+  const handleMainTouchStart = (e: React.TouchEvent) => {
+    const main = mainScrollRef.current;
+    if (!main || main.scrollTop > 0) return;
+    pullStartY.current = e.touches[0].clientY;
+  };
+
+  const handleMainTouchMove = (e: React.TouchEvent) => {
+    if (pullStartY.current === null) return;
+    const dy = e.touches[0].clientY - pullStartY.current;
+    if (dy <= 0) { pullStartY.current = null; setPullY(0); return; }
+    const resistance = 0.4;
+    setPullY(Math.min(dy * resistance, PULL_THRESHOLD + 40));
+  };
+
+  const handleMainTouchEnd = async () => {
+    if (pullStartY.current === null) return;
+    pullStartY.current = null;
+    if (pullY >= PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullY(PULL_THRESHOLD);
+      console.log('🔄 Pull-to-refresh: reloading data...');
+      await loadAllData();
+      await new Promise(r => setTimeout(r, 400));
+      setIsRefreshing(false);
+      setPullY(0);
+    } else {
+      setPullY(0);
+    }
   };
 
   const toggleWeatherFavorite = async (loc: SavedLocation) => {
@@ -996,7 +1210,7 @@ const App: React.FC = () => {
         PageComponent = <ActivitiesPage onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} currentLocation={currentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.SETTINGS:
-        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
+        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} summerMode={summerMode} onToggleSummerMode={() => setSummerMode(!summerMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} globalSummerEnabled={globalSummerEnabled} onToggleGlobalSummer={() => setGlobalSummerEnabled(!globalSummerEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
           const newVal = !maintenanceMode;
           setMaintenanceMode(newVal);
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
@@ -1011,9 +1225,40 @@ const App: React.FC = () => {
     return (
       <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         { }
-        <main className="flex-1 overflow-y-auto no-scrollbar relative">{PageComponent}</main>
+        <main
+          ref={mainScrollRef}
+          className="flex-1 overflow-y-auto no-scrollbar relative"
+          onTouchStart={handleMainTouchStart}
+          onTouchMove={handleMainTouchMove}
+          onTouchEnd={handleMainTouchEnd}
+        >
+          {/* Pull-to-refresh indicator */}
+          <div className="sticky top-0 z-40 flex justify-center pointer-events-none" style={{ height: 0, marginTop: pullY > 0 ? -pullY : 0 }}>
+            {pullY > 0 && (
+              <div className={`mt-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur rounded-full px-4 py-2 shadow-lg flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 transition-opacity duration-200 ${isRefreshing ? 'opacity-100' : (pullY >= PULL_THRESHOLD ? 'opacity-100' : 'opacity-80')}`}>
+                {isRefreshing ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    <span>Aktualisieren…</span>
+                  </>
+                ) : pullY >= PULL_THRESHOLD ? (
+                  <>
+                    <svg className="h-4 w-4 rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v12m0 0l-4-4m4 4l4-4" /><path d="M20 16v0a4 4 0 01-4 4H8a4 4 0 01-4-4v0" /></svg>
+                    <span>Loslassen zum Aktualisieren</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4v12m0 0l-4-4m4 4l4-4" /><path d="M20 16v0a4 4 0 01-4 4H8a4 4 0 01-4-4v0" /></svg>
+                    <span>Ziehen zum Aktualisieren</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {PageComponent}
+        </main>
         <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${effectiveLiquidGlass ? 'bg-transparent dark:bg-transparent' : 'bg-white dark:bg-slate-900'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} />
+          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} summerMode={effectiveSummerMode} />
         </div>
 
         {showSecurityScreen && currentUser && (

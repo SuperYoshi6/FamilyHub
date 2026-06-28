@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Home, Calendar, ClipboardList, Utensils, CloudSun, TreePine, Snowflake, Gift, Cookie, CalendarHeart, Egg, Rabbit, Bird, Carrot, ShoppingBasket } from 'lucide-react';
+import { Home, Calendar, ClipboardList, Utensils, CloudSun, TreePine, Snowflake, Gift, Cookie, CalendarHeart, Egg, Rabbit, Bird, Carrot, ShoppingBasket, Sun, Umbrella, IceCream, Palmtree } from 'lucide-react';
 import { AppRoute } from '../types';
 import { t, Language } from '../services/translations';
 
@@ -9,11 +9,12 @@ interface NavigationProps {
     lang: Language;
     christmasMode?: boolean;
     easterMode?: boolean;
+    summerMode?: boolean;
     liquidGlass?: boolean;
     enableSwipe?: boolean;
 }
 
-const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, easterMode, liquidGlass, enableSwipe }) => {
+const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, easterMode, summerMode, liquidGlass, enableSwipe }) => {
     const isWeather = currentRoute === AppRoute.WEATHER;
     const navRef = useRef<HTMLElement>(null);
 
@@ -25,19 +26,20 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     const lastTime = useRef<number>(0);
 
     const navItems = [
-        { route: AppRoute.DASHBOARD, icon: easterMode ? Egg : (christmasMode ? TreePine : Home), label: t('nav.dashboard', lang) },
-        { route: AppRoute.WEATHER, icon: easterMode ? Rabbit : (christmasMode ? Snowflake : CloudSun), label: t('nav.weather', lang) },
-        { route: AppRoute.CALENDAR, icon: easterMode ? Bird : (christmasMode ? CalendarHeart : Calendar), label: t('nav.calendar', lang) },
-        { route: AppRoute.MEALS, icon: easterMode ? Carrot : (christmasMode ? Cookie : Utensils), label: t('nav.meals', lang) },
-        { route: AppRoute.LISTS, icon: easterMode ? ShoppingBasket : (christmasMode ? Gift : ClipboardList), label: t('nav.lists', lang) },
-
+        { route: AppRoute.DASHBOARD, icon: summerMode ? Palmtree : (easterMode ? Egg : (christmasMode ? TreePine : Home)), label: t('nav.dashboard', lang) },
+        { route: AppRoute.WEATHER, icon: summerMode ? Sun : (easterMode ? Rabbit : (christmasMode ? Snowflake : CloudSun)), label: t('nav.weather', lang) },
+        { route: AppRoute.CALENDAR, icon: summerMode ? Umbrella : (easterMode ? Bird : (christmasMode ? CalendarHeart : Calendar)), label: t('nav.calendar', lang) },
+        { route: AppRoute.MEALS, icon: summerMode ? IceCream : (easterMode ? Carrot : (christmasMode ? Cookie : Utensils)), label: t('nav.meals', lang) },
+        { route: AppRoute.LISTS, icon: summerMode ? ShoppingBasket : (easterMode ? ShoppingBasket : (christmasMode ? Gift : ClipboardList)), label: t('nav.lists', lang) },
     ];
 
     const activeIndex = navItems.findIndex(item => item.route === currentRoute);
     const itemWidthPercent = 100 / navItems.length;
 
+    const isSwipeActive = liquidGlass || enableSwipe;
+
     const handlePointerDown = (e: React.PointerEvent) => {
-        if (!liquidGlass) return;
+        if (!isSwipeActive) return;
         setIsDragging(true);
         const rect = navRef.current?.getBoundingClientRect();
         if (rect) {
@@ -51,14 +53,14 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-        if (!isDragging || !liquidGlass) return;
+        if (!isDragging || !isSwipeActive) return;
         const rect = navRef.current?.getBoundingClientRect();
         if (rect) {
             const x = ((e.clientX - rect.left) / rect.width) * 100;
             const clamped = Math.max(0, Math.min(100 - itemWidthPercent, x - itemWidthPercent / 2));
             setDragX(clamped);
 
-            // Calculate velocity for "stretch" effect
+            // Calculate velocity for "stretch" effect (liquid glass only)
             const now = Date.now();
             const dt = now - lastTime.current;
             if (dt > 0) {
@@ -71,7 +73,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     };
 
     const handlePointerUp = (e: React.PointerEvent) => {
-        if (!isDragging || !liquidGlass) return;
+        if (!isDragging || !isSwipeActive) return;
         setIsDragging(false);
         const rect = navRef.current?.getBoundingClientRect();
         if (rect && dragX !== null) {
@@ -86,6 +88,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
 
     const getNavClass = () => {
         if (liquidGlass) return 'liquid-shimmer-card rounded-t-[32px] border-t border-white/40';
+        if (summerMode) return 'bg-amber-50/60 dark:bg-amber-950/30 backdrop-blur-md border-t border-amber-200/30 dark:border-amber-800/30 rounded-t-[32px]';
         if (easterMode) return 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-t border-white/20 rounded-t-[32px]';
         return 'bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-gray-800 rounded-t-[32px]';
     };
@@ -103,7 +106,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className={`relative w-full px-2 py-4 flex justify-around items-center transition-all duration-500 overflow-hidden select-none ${liquidGlass ? 'touch-none' : 'touch-auto'} ${getNavClass()}`}
+            className={`relative w-full px-2 py-4 flex justify-around items-center transition-all duration-500 overflow-hidden select-none ${isSwipeActive ? 'touch-none' : 'touch-auto'} ${getNavClass()}`}
         >
             {/* Wobble Bubble Background (Liquid Glass only) */}
             {liquidGlass && (
@@ -126,10 +129,12 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
 
             {navItems.map((item) => {
                 const isActive = currentRoute === item.route;
-                const activeBg = !liquidGlass && easterMode && isActive ? 'bg-pink-100/70 dark:bg-pink-900/30' : '';
+                const activeBg = !liquidGlass && summerMode && isActive ? 'bg-amber-100/70 dark:bg-amber-900/30' : (!liquidGlass && easterMode && isActive ? 'bg-pink-100/70 dark:bg-pink-900/30' : '');
                 let textColor = '';
 
-                if (easterMode) {
+                if (summerMode) {
+                    textColor = isActive ? 'text-amber-600 dark:text-amber-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
+                } else if (easterMode) {
                     textColor = isActive ? 'text-[#db2777] dark:text-pink-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
                 } else if (isWeather && !liquidGlass) {
                     textColor = isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500';

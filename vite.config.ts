@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, root, '');
   const isProd = mode === 'production';
   return {
-    base: isProd ? '/FamilyHub/' : './',
+    base: './',
     server: {
       port: 5000,
       host: '0.0.0.0',

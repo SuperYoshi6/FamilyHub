@@ -452,12 +452,14 @@ serve(async (req) => {
 
     const tokens = await collectRecipientTokens(supabase, excludeUserId);
     if (tokens.length === 0) {
-      console.log("No target tokens found");
+      console.log("No target tokens found — users may need to (re)login to register their FCM token");
       return new Response(JSON.stringify({ success: true, message: "No tokens to notify" }), {
         status: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     }
+
+    console.log(`Found ${tokens.length} recipient token(s):`, tokens.map((t: string) => t.substring(0, 20) + "..."));
 
     const notificationData = {
       click_action: "FLUTTER_NOTIFICATION_CLICK",

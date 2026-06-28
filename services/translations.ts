@@ -89,6 +89,10 @@ const translations = {
       description: 'Wir polieren gerade die Ecken! Der Familien-Hub bekommt ein kleines Update und ist gleich wieder für euch da. Danke für eure Geduld! 🛠️✨',
       download_update: 'Update herunterladen',
       active_error: 'Wartungsmodus aktiv. Login nur für Administratoren.',
+    },
+    summer: {
+      title: 'Sommer-Modus',
+      summer: 'Sommer',
     }
   },
   en: {
@@ -165,6 +169,10 @@ const translations = {
       description: 'The app is currently being updated. Please try again later.',
       download_update: 'Download Update',
       active_error: 'Maintenance mode active. Login only for administrators.',
+    },
+    summer: {
+      title: 'Summer Mode',
+      summer: 'Summer',
     }
   }
 };

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import SlidingTabs from '../components/SlidingTabs';
-import { ShoppingItem, Task, FamilyMember, Recipe, TaskPriority } from '../types';
+import { ShoppingItem, Task, FamilyMember, Recipe, MealPlan, TaskPriority } from '../types';
 import { ShoppingCart, Home, User, BookOpen, ChevronUp, ChevronDown, Plus, Tag, CheckCircle2, Circle, Trash2, Flag, AlignLeft, Lock, Loader2, Calendar, Clock, Utensils, X, Coffee, Sun } from 'lucide-react';
 
 interface ListsPageProps {
@@ -23,6 +23,7 @@ interface ListsPageProps {
     onUpdateRecipe?: (id: string, updates: Partial<Recipe>) => void;
     onAddIngredientsToShopping: (ingredients: string[]) => void;
     onAddMealToPlan: (day: string, mealName: string, ingredients: string[]) => void;
+    mealPlan?: MealPlan[];
     onProfileClick: () => void;
     liquidGlass?: boolean;
 }
@@ -763,7 +764,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                         const r = recipes.find(x => x.id === planningRecipeId);
                                         if (r) {
                                             const formattedIngs = r.ingredients.map(ing => typeof ing === 'string' ? ing : `${ing.amount} ${ing.name}`.trim());
-                                            onAddMealToPlan(planDay, r.name, formattedIngs, planSlot);
+                                            onAddMealToPlan(planDay, r.name, formattedIngs);
                                             setPlanningRecipeId(null);
                                         }
                                     }}

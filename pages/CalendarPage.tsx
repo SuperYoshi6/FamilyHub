@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import SlidingTabs from '../components/SlidingTabs';
-import { CalendarEvent, FamilyMember, NewsItem, Poll } from '../types';
+import { CalendarEvent, FamilyMember, NewsItem, Poll, PollOption } from '../types';
 import { MapPin, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Clock, Trash2, Plus, Edit2, Layout, FileText, Camera, Loader2, Hash, Users, User, Pin } from 'lucide-react';
 import { compressImage } from '../services/imageUtils';
 import { NativeCalendarService } from '../services/nativeCalendar';
@@ -109,7 +109,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     const [editingPollId, setEditingPollId] = useState<string | null>(null);
     const [pollQuestion, setPollQuestion] = useState('');
     const [pollDesc, setPollDesc] = useState('');
-    const [pollOptions, setPollOptions] = useState<{ id: string, text: string, description: string, votes?: string[] }[]>([
+    const [pollOptions, setPollOptions] = useState<PollOption[]>([
         { id: '1', text: '', description: '', votes: [] },
         { id: '2', text: '', description: '', votes: [] }
     ]);
@@ -739,7 +739,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                 }} className={`w-full rounded-xl p-2 text-[10px] outline-none ${liquidGlass ? 'bg-white/10 border-white/10 text-slate-700 dark:text-gray-400' : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`} />
                                             </div>
                                         ))}
-                                        <button type="button" onClick={() => setPollOptions([...pollOptions, { id: Date.now().toString(), text: '', description: '' }])} className="text-blue-500 text-xs font-bold p-1 hover:underline">+ Option hinzufügen</button>
+                                        <button type="button" onClick={() => setPollOptions([...pollOptions, { id: Date.now().toString(), text: '', description: '', votes: [] }])} className="text-blue-500 text-xs font-bold p-1 hover:underline">+ Option hinzufügen</button>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4">
@@ -966,7 +966,8 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                                     type="button"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`, '_blank');
+                                                                        const location = event.location ?? '';
+                                                                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`, '_blank');
                                                                     }}
                                                                     className="text-sm text-blue-500 dark:text-blue-400 hover:text-blue-600 mt-1 flex items-center hover:underline text-left"
                                                                 >
