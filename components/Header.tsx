@@ -1,6 +1,6 @@
 import React from 'react';
 import { FamilyMember } from '../types';
-import { Settings, Bell } from 'lucide-react';
+import { Settings, Bell, Sun } from 'lucide-react';
 import Logo from './Logo';
 
 interface HeaderProps {
@@ -10,17 +10,18 @@ interface HeaderProps {
   liquidGlass?: boolean;
   unreadNotifications?: number;
   onNotificationClick?: () => void;
+  summerMode?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-    title, currentUser, onProfileClick, liquidGlass, 
-    unreadNotifications = 0, onNotificationClick 
+const Header: React.FC<HeaderProps> = ({
+    title, currentUser, onProfileClick, liquidGlass,
+    unreadNotifications = 0, onNotificationClick, summerMode
 }) => {
   return (
     <header
       className={`px-4 pb-3 flex justify-between items-center transition-all duration-500 overflow-hidden ${liquidGlass ? 'backdrop-blur-2xl bg-white/10 dark:bg-white/5 shadow-[0_8px_24px_0_rgba(31,38,135,0.05)]' : 'bg-white dark:bg-slate-900 shadow-[0_1px_0_rgba(0,0,0,0.03)]'}`}
-      style={{ 
-        paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))' 
+      style={{
+        paddingTop: 'calc(12px + env(safe-area-inset-top, 0px))'
       }}
     >
       <div className="flex items-center space-x-3">
@@ -28,6 +29,11 @@ const Header: React.FC<HeaderProps> = ({
           <Logo size={32} />
         </div>
         <h1 className={`text-xl font-black tracking-tight ${liquidGlass ? 'text-slate-900 dark:text-white drop-shadow-sm' : 'text-gray-800 dark:text-white line-clamp-1'}`}>{title}</h1>
+        {summerMode && (
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400">
+            <Sun size={16} />
+          </span>
+        )}
       </div>
 
       <div className="flex items-center space-x-2">

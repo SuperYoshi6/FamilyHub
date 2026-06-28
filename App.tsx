@@ -75,10 +75,9 @@ const DEFAULT_APP_SETTINGS = {
 
 const formatForDateTimeLocal = (isoString: string | null) => {
   if (!isoString) return '';
-  const d = new Date(isoString);
-  if (isNaN(d.getTime())) return isoString.slice(0, 16);
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // Strip timezone and any sub-second precision: datetime-local wants "yyyy-MM-ddThh:mm" or "yyyy-MM-ddThh:mm:ss"
+  const clean = isoString.replace(/[+-]\d{2}:\d{2}$/, '').replace('Z', '');
+  return clean.slice(0, 16);
 };
 
 const App: React.FC = () => {
@@ -1219,7 +1218,7 @@ const App: React.FC = () => {
         }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onTriggerPushTest={triggerPushTest} onNavigate={setCurrentRoute} events={events} />;
         break;
       default:
-        PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} />;
+        PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} summerMode={effectiveSummerMode} />;
     }
 
     return (

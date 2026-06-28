@@ -22,11 +22,12 @@ interface DashboardProps {
   news: NewsItem[];
   onMarkNewsRead?: (id: string) => void;
   liquidGlass?: boolean;
+  summerMode?: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
   family, currentUser, events, shoppingCount, openTaskCount = 0, todayMeal, onNavigate, onProfileClick, lang, weatherFavorites = [],
-  currentWeatherLocation, onUpdateWeatherLocation, news, onMarkNewsRead, liquidGlass
+  currentWeatherLocation, onUpdateWeatherLocation, news, onMarkNewsRead, liquidGlass, summerMode
 }) => {
   const [calendarView, setCalendarView] = useState<'family' | 'private'>('family');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
@@ -111,6 +112,21 @@ const Dashboard: React.FC<DashboardProps> = ({
     return 'from-blue-500 to-cyan-600';
   };
 
+  /** Dynamisches Wetter-Icon basierend auf WMO Weather Code */
+  const getWeatherIcon = (code: number, day: number, iconSize: number) => {
+    if (code === 0) return <Sun size={iconSize} strokeWidth={2.5} className={day ? 'text-amber-400' : 'text-indigo-300'} />;
+    if (code >= 1 && code <= 2) return <Sun size={iconSize} strokeWidth={2.5} className="text-amber-400/70" />;
+    if (code === 3) return <Cloud size={iconSize} strokeWidth={2.5} className="text-gray-400" />;
+    if (code >= 45 && code <= 48) return <CloudFog size={iconSize} strokeWidth={2.5} className="text-gray-400" />;
+    if (code >= 51 && code <= 57) return <CloudRain size={iconSize} strokeWidth={2.5} className="text-blue-400" />;
+    if (code >= 61 && code <= 67) return <CloudRain size={iconSize} strokeWidth={2.5} className="text-blue-500" />;
+    if (code >= 71 && code <= 77) return <CloudSnow size={iconSize} strokeWidth={2.5} className="text-sky-200" />;
+    if (code >= 80 && code <= 82) return <CloudRain size={iconSize} strokeWidth={2.5} className="text-blue-500" />;
+    if (code >= 95) return <CloudLightning size={iconSize} strokeWidth={2.5} className="text-amber-500" />;
+    // Default: bewölkt
+    return <Cloud size={iconSize} strokeWidth={2.5} className="text-gray-400" />;
+  };
+
   const getGreetingData = () => {
     const hours = new Date().getHours();
     if (hours >= 5 && hours < 11) return { main: "Guten Morgen", sub: "Bereit für den Tag?" };
@@ -129,6 +145,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         currentUser={currentUser}
         onProfileClick={onProfileClick}
         liquidGlass={liquidGlass}
+        summerMode={summerMode}
       />
       <main className="p-5 space-y-5 max-w-2xl mx-auto">
 
@@ -151,8 +168,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           className={`w-full relative ${liquidGlass ? 'liquid-shimmer-card rounded-[2rem] border-transparent' : 'bg-white dark:bg-slate-900 rounded-[2rem] border-slate-100 dark:border-slate-800 shadow-sm'} p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group active:scale-[0.98] outline-none overflow-hidden`}
         >
           <div className="flex items-center space-x-6">
-            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-500 shadow-inner">
-              <CloudRain size={36} strokeWidth={2.5} />
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center shadow-inner">
+              {getWeatherIcon(weatherCode, isDay, 36)}
             </div>
             <div className="text-left">
               <span className="text-5xl font-black text-slate-800 dark:text-white block leading-tight tracking-tighter">
