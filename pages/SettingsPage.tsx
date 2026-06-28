@@ -923,7 +923,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden bg-white dark:bg-gray-800`}>
                                 <button onClick={() => setActiveModal('feedback')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
                                     <div className="flex items-center space-x-3">
-                                        <div className="bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 p-2 rounded-full"><MessageSquare size={18} /></div>
+                                        <div className={`${wmMode ? 'bg-yellow-50 dark:bg-yellow-900/20 text-red-600 dark:text-yellow-400' : summerMode ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400'} p-2 rounded-full`}><MessageSquare size={18} /></div>
                                         <span className="font-medium text-gray-800 dark:text-white">Fehler melden</span>
                                     </div>
                                     <ChevronRight size={18} className="text-gray-400" />
@@ -931,7 +931,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                                 <button onClick={() => setActiveModal('about')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
                                     <div className="flex items-center space-x-0">
-                                        <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 p-2 rounded-full"><Info size={18} /></div>
+                                        <div className={`${wmMode ? 'bg-yellow-50 dark:bg-red-900/20 text-red-600 dark:text-yellow-400' : summerMode ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'} p-2 rounded-full`}><Info size={18} /></div>
                                         <span className="text-sm font-medium text-gray-800 dark:text-white">App Info & Updates</span>
                                     </div>
                                     <div className="flex items-center gap-2">

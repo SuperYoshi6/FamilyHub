@@ -15,6 +15,8 @@ interface SlidingTabsProps {
     className?: string;
     /** `scroll`: Tabs behalten natürliche Breite, Zeile scrollt horizontal, Schiebe-Blase per Messung (z. B. Listen). */
     variant?: 'equal' | 'scroll';
+    /** Farbschema: 'blue' (Standard), 'amber' (Sommer), 'red-yellow' (WM) */
+    colorScheme?: 'blue' | 'amber' | 'red-yellow';
 }
 
 const SlidingTabs: React.FC<SlidingTabsProps> = ({
@@ -24,6 +26,7 @@ const SlidingTabs: React.FC<SlidingTabsProps> = ({
     liquidGlass,
     className = '',
     variant = 'equal',
+    colorScheme = 'blue',
 }) => {
     const scrollWrapRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -58,7 +61,7 @@ const SlidingTabs: React.FC<SlidingTabsProps> = ({
 
     useLayoutEffect(() => {
         updateBubblePx();
-    }, [updateBubblePx, tabs.length, activeTabId, liquidGlass]);
+    }, [updateBubblePx, tabs.length, activeTabId, liquidGlass, colorScheme]);
 
     useLayoutEffect(() => {
         if (!isScroll || !containerRef.current) return;
@@ -201,9 +204,11 @@ const SlidingTabs: React.FC<SlidingTabsProps> = ({
                                 : 'flex-1 min-w-0 px-1 py-2'
                         } ${
                             isActive
-                                ? liquidGlass
-                                    ? 'text-blue-700 dark:text-blue-300'
-                                    : 'text-blue-600 dark:text-blue-400'
+                                ? colorScheme === 'red-yellow'
+                                    ? (liquidGlass ? 'text-red-700 dark:text-yellow-300' : 'text-red-600 dark:text-yellow-400')
+                                    : colorScheme === 'amber'
+                                        ? (liquidGlass ? 'text-amber-700 dark:text-amber-300' : 'text-amber-600 dark:text-amber-400')
+                                        : (liquidGlass ? 'text-blue-700 dark:text-blue-300' : 'text-blue-600 dark:text-blue-400')
                                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                         }`}
                     >

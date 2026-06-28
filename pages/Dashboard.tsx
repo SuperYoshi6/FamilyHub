@@ -257,6 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               activeTabId={calendarView}
               onTabChange={(id) => setCalendarView(id as 'family' | 'private')}
               liquidGlass={liquidGlass}
+              colorScheme={wmMode ? 'red-yellow' : summerMode ? 'amber' : 'blue'}
               className="w-48"
             />
           </div>
