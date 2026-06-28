@@ -85,8 +85,8 @@ const translations = {
       logged_in_as: 'Angemeldet als',
     },
     maintenance: {
-      title: 'Wartungsmodus.',
-      description: 'Wir polieren gerade die Ecken! Der Familien-Hub bekommt ein kleines Update und ist gleich wieder für euch da. Danke für eure Geduld! 🛠️✨',
+      title: 'Wartungsmodus',
+      description: 'Wir polieren gerade die Ecken! Der Family-Hub bekommt ein kleines Update und ist gleich wieder für euch da. Danke für eure Geduld! 🛠️✨',
       download_update: 'Update herunterladen',
       active_error: 'Wartungsmodus aktiv. Login nur für Administratoren.',
     },

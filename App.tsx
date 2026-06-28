@@ -720,14 +720,12 @@ const App: React.FC = () => {
     // Trigger push notification via edge function
     try {
       console.log('📡 Sending admin broadcast to edge function...');
-      const { data: { session } } = await supabase?.auth?.getSession() || { data: { session: null } };
+      const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8';
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8',
+        'Authorization': `Bearer ${ANON_KEY}`,
+        'apikey': ANON_KEY,
       };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
       const body = JSON.stringify({
         trigger: 'manual_broadcast',
         title,
@@ -763,11 +761,13 @@ const App: React.FC = () => {
     // 2. Also trigger edge function directly (works without webhook config)
     try {
       console.log('📡 Triggering push-test via edge function...');
+      const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8';
       const resp = await fetch('https://hjkmfodzhradtkeiyele.supabase.co/functions/v1/push-notify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8',
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'apikey': ANON_KEY,
         },
         body: JSON.stringify({
           trigger: 'manual_broadcast',

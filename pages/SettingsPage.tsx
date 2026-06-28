@@ -26,6 +26,7 @@ interface SettingsPageProps {
     summerMode?: boolean;
     onToggleSummerMode?: () => void;
     easterMode?: boolean;
+    onToggleEasterMode?: () => void;
     liquidGlass?: boolean;
     onToggleLiquidGlass?: () => void;
     globalEasterEnabled?: boolean;
