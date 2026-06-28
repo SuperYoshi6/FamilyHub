@@ -81,7 +81,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <Monitor size={24} />
                                     </div>
                                     <div>
-                                        <div className="font-black text-sm">Windows (bald verfügbar)</div>
+                                        <div className="font-black text-sm">Windows</div>
                                         <div className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">Desktop App</div>
                                     </div>
                                 </div>

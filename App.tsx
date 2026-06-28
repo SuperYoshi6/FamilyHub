@@ -327,10 +327,10 @@ const App: React.FC = () => {
 
   // Mode data attributes for CSS theming
   useEffect(() => {
-    document.documentElement.toggleAttribute('data-easter', effectiveEasterMode);
+    document.documentElement.toggleAttribute('data-easter', easterMode);
     document.documentElement.toggleAttribute('data-wm', effectiveWmMode);
     document.documentElement.toggleAttribute('data-summer', effectiveSummerMode);
-  }, [effectiveEasterMode, effectiveWmMode, effectiveSummerMode]);
+  }, [easterMode, effectiveWmMode, effectiveSummerMode]);
 
   useEffect(() => {
     if (!loadingData && family.length > 0 && !currentUser) {
