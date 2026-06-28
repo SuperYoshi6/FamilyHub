@@ -1009,7 +1009,7 @@ const App: React.FC = () => {
           <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
             {t('maintenance.title', language)}
           </div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">{t('maintenance.title', language)}</h2>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">{t('maintenance.headline', language)}</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-2">{t('maintenance.description', language)}</p>
           {countdown && (
             <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-4">Endet in {countdown}</div>
