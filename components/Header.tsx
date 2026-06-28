@@ -31,9 +31,20 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         <h1 className={`text-xl font-black tracking-tight ${liquidGlass ? 'text-slate-900 dark:text-white drop-shadow-sm' : 'text-gray-800 dark:text-white line-clamp-1'}`}>{title}</h1>
         {wmMode && (
-          <span className="inline-flex items-center justify-center w-12 h-7 bg-gradient-to-b from-yellow-400 to-yellow-600 dark:from-yellow-500 dark:to-yellow-700 rounded-lg shadow-sm text-red-700 dark:text-red-800 text-sm font-black tracking-tight" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}>
-            26
-          </span>
+          <img
+            src="https://upload.wikimedia.org/wikipedia/en/thumb/6/6c/2026_FIFA_World_Cup.svg/120px-2026_FIFA_World_Cup.svg.png"
+            alt="FIFA World Cup 2026"
+            className="h-7 w-auto"
+            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}
+            onError={(e) => {
+              // Fallback: zeige "26" Badge wenn Bild nicht lädt
+              (e.target as HTMLImageElement).style.display = 'none';
+              const fallback = document.createElement('span');
+              fallback.className = 'inline-flex items-center justify-center w-12 h-7 bg-gradient-to-b from-yellow-400 to-yellow-600 dark:from-yellow-500 dark:to-yellow-700 rounded-lg shadow-sm text-red-700 dark:text-red-800 text-sm font-black tracking-tight';
+              fallback.textContent = '26';
+              (e.target as HTMLImageElement).after(fallback);
+            }}
+          />
         )}
         {summerMode && !wmMode && (
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400">
