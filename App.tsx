@@ -466,7 +466,7 @@ const App: React.FC = () => {
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase?.removeChannel(channel);
     };
   }, [loadAllData]);
 
