@@ -179,31 +179,36 @@ function resolveFirebaseCredentials(): { clientEmail: string; privateKey: string
 }
 
 async function collectRecipientTokens(supabase: ReturnType<typeof createClient>, excludeUserId?: string) {
-  const tokenSet = new Set<string>();
+  const tokenSet = new Map<string, string>(); // token → source
 
   const { data: tokensData, error: tokensError } = await supabase.from("fcm_tokens").select("token, user_id");
   if (tokensError) {
-    console.warn("fcm_tokens table read failed:", tokensError.message);
+    console.warn("[push-notify] fcm_tokens table read failed:", tokensError.message);
   } else {
     (tokensData || []).forEach((t: TokenRow) => {
       if (t?.token && t.user_id && t.user_id !== excludeUserId) {
-        tokenSet.add(t.token);
+        tokenSet.set(t.token, "fcm_tokens");
       }
     });
   }
 
   const { data: familyTokens, error: familyTokensError } = await supabase.from("family").select("fcm_token, id");
   if (familyTokensError) {
-    console.warn("family token read failed:", familyTokensError.message);
+    console.warn("[push-notify] family token read failed:", familyTokensError.message);
   } else {
     (familyTokens || []).forEach((t: FamilyRow) => {
-      if (t?.fcm_token && t.id !== excludeUserId) {
-        tokenSet.add(t.fcm_token);
+      if (t?.fcm_token && t.id !== excludeUserId && !tokenSet.has(t.fcm_token)) {
+        tokenSet.set(t.fcm_token, `family.${t.id}`);
       }
     });
   }
 
-  return [...tokenSet];
+  // Log sources for debugging
+  for (const [token, source] of tokenSet) {
+    console.log(`[push-notify] Token ${token.substring(0, 20)}... from ${source}`);
+  }
+
+  return [...tokenSet.keys()];
 }
 
 async function collectWeatherRecipients(supabase: ReturnType<typeof createClient>) {
@@ -490,8 +495,11 @@ serve(async (req) => {
         const resp = await sendFcmMessage(accessToken, projectId, token, notificationTitle, notificationBody, notificationData);
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok && isInvalidFcmToken(data)) {
-          console.log(`Removing stale token: ${token.substring(0, 20)}...`);
+          console.log(`[push-notify] Removing stale token: ${token.substring(0, 20)}...`);
+          // Remove from fcm_tokens table
           await supabase.from("fcm_tokens").delete().eq("token", token);
+          // Also clear from family row (fallback source)
+          await supabase.from("family").update({ fcm_token: null }).eq("fcm_token", token);
         }
         return { token: token.substring(0, 20) + "...", status: resp.status, ok: resp.ok };
       } catch (e) {
