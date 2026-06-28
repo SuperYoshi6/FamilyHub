@@ -1,6 +1,6 @@
 import React from 'react';
 import { FamilyMember } from '../types';
-import { Settings, Bell, Sun, Trophy } from 'lucide-react';
+import { Settings, Bell, Sun } from 'lucide-react';
 import Logo from './Logo';
 
 interface HeaderProps {
@@ -31,8 +31,8 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         <h1 className={`text-xl font-black tracking-tight ${liquidGlass ? 'text-slate-900 dark:text-white drop-shadow-sm' : 'text-gray-800 dark:text-white line-clamp-1'}`}>{title}</h1>
         {wmMode && (
-          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-yellow-100 dark:bg-red-900/30 text-red-600 dark:text-yellow-400">
-            <Trophy size={16} />
+          <span className="inline-flex items-center justify-center w-12 h-7 bg-gradient-to-b from-yellow-400 to-yellow-600 dark:from-yellow-500 dark:to-yellow-700 rounded-lg shadow-sm text-red-700 dark:text-red-800 text-sm font-black tracking-tight" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}>
+            26
           </span>
         )}
         {summerMode && !wmMode && (
