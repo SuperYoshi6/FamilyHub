@@ -386,7 +386,7 @@ const App: React.FC = () => {
       if (Capacitor.isNativePlatform() && ev.length > 0) {
         try {
           const { NativeCalendarService } = await import('./services/nativeCalendar');
-          setTimeout(() => NativeCalendarService.syncAllToNative(ev), 5000);
+          setTimeout(() => NativeCalendarService.syncAllToNative(ev, family), 5000);
         } catch (e) {
           console.error('Auto Calendar Sync fail:', e);
         }
@@ -869,7 +869,7 @@ const App: React.FC = () => {
     await Backend.events.add(ev);
     try {
       const { NativeCalendarService } = await import('./services/nativeCalendar');
-      await NativeCalendarService.syncEventToNative(ev);
+      await NativeCalendarService.syncEventToNative(ev, family);
     } catch (err) {
       console.warn('Native Sync failed:', err);
     }
@@ -882,7 +882,7 @@ const App: React.FC = () => {
       const current = events.find(ev => ev.id === id);
       if (current) {
         const { NativeCalendarService } = await import('./services/nativeCalendar');
-        await NativeCalendarService.updateEventInNative({ ...current, ...updates });
+        await NativeCalendarService.updateEventInNative({ ...current, ...updates }, family);
       }
     } catch (err) {
       console.warn('Native Update failed:', err);
