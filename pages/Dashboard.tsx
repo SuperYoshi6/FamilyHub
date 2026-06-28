@@ -115,8 +115,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   /** Dynamisches Wetter-Icon basierend auf WMO Weather Code */
   const getWeatherIcon = (code: number, day: number, iconSize: number) => {
     if (code === 0) return <Sun size={iconSize} strokeWidth={2.5} className={day ? 'text-amber-400' : 'text-indigo-300'} />;
-    if (code >= 1 && code <= 2) return <Sun size={iconSize} strokeWidth={2.5} className="text-amber-400/70" />;
-    if (code === 3) return <Cloud size={iconSize} strokeWidth={2.5} className="text-gray-400" />;
+    if (code >= 1 && code <= 3) return <Cloud size={iconSize} strokeWidth={2.5} className="text-gray-400" />;
     if (code >= 45 && code <= 48) return <CloudFog size={iconSize} strokeWidth={2.5} className="text-gray-400" />;
     if (code >= 51 && code <= 57) return <CloudRain size={iconSize} strokeWidth={2.5} className="text-blue-400" />;
     if (code >= 61 && code <= 67) return <CloudRain size={iconSize} strokeWidth={2.5} className="text-blue-500" />;
