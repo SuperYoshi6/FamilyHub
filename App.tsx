@@ -326,10 +326,17 @@ const App: React.FC = () => {
   }, [darkMode]);
 
   // Mode data attributes for CSS theming
+  // Ensure attributes are set correctly on mount AND whenever modes change
   useEffect(() => {
-    document.documentElement.toggleAttribute('data-easter', easterMode);
-    document.documentElement.toggleAttribute('data-wm', effectiveWmMode);
-    document.documentElement.toggleAttribute('data-summer', effectiveSummerMode);
+    const el = document.documentElement;
+    // Always clean stale attributes first (handles any leftover from previous session)
+    el.removeAttribute('data-easter');
+    el.removeAttribute('data-wm');
+    el.removeAttribute('data-summer');
+    // Then set active modes
+    if (easterMode) el.setAttribute('data-easter', '');
+    if (effectiveWmMode) el.setAttribute('data-wm', '');
+    if (effectiveSummerMode) el.setAttribute('data-summer', '');
   }, [easterMode, effectiveWmMode, effectiveSummerMode]);
 
   useEffect(() => {
