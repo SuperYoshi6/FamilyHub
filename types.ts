@@ -83,6 +83,7 @@ export interface AppSettings {
   global_easter_enabled?: boolean;
   global_liquid_glass_enabled?: boolean;
   global_summer_enabled?: boolean;
+  global_wm_enabled?: boolean;
   push_test_at?: string | null;
   push_test_title?: string | null;
   push_test_message?: string | null;

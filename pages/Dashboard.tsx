@@ -23,11 +23,12 @@ interface DashboardProps {
   onMarkNewsRead?: (id: string) => void;
   liquidGlass?: boolean;
   summerMode?: boolean;
+  wmMode?: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
   family, currentUser, events, shoppingCount, openTaskCount = 0, todayMeal, onNavigate, onProfileClick, lang, weatherFavorites = [],
-  currentWeatherLocation, onUpdateWeatherLocation, news, onMarkNewsRead, liquidGlass, summerMode
+  currentWeatherLocation, onUpdateWeatherLocation, news, onMarkNewsRead, liquidGlass, summerMode, wmMode
 }) => {
   const [calendarView, setCalendarView] = useState<'family' | 'private'>('family');
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
@@ -145,6 +146,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         onProfileClick={onProfileClick}
         liquidGlass={liquidGlass}
         summerMode={summerMode}
+        wmMode={wmMode}
       />
       <main className="p-5 space-y-5 max-w-2xl mx-auto">
 

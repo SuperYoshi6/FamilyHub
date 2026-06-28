@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FamilyMember, FeedbackItem, NewsItem, AppRoute, CalendarEvent } from '../types';
-import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils, Palmtree } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils, Palmtree, Trophy, Target } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
 import Logo from '../components/Logo';
@@ -25,6 +25,8 @@ interface SettingsPageProps {
     onToggleChristmasMode?: () => void;
     summerMode?: boolean;
     onToggleSummerMode?: () => void;
+    wmMode?: boolean;
+    onToggleWmMode?: () => void;
     easterMode?: boolean;
     onToggleEasterMode?: () => void;
     liquidGlass?: boolean;
@@ -35,6 +37,8 @@ interface SettingsPageProps {
     onToggleGlobalLiquidGlass?: () => void;
     globalSummerEnabled?: boolean;
     onToggleGlobalSummer?: () => void;
+    globalWmEnabled?: boolean;
+    onToggleGlobalWm?: () => void;
     onTriggerSecurityScreen?: (id: string) => void;
     disabledTabs?: Record<string, boolean>;
     onToggleTabDisabled?: (route: AppRoute) => void;
@@ -87,7 +91,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, summerMode, onToggleSummerMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, globalSummerEnabled, onToggleGlobalSummer, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, summerMode, onToggleSummerMode, wmMode, onToggleWmMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, globalSummerEnabled, onToggleGlobalSummer, globalWmEnabled, onToggleGlobalWm, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e293b&color=fff&bold=true`);
@@ -141,6 +145,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const isEasterLocked = !isAdmin && globalEasterEnabled === false;
     const isLiquidLocked = !isAdmin && globalLiquidGlassEnabled === false;
     const isSummerLocked = !isAdmin && globalSummerEnabled === false;
+    const isWmLocked = !isAdmin && globalWmEnabled === false;
     const tabOptions = [
         { route: AppRoute.WEATHER, label: 'Wetter', icon: Droplets },
         { route: AppRoute.CALENDAR, label: 'Kalender', icon: Calendar },
@@ -584,6 +589,27 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 </>
                             )}
 
+                            {/* 6.5. WM Mode */}
+                            {onToggleWmMode && (
+                                <>
+                                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                                    <div className="flex items-center justify-between py-2">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="bg-yellow-100 dark:bg-red-900/30 p-2 rounded-full text-red-600 dark:text-yellow-400">
+                                                <Trophy size={20} />
+                                            </div>
+                                            <span className="font-bold text-gray-800 dark:text-white">WM-Modus</span>
+                                        </div>
+                                        <button onClick={() => { if (!isWmLocked) onToggleWmMode(); }} disabled={isWmLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${wmMode ? 'bg-red-600' : 'bg-gray-300'} ${isWmLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${wmMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                    {isWmLocked && (
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 ml-12">Vom Admin deaktiviert</div>
+                                    )}
+                                </>
+                            )}
+
                             {/* 7. Liquid Glass Mode (Interactive) */}
                             {onToggleLiquidGlass && (
                                 <>
@@ -652,6 +678,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                     </div>
                                                     <button onClick={onToggleGlobalSummer} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalSummerEnabled ? 'bg-amber-500' : 'bg-gray-300'}`}>
                                                         <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalSummerEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {onToggleGlobalWm && (
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="bg-yellow-100 dark:bg-red-900/30 p-2 rounded-full text-red-600 dark:text-yellow-400">
+                                                            <Trophy size={16} />
+                                                        </div>
+                                                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">WM-Modus für alle</span>
+                                                    </div>
+                                                    <button onClick={onToggleGlobalWm} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalWmEnabled ? 'bg-red-600' : 'bg-gray-300'}`}>
+                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalWmEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </button>
                                                 </div>
                                             )}

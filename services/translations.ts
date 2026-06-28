@@ -87,14 +87,18 @@ const translations = {
     maintenance: {
       title: 'Wartungsmodus',
       headline: 'Die App ist gerade nicht verfügbar!',
-      description: 'Wir polieren gerade die Ecken! Der Family-Hub bekommt ein kleines Update und ist gleich wieder für euch da. Danke für eure Geduld! 🛠️✨',
+      description: 'Wir polieren gerade die Ecken! Der Family-Hub bekommt ein kleines Update und ist gleich wieder für dich da. Danke für deine Geduld! 🛠️✨',
       download_update: 'Update herunterladen',
       active_error: 'Wartungsmodus aktiv. Login nur für Administratoren.',
     },
     summer: {
       title: 'Sommer-Modus',
       summer: 'Sommer',
-    }
+    },
+    wm: {
+      title: 'WM-Modus',
+      wm: 'WM 2026',
+    },
   },
   en: {
     nav: {
@@ -175,6 +179,10 @@ const translations = {
     summer: {
       title: 'Summer Mode',
       summer: 'Summer',
-    }
+    },
+    wm: {
+      title: 'World Cup Mode',
+      wm: 'World Cup 2026',
+    },
   }
 };
