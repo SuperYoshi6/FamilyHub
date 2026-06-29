@@ -1349,16 +1349,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             <button onClick={() => setActiveModal('none')} className={`absolute top-4 right-4 ${closeBtnClass}`}><X size={24} /></button>
                             {!feedbackSent ? (
                                 <form onSubmit={submitFeedback} className="space-y-4">
-                                    <h3 className={`text-lg font-bold ${titleClass} flex items-center`}><MessageSquare size={20} className="mr-2 text-pink-500" /> Fehler melden</h3>
+                                    <h3 className={`text-lg font-bold ${titleClass} flex items-center`}><MessageSquare size={20} className={`mr-2 ${wmMode ? 'text-red-600' : summerMode ? 'text-amber-500' : 'text-pink-500'}`} /> Fehler melden</h3>
                                     <textarea
                                         value={feedbackText}
                                         onChange={(e) => setFeedbackText(e.target.value)}
                                         placeholder="Bitte beschreibe den Fehler oder das Problem..."
                                         rows={4}
                                         required
-                                        className={`w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-pink-500 outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
+                                        className={`w-full rounded-xl p-3 text-sm focus:ring-2 ${wmMode ? 'focus:ring-red-500' : summerMode ? 'focus:ring-amber-500' : 'focus:ring-pink-500'} outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
                                     />
-                                    <button type="submit" className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition">Absenden</button>
+                                    <button type="submit" className={`w-full font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition text-white ${wmMode ? 'bg-red-600 hover:bg-red-700' : summerMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-pink-500 hover:bg-pink-600'}`}>Absenden</button>
                                 </form>
                             ) : (
                                 <div className="py-8 flex flex-col items-center text-center animate-fade-in">
