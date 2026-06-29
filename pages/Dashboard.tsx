@@ -266,12 +266,12 @@ const Dashboard: React.FC<DashboardProps> = ({
               <button
                 key={event.id}
                 onClick={() => onNavigate(AppRoute.CALENDAR)}
-                className={`w-full text-left p-5 rounded-[2rem] border ${liquidGlass ? 'liquid-shimmer-card border-white/20' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'} flex items-center border-l-8 border-l-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-[0.99]`}
+                className={`w-full text-left p-5 rounded-[2rem] border ${liquidGlass ? 'liquid-shimmer-card border-white/20' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'} flex items-center border-l-8 ${wmMode ? 'border-l-red-600' : summerMode ? 'border-l-amber-500' : 'border-l-blue-500'} hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-[0.99]`}
               >
                 <div className="flex-1">
                   <h4 className="font-bold text-slate-800 dark:text-white text-lg">{event.title}</h4>
                   <div className="flex items-center text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">
-                    <Clock size={14} className="mr-1.5 text-blue-500" /> {event.time?.slice(0, 5)} {event.location && `• ${event.location}`}
+                    <Clock size={14} className={`mr-1.5 ${wmMode ? 'text-red-600' : summerMode ? 'text-amber-500' : 'text-blue-500'}`} /> {event.time?.slice(0, 5)} {event.location && `• ${event.location}`}
                   </div>
                 </div>
                 <ArrowRight className="text-slate-200" size={18} />
