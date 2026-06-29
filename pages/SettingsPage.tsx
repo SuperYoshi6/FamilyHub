@@ -1108,13 +1108,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                         <div className={`${modalBgClass} w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden relative max-h-[90vh] flex flex-col ${modalBorderClass} transition-colors`}>
 
                             {/* Header Gradient */}
-                            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-center relative shrink-0">
+                            <div className={`${wmMode ? 'bg-gradient-to-br from-red-700 to-yellow-600' : summerMode ? 'bg-gradient-to-br from-amber-600 to-orange-700' : 'bg-gradient-to-br from-blue-600 to-indigo-700'} p-6 text-center relative shrink-0`}>
                                 <button onClick={() => setActiveModal('none')} className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/20 p-1.5 rounded-full backdrop-blur-sm transition"><X size={20} /></button>
                                 <div className="bg-white p-3 rounded-2xl shadow-lg inline-block mb-3">
                                     <Logo size={48} />
                                 </div>
                                 <h2 className="text-2xl font-bold text-white tracking-tight">FamilyHub</h2>
-                                <p className="text-blue-100 text-sm font-medium opacity-90">Version {APP_VERSION}</p>
+                                <p className={`${wmMode ? 'text-yellow-200' : summerMode ? 'text-amber-200' : 'text-blue-100'} text-sm font-medium opacity-90`}>Version {APP_VERSION}</p>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6">
@@ -1128,15 +1128,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         <div className={`bg-cyan-50 dark:bg-cyan-900/10 border-cyan-100 p-3 rounded-xl border dark:border-cyan-800 flex gap-3 items-start`}>
                                             <div className={`bg-cyan-100 dark:bg-cyan-800 text-cyan-600 p-2 rounded-full dark:text-cyan-300 shrink-0`}><RotateCcw size={16} /></div>
                                             <div>
-                                                <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Wiederherstellung</h4>
-                                                <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Dashboard, Kalender und Listen zeigen wieder alle Inhalte an.</p>
+                                                <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Veröffentlichung</h4>
+                                                <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Die FamilyHub App wurde veröffentlicht!</p>
                                             </div>
                                         </div>
                                         <div className={`bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 p-3 rounded-xl border dark:border-indigo-800 flex gap-3 items-start`}>
                                             <div className={`bg-indigo-100 dark:bg-indigo-800 text-indigo-600 p-2 rounded-full dark:text-indigo-300 shrink-0`}><Droplets size={16} /></div>
                                             <div>
-                                                <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Liquid Exklusiv</h4>
-                                                <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Slider-Animationen und Gestensteuerung sind nur noch im Liquid-Modus aktiv.</p>
+                                                <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Passende Modi</h4>
+                                                <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Der passende Modus für jeden der nach einem etwas anderen Stil sucht.</p>
                                             </div>
                                         </div>
                                     </div>

@@ -90,7 +90,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <Smartphone size={24} />
                                     </div>
                                     <div>
-                                        <div className="font-black text-sm">Apple (bald verfügbar)</div>
+                                        <div className="font-black text-sm">Apple</div>
                                         <div className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">iPhone & iPad</div>
                                     </div>
                                 </div>

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Home, Calendar, ClipboardList, Utensils, CloudSun, TreePine, Snowflake, Gift, Cookie, CalendarHeart, Egg, Rabbit, Bird, Carrot, ShoppingBasket, Sun, Umbrella, IceCream, Palmtree, Trophy, Target } from 'lucide-react';
+import { Home, Calendar, ClipboardList, Utensils, CloudSun, TreePine, Snowflake, Gift, Cookie, CalendarHeart, Egg, Rabbit, Bird, Carrot, ShoppingBasket, Sun, Umbrella, IceCream, Palmtree, Trophy, Target, Star, FlagIcon } from 'lucide-react';
 import { AppRoute } from '../types';
 import { t, Language } from '../services/translations';
 
@@ -27,11 +27,11 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     const lastTime = useRef<number>(0);
 
     const navItems = [
-        { route: AppRoute.DASHBOARD, icon: wmMode ? Trophy : (summerMode ? Palmtree : (easterMode ? Egg : (christmasMode ? TreePine : Home))), label: t('nav.dashboard', lang) },
+        { route: AppRoute.DASHBOARD, icon: wmMode ? Star : (summerMode ? Palmtree : (easterMode ? Egg : (christmasMode ? TreePine : Home))), label: t('nav.dashboard', lang) },
         { route: AppRoute.WEATHER, icon: wmMode ? Target : (summerMode ? Sun : (easterMode ? Rabbit : (christmasMode ? Snowflake : CloudSun))), label: t('nav.weather', lang) },
-        { route: AppRoute.CALENDAR, icon: wmMode ? Target : (summerMode ? Umbrella : (easterMode ? Bird : (christmasMode ? CalendarHeart : Calendar))), label: t('nav.calendar', lang) },
-        { route: AppRoute.MEALS, icon: wmMode ? Trophy : (summerMode ? IceCream : (easterMode ? Carrot : (christmasMode ? Cookie : Utensils))), label: t('nav.meals', lang) },
-        { route: AppRoute.LISTS, icon: wmMode ? Target : (summerMode ? ShoppingBasket : (easterMode ? ShoppingBasket : (christmasMode ? Gift : ClipboardList))), label: t('nav.lists', lang) },
+        { route: AppRoute.CALENDAR, icon: wmMode ? Trophy : (summerMode ? Umbrella : (easterMode ? Bird : (christmasMode ? CalendarHeart : Calendar))), label: t('nav.calendar', lang) },
+        { route: AppRoute.MEALS, icon: wmMode ? Target : (summerMode ? IceCream : (easterMode ? Carrot : (christmasMode ? Cookie : Utensils))), label: t('nav.meals', lang) },
+        { route: AppRoute.LISTS, icon: wmMode ? Star: (summerMode ? ShoppingBasket : (easterMode ? ShoppingBasket : (christmasMode ? Gift : ClipboardList))), label: t('nav.lists', lang) },
     ];
 
     const activeIndex = navItems.findIndex(item => item.route === currentRoute);
