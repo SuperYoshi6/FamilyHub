@@ -180,9 +180,14 @@ const requestWebToken = async (userId: string): Promise<string | null> => {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') return null;
 
-    await navigator.serviceWorker.register('./firebase-messaging-sw.js', {
-      scope: './'
-    });
+    // Service worker registration — skip silently on localhost (Vite dev server
+    // doesn't serve firebase-messaging-sw.js, 404.html redirects it to index.html)
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalhost) {
+      await navigator.serviceWorker.register('./firebase-messaging-sw.js', {
+        scope: './'
+      });
+    }
 
     const vapidKey =
       (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
