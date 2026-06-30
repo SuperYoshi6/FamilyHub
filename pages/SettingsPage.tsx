@@ -1118,8 +1118,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             <Globe size={24} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-gray-900 dark:text-white text-base">Webseite der App</h3>
-                                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io</p>
+                                            <h3 className="font-bold text-gray-900 dark:text-white text-base">Besuche unsere Website</h3>
+                                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io/FamilyHub/install</p>
                                         </div>
                                     </div>
                                     <ExternalLink size={20} className="text-gray-400 group-hover:text-purple-500 transition ml-2" />

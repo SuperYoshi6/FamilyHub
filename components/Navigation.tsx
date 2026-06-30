@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Home, Calendar, ClipboardList, Utensils, CloudSun, TreePine, Snowflake, Gift, Cookie, CalendarHeart, Egg, Rabbit, Bird, Carrot, ShoppingBasket, Sun, Umbrella, IceCream, Palmtree, Trophy, Target, Star, FlagIcon } from 'lucide-react';
+import { Home, Calendar, ClipboardList, Utensils, CloudSun, TreePine, Snowflake, Gift, Cookie, CalendarHeart, Egg, Rabbit, Bird, Carrot, ShoppingBasket, Sun, Umbrella, IceCream, Palmtree } from 'lucide-react';
 import { AppRoute } from '../types';
 import { t, Language } from '../services/translations';
 
@@ -10,12 +10,11 @@ interface NavigationProps {
     christmasMode?: boolean;
     easterMode?: boolean;
     summerMode?: boolean;
-    wmMode?: boolean;
     liquidGlass?: boolean;
     enableSwipe?: boolean;
 }
 
-const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, easterMode, summerMode, wmMode, liquidGlass, enableSwipe }) => {
+const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, easterMode, summerMode, liquidGlass, enableSwipe }) => {
     const isWeather = currentRoute === AppRoute.WEATHER;
     const navRef = useRef<HTMLElement>(null);
 
@@ -27,11 +26,11 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     const lastTime = useRef<number>(0);
 
     const navItems = [
-        { route: AppRoute.DASHBOARD, icon: wmMode ? Star : (summerMode ? Palmtree : (easterMode ? Egg : (christmasMode ? TreePine : Home))), label: t('nav.dashboard', lang) },
-        { route: AppRoute.WEATHER, icon: wmMode ? Target : (summerMode ? Sun : (easterMode ? Rabbit : (christmasMode ? Snowflake : CloudSun))), label: t('nav.weather', lang) },
-        { route: AppRoute.CALENDAR, icon: wmMode ? Trophy : (summerMode ? Umbrella : (easterMode ? Bird : (christmasMode ? CalendarHeart : Calendar))), label: t('nav.calendar', lang) },
-        { route: AppRoute.MEALS, icon: wmMode ? Target : (summerMode ? IceCream : (easterMode ? Carrot : (christmasMode ? Cookie : Utensils))), label: t('nav.meals', lang) },
-        { route: AppRoute.LISTS, icon: wmMode ? Star: (summerMode ? ShoppingBasket : (easterMode ? ShoppingBasket : (christmasMode ? Gift : ClipboardList))), label: t('nav.lists', lang) },
+        { route: AppRoute.DASHBOARD, icon: summerMode ? Palmtree : (easterMode ? Egg : (christmasMode ? TreePine : Home)), label: t('nav.dashboard', lang) },
+        { route: AppRoute.WEATHER, icon: summerMode ? Sun : (easterMode ? Rabbit : (christmasMode ? Snowflake : CloudSun)), label: t('nav.weather', lang) },
+        { route: AppRoute.CALENDAR, icon: summerMode ? Umbrella : (easterMode ? Bird : (christmasMode ? CalendarHeart : Calendar)), label: t('nav.calendar', lang) },
+        { route: AppRoute.MEALS, icon: summerMode ? IceCream : (easterMode ? Carrot : (christmasMode ? Cookie : Utensils)), label: t('nav.meals', lang) },
+        { route: AppRoute.LISTS, icon: summerMode ? ShoppingBasket : (easterMode ? ShoppingBasket : (christmasMode ? Gift : ClipboardList)), label: t('nav.lists', lang) },
     ];
 
     const activeIndex = navItems.findIndex(item => item.route === currentRoute);
@@ -89,7 +88,6 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
 
     const getNavClass = () => {
         if (liquidGlass) return 'liquid-shimmer-card rounded-t-[32px] border-t border-white/40';
-        if (wmMode) return 'bg-yellow-50/60 dark:bg-red-950/30 backdrop-blur-md border-t border-yellow-300/30 dark:border-red-800/30 rounded-t-[32px]';
         if (summerMode) return 'bg-amber-50/60 dark:bg-amber-950/30 backdrop-blur-md border-t border-amber-200/30 dark:border-amber-800/30 rounded-t-[32px]';
         if (easterMode) return 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-t border-white/20 rounded-t-[32px]';
         return 'bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-gray-800 rounded-t-[32px]';
@@ -131,12 +129,10 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
 
             {navItems.map((item) => {
                 const isActive = currentRoute === item.route;
-                const activeBg = !liquidGlass && wmMode && isActive ? 'bg-yellow-100/70 dark:bg-red-900/30' : (!liquidGlass && summerMode && isActive ? 'bg-amber-100/70 dark:bg-amber-900/30' : (!liquidGlass && easterMode && isActive ? 'bg-pink-100/70 dark:bg-pink-900/30' : ''));
+                const activeBg = !liquidGlass && summerMode && isActive ? 'bg-amber-100/70 dark:bg-amber-900/30' : (!liquidGlass && easterMode && isActive ? 'bg-pink-100/70 dark:bg-pink-900/30' : '');
                 let textColor = '';
 
-                if (wmMode) {
-                    textColor = isActive ? 'text-red-600 dark:text-yellow-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
-                } else if (summerMode) {
+                if (summerMode) {
                     textColor = isActive ? 'text-amber-600 dark:text-amber-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
                 } else if (easterMode) {
                     textColor = isActive ? 'text-[#db2777] dark:text-pink-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';

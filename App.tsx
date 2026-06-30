@@ -68,7 +68,6 @@ const DEFAULT_APP_SETTINGS = {
   global_easter_enabled: true,
   global_liquid_glass_enabled: true,
   global_summer_enabled: true,
-  global_wm_enabled: true,
   push_test_at: null,
   push_test_title: null,
   push_test_message: null,
@@ -106,8 +105,6 @@ const App: React.FC = () => {
   const [globalLiquidGlassEnabled, setGlobalLiquidGlassEnabled] = useLocalSetting<boolean>('fh_global_liquidglass_enabled', true);
   const [summerMode, setSummerMode] = useLocalSetting<boolean>('fh_summermode', false);
   const [globalSummerEnabled, setGlobalSummerEnabled] = useLocalSetting<boolean>('fh_global_summer_enabled', true);
-  const [wmMode, setWmMode] = useLocalSetting<boolean>('fh_wmmode', false);
-  const [globalWmEnabled, setGlobalWmEnabled] = useLocalSetting<boolean>('fh_global_wm_enabled', true);
   const [maintenanceMode, setMaintenanceMode] = useLocalSetting<boolean>('fh_maintenance_mode', false);
   const [maintenanceStart, setMaintenanceStart] = useLocalSetting<string>('fh_maintenance_start', '');
   const [maintenanceEnd, setMaintenanceEnd] = useLocalSetting<string>('fh_maintenance_end', '');
@@ -202,11 +199,8 @@ const App: React.FC = () => {
   const allowEasterForUser = currentUser ? (currentUser.role === 'admin' || globalEasterEnabled) : globalEasterEnabled;
   const allowLiquidGlassForUser = currentUser ? (currentUser.role === 'admin' || globalLiquidGlassEnabled) : globalLiquidGlassEnabled;
   const allowSummerForUser = currentUser ? (currentUser.role === 'admin' || globalSummerEnabled) : globalSummerEnabled;
-  const allowWmForUser = currentUser ? (currentUser.role === 'admin' || globalWmEnabled) : globalWmEnabled;
 
-  // WM und Sommer schließen sich gegenseitig aus
-  const effectiveWmMode = allowWmForUser ? wmMode : false;
-  const effectiveSummerMode = (allowSummerForUser && !effectiveWmMode) ? summerMode : false;
+  const effectiveSummerMode = allowSummerForUser ? summerMode : false;
 
   const effectiveLiquidGlass = allowLiquidGlassForUser ? liquidGlass : false;
   const tabOrder: AppRoute[] = [AppRoute.DASHBOARD, AppRoute.WEATHER, AppRoute.CALENDAR, AppRoute.MEALS, AppRoute.LISTS];
@@ -331,13 +325,11 @@ const App: React.FC = () => {
     const el = document.documentElement;
     // Always clean stale attributes first (handles any leftover from previous session)
     el.removeAttribute('data-easter');
-    el.removeAttribute('data-wm');
     el.removeAttribute('data-summer');
     // Then set active modes
     if (easterMode) el.setAttribute('data-easter', '');
-    if (effectiveWmMode) el.setAttribute('data-wm', '');
     if (effectiveSummerMode) el.setAttribute('data-summer', '');
-  }, [easterMode, effectiveWmMode, effectiveSummerMode]);
+  }, [easterMode, effectiveSummerMode]);
 
   useEffect(() => {
     if (!loadingData && family.length > 0 && !currentUser) {
@@ -397,7 +389,6 @@ const App: React.FC = () => {
         if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
         if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
         if (typeof settingsRow.global_summer_enabled === 'boolean') setGlobalSummerEnabled(settingsRow.global_summer_enabled);
-        if (typeof settingsRow.global_wm_enabled === 'boolean') setGlobalWmEnabled(settingsRow.global_wm_enabled);
       } else {
         await Backend.appSettings.add(DEFAULT_APP_SETTINGS as any);
       }
@@ -579,7 +570,6 @@ const App: React.FC = () => {
       global_easter_enabled: globalEasterEnabled,
       global_liquid_glass_enabled: globalLiquidGlassEnabled,
       global_summer_enabled: globalSummerEnabled,
-      global_wm_enabled: globalWmEnabled,
     };
 
     const payloadStr = JSON.stringify(payload);
@@ -607,7 +597,6 @@ const App: React.FC = () => {
     if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
     if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
     if (typeof settingsRow.global_summer_enabled === 'boolean') setGlobalSummerEnabled(settingsRow.global_summer_enabled);
-    if (typeof settingsRow.global_wm_enabled === 'boolean') setGlobalWmEnabled(settingsRow.global_wm_enabled);
   };
 
   useEffect(() => {
@@ -1232,7 +1221,7 @@ const App: React.FC = () => {
         PageComponent = <ActivitiesPage onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} currentLocation={currentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.SETTINGS:
-        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} summerMode={summerMode} onToggleSummerMode={() => { setSummerMode(!summerMode); if (!summerMode) setWmMode(false); }} wmMode={wmMode} onToggleWmMode={() => { setWmMode(!wmMode); if (!wmMode) setSummerMode(false); }} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} globalSummerEnabled={globalSummerEnabled} onToggleGlobalSummer={() => setGlobalSummerEnabled(!globalSummerEnabled)} globalWmEnabled={globalWmEnabled} onToggleGlobalWm={() => setGlobalWmEnabled(!globalWmEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
+        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} summerMode={summerMode} onToggleSummerMode={() => setSummerMode(!summerMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} globalSummerEnabled={globalSummerEnabled} onToggleGlobalSummer={() => setGlobalSummerEnabled(!globalSummerEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
           const newVal = !maintenanceMode;
           setMaintenanceMode(newVal);
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
@@ -1241,7 +1230,7 @@ const App: React.FC = () => {
         }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onTriggerPushTest={triggerPushTest} onNavigate={setCurrentRoute} events={events} />;
         break;
       default:
-        PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} summerMode={effectiveSummerMode} wmMode={effectiveWmMode} />;
+        PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} summerMode={effectiveSummerMode} />;
     }
 
     return (
@@ -1280,7 +1269,7 @@ const App: React.FC = () => {
           {PageComponent}
         </main>
         <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${effectiveLiquidGlass ? 'bg-transparent dark:bg-transparent' : 'bg-white dark:bg-slate-900'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} summerMode={effectiveSummerMode} wmMode={effectiveWmMode} />
+          <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} summerMode={effectiveSummerMode} />
         </div>
 
         {showSecurityScreen && currentUser && (
