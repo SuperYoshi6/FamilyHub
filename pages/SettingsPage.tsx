@@ -589,27 +589,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 </>
                             )}
 
-                            {/* 6.5. WM Mode */}
-                            {onToggleWmMode && (
-                                <>
-                                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                                    <div className="flex items-center justify-between py-2">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="bg-yellow-100 dark:bg-red-900/30 p-2 rounded-full text-red-600 dark:text-yellow-400">
-                                                <Trophy size={20} />
-                                            </div>
-                                            <span className="font-bold text-gray-800 dark:text-white">WM-Modus</span>
-                                        </div>
-                                        <button onClick={() => { if (!isWmLocked) onToggleWmMode(); }} disabled={isWmLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${wmMode ? 'bg-red-600' : 'bg-gray-300'} ${isWmLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${wmMode ? 'translate-x-6' : 'translate-x-0'}`} />
-                                        </button>
-                                    </div>
-                                    {isWmLocked && (
-                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 ml-12">Vom Admin deaktiviert</div>
-                                    )}
-                                </>
-                            )}
-
                             {/* 7. Liquid Glass Mode (Interactive) */}
                             {onToggleLiquidGlass && (
                                 <>
@@ -678,19 +657,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                     </div>
                                                     <button onClick={onToggleGlobalSummer} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalSummerEnabled ? 'bg-amber-500' : 'bg-gray-300'}`}>
                                                         <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalSummerEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                            {onToggleGlobalWm && (
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center space-x-2">
-                                                        <div className="bg-yellow-100 dark:bg-red-900/30 p-2 rounded-full text-red-600 dark:text-yellow-400">
-                                                            <Trophy size={16} />
-                                                        </div>
-                                                        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">WM-Modus für alle</span>
-                                                    </div>
-                                                    <button onClick={onToggleGlobalWm} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${globalWmEnabled ? 'bg-red-600' : 'bg-gray-300'}`}>
-                                                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${globalWmEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
                                                     </button>
                                                 </div>
                                             )}
@@ -1126,14 +1092,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     </h3>
                                     <div className="space-y-3">
                                         <div className={`${wmMode ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800' : summerMode ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800' : 'bg-cyan-50 dark:bg-cyan-900/10 border-cyan-100 dark:border-cyan-800'} p-3 rounded-xl border flex gap-3 items-start`}>
-                                            <div className={`${wmMode ? 'bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300' : summerMode ? 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300' : 'bg-cyan-100 dark:bg-cyan-800 text-cyan-600 dark:text-cyan-300'} p-2 rounded-full shrink-0`}><RotateCcw size={16} /></div>
+                                            <div className={`${wmMode ? 'bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300' : summerMode ? 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-300' : 'bg-cyan-100 dark:bg-cyan-800 text-cyan-600 dark:text-cyan-300'} p-2 rounded-full shrink-0`}>{wmMode ? <Trophy size={16} /> : summerMode ? <Sun size={16} /> : <RotateCcw size={16} />}</div>
                                             <div>
                                                 <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Veröffentlichung</h4>
                                                 <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Die FamilyHub App wurde veröffentlicht!</p>
                                             </div>
                                         </div>
                                         <div className={`${wmMode ? 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-100 dark:border-yellow-800' : summerMode ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-800' : 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800'} p-3 rounded-xl border flex gap-3 items-start`}>
-                                            <div className={`${wmMode ? 'bg-yellow-100 dark:bg-yellow-800 text-yellow-600 dark:text-yellow-300' : summerMode ? 'bg-orange-100 dark:bg-orange-800 text-orange-600 dark:text-orange-300' : 'bg-indigo-100 dark:bg-indigo-800 text-indigo-600 dark:text-indigo-300'} p-2 rounded-full shrink-0`}><Droplets size={16} /></div>
+                                            <div className={`${wmMode ? 'bg-yellow-100 dark:bg-yellow-800 text-yellow-600 dark:text-yellow-300' : summerMode ? 'bg-orange-100 dark:bg-orange-800 text-orange-600 dark:text-orange-300' : 'bg-indigo-100 dark:bg-indigo-800 text-indigo-600 dark:text-indigo-300'} p-2 rounded-full shrink-0`}>{wmMode ? <Target size={16} /> : summerMode ? <Palmtree size={16} /> : <Droplets size={16} />}</div>
                                             <div>
                                                 <h4 className={`font-bold text-sm text-gray-800 dark:text-white`}>Passende Modi</h4>
                                                 <p className={`text-xs mt-0.5 text-gray-600 dark:text-gray-400`}>Der passende Modus für jeden der nach einem etwas anderen Stil sucht.</p>
