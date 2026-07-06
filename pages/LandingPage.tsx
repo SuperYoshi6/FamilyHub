@@ -37,7 +37,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
-                        Version 1.0.0 • Jetz bereit für den Altag
+                        Version 1.0.0 (Beta) • Jetzt bereit für den Alltag
                     </div>
                     <h1 className="text-7xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.85] animate-slide-up">
                         Das Herz eures<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Zuhauses.</span>
@@ -73,27 +73,27 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Android (APK)</div>
-                                        <div className="text-[10px] text-orange-500 font-bold tracking-widest mt-0.5">Vollversion v1.0.0</div>
+                                        <div className="text-[10px] text-orange-500 font-bold tracking-widest mt-0.5">Vollversion v1.0.0 (Beta)</div>
                                     </div>
                                 </a>
-                                <div className="flex items-center gap-4 p-4 rounded-2xl transition-all text-left mt-1 opacity-60 cursor-not-allowed">
-                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700/40 rounded-xl flex items-center justify-center text-slate-400">
+                                <a href="https://superyoshi6.github.io/FamilyHub/install" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
+                                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center text-green-600">
                                         <Monitor size={24} />
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Windows</div>
-                                        <div className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">Desktop App</div>
+                                        <div className="text-[10px] text-green-600 font-bold tracking-widest mt-0.5">Desktop App</div>
                                     </div>
-                                </div>
-                                <div className="flex items-center gap-4 p-4 rounded-2xl transition-all text-left mt-1 opacity-60 cursor-not-allowed">
-                                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700/40 rounded-xl flex items-center justify-center text-slate-400">
+                                </a>
+                                <a href="https://apps.apple.com/de/app/swift-playground/id908519492" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
+                                    <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 rounded-xl flex items-center justify-center text-pink-500">
                                         <Smartphone size={24} />
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Apple</div>
-                                        <div className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">iPhone & iPad</div>
+                                        <div className="text-[10px] text-pink-500 font-bold tracking-widest mt-0.5">Swift Playgrounds</div>
                                     </div>
-                                </div>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -146,7 +146,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                 <div className="max-w-4xl mx-auto">
                     <div className="flex items-center gap-4 mb-10">
                         <div className="h-12 w-1.5 bg-blue-600 rounded-full"></div>
-                        <h2 className="text-4xl font-black tracking-tight">Was ist neu? <span className="text-blue-600">v1.0.0</span></h2>
+                        <h2 className="text-4xl font-black tracking-tight">Was ist neu? <span className="text-blue-600">v1.0.0 (Beta)</span></h2>
                     </div>
                     <div className="grid gap-6">
                         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow">
@@ -242,13 +242,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
 
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <div className="bg-blue-500 p-1.5 rounded-lg shadow-sm"><Monitor size={16} /></div>
-                                            <h4 className="font-black tracking-widest text-xs">Windows (bald verfügbar)</h4>
+                                            <div className="bg-green-500 p-1.5 rounded-lg shadow-sm"><Monitor size={16} /></div>
+                                            <h4 className="font-black tracking-widest text-xs">Windows (Desktop)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
                                                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
-                                                <p className="flex-1 text-xs font-medium italic">Lade die <span className="underline decoration-blue-400">.exe</span> Datei herunter.</p>
+                                                <p className="flex-1 text-xs font-medium italic">Lade die <span className="underline decoration-green-400">.exe</span> Datei herunter.</p>
                                             </div>
                                             <div className="flex items-start gap-3">
                                                 <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
@@ -264,7 +264,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="bg-pink-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
-                                            <h4 className="font-black tracking-widest text-xs">Apple (bald verfügbar)</h4>
+                                            <h4 className="font-black tracking-widest text-xs">Apple (Swift Playgrounds)</h4>
                                         </div>
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">

@@ -46,36 +46,31 @@ const getPushNotifications = async (): Promise<any> => {
 };
 
 const saveTokenToSupabase = async (userId: string, token: string) => {
-  if (!supabase) return;
+  if (!supabase) {
+    console.warn('[FCM] saveTokenToSupabase: supabase not initialized');
+    return;
+  }
 
-  // Strategy 1: Try upsert with onConflict (requires unique constraint on token column)
-  const { error: tokenError } = await supabase
+  // Insert or update: delete old entry for this (user, token) first, then insert fresh
+  // Dadurch können mehrere Accounts auf einem Gerät je eigene Zeilen haben
+  const { error: deleteError } = await supabase
     .from('fcm_tokens')
-    .upsert({ user_id: userId, token: token }, { onConflict: 'token' });
+    .delete()
+    .eq('user_id', userId)
+    .eq('token', token);
 
-  if (tokenError) {
-    console.warn('Supabase Token upsert failed (fcm_tokens):', tokenError.message);
-    console.log('Falling back to delete+insert for fcm_tokens...');
+  if (deleteError) {
+    console.warn('[FCM] Delete before insert failed:', deleteError.message);
+  }
 
-    // Strategy 2: Delete existing token for this user, then insert fresh
-    const { error: delError } = await supabase
-      .from('fcm_tokens')
-      .delete()
-      .eq('user_id', userId);
-    if (delError) {
-      console.warn('Token delete failed:', delError.message);
-    }
+  const { error: insertError } = await supabase
+    .from('fcm_tokens')
+    .insert({ user_id: userId, token: token });
 
-    const { error: insertError } = await supabase
-      .from('fcm_tokens')
-      .insert({ user_id: userId, token: token });
-    if (insertError) {
-      console.error('Token insert failed:', insertError.message);
-    } else {
-      console.log('Token saved via delete+insert (fcm_tokens).');
-    }
+  if (insertError) {
+    console.warn('[FCM] Token insert failed:', insertError.message);
   } else {
-    console.log('Token in DB registriert (fcm_tokens).');
+    console.log('[FCM] Token registriert (fcm_tokens).');
   }
 
   // Always update the family row as well (used as fallback by push-notify)
@@ -84,8 +79,8 @@ const saveTokenToSupabase = async (userId: string, token: string) => {
     .update({ fcm_token: token })
     .eq('id', userId);
 
-  if (familyError) console.error('Supabase Token Error (family):', familyError.message);
-  else console.log('Token updated on family row.');
+  if (familyError) console.error('[FCM] Token update on family row failed:', familyError.message);
+  else console.log('[FCM] Token updated on family row.');
 };
 
 /**
@@ -109,7 +104,10 @@ export const requestFirebaseToken = async (userId: string): Promise<string | nul
 const requestNativeToken = async (userId: string): Promise<string | null> => {
   try {
     const PushNotifications = await getPushNotifications();
-    if (!PushNotifications) return null;
+    if (!PushNotifications) {
+      console.warn('[FCM] PushNotifications plugin not available');
+      return null;
+    }
 
     let permStatus = await PushNotifications.checkPermissions();
     if (permStatus.receive === 'prompt') {
@@ -117,39 +115,37 @@ const requestNativeToken = async (userId: string): Promise<string | null> => {
     }
 
     if (permStatus.receive !== 'granted') {
-      console.warn('Native Push-Berechtigung verweigert.');
+      console.warn('[FCM] Native Push-Berechtigung verweigert.');
       return null;
     }
 
-    // First: try to get existing cached token (device is already registered)
-    try {
-      const existingToken = await PushNotifications.getToken();
-      if (existingToken && (existingToken as any).value) {
-        const token = (existingToken as any).value as string;
-        console.log('[FCM] Using cached native token:', token.substring(0, 20) + '...');
-        await saveTokenToSupabase(userId, token);
-        return token;
-      }
-    } catch (e) {
-      console.warn('[FCM] getToken failed, falling back to registration:', e);
-    }
-
-    // Fallback: listen for registration event (first-time registration)
-    return new Promise<string | null>((resolve) => {
+    // Add listeners BEFORE getToken/register to avoid race conditions
+    let registrationResolved = false;
+    const tokenFromRegistration = await new Promise<string | null>((resolve) => {
       const timeout = setTimeout(() => {
-        console.warn('[FCM] Native token registration timed out');
-        resolve(null);
+        if (!registrationResolved) {
+          console.warn('[FCM] Native token registration timed out');
+          resolve(null);
+        }
       }, 15000);
 
-      console.log('[FCM] Initializing native listener...');
-      const regHandler = async ({ value }: { value: string }) => {
+      const regHandler = async (data: any) => {
+        if (registrationResolved) return;
+        registrationResolved = true;
         clearTimeout(timeout);
-        console.log('[FCM] Native Token successfully received:', value);
-        await saveTokenToSupabase(userId, value);
-        resolve(value);
+        const token = typeof data === 'string' ? data : data?.value || '';
+        if (token) {
+          console.log('[FCM] Native Token received via event:', token.substring(0, 20) + '...');
+          await saveTokenToSupabase(userId, token);
+          resolve(token);
+        } else {
+          resolve(null);
+        }
       };
 
       const errHandler = (error: any) => {
+        if (registrationResolved) return;
+        registrationResolved = true;
         clearTimeout(timeout);
         console.error('[FCM] Native Registration Error:', JSON.stringify(error));
         resolve(null);
@@ -158,13 +154,38 @@ const requestNativeToken = async (userId: string): Promise<string | null> => {
       PushNotifications.addListener('registration', regHandler);
       PushNotifications.addListener('registrationError', errHandler);
 
+      // Also try getToken immediately (may return cached token)
+      (async () => {
+        try {
+          const existingToken = await PushNotifications.getToken();
+          if (!registrationResolved && existingToken) {
+            const token = typeof existingToken === 'string' ? existingToken : (existingToken as any)?.value || '';
+            if (token) {
+              registrationResolved = true;
+              clearTimeout(timeout);
+              console.log('[FCM] Using cached native token:', token.substring(0, 20) + '...');
+              await saveTokenToSupabase(userId, token);
+              resolve(token);
+            }
+          }
+        } catch (e) {
+          console.log('[FCM] getToken() returned no cached token, registering...');
+        }
+      })();
+
       PushNotifications.register().then(() => {
         console.log('[FCM] PushNotifications.register call triggered');
       }).catch((e: any) => {
         console.error('[FCM] Error during PushNotifications.register:', e);
-        resolve(null);
+        if (!registrationResolved) {
+          registrationResolved = true;
+          clearTimeout(timeout);
+          resolve(null);
+        }
       });
     });
+
+    return tokenFromRegistration;
   } catch (e) {
     console.error('[FCM] Fatal error in requestNativeToken:', e);
     return null;
@@ -173,35 +194,45 @@ const requestNativeToken = async (userId: string): Promise<string | null> => {
 
 const requestWebToken = async (userId: string): Promise<string | null> => {
   try {
-    const ok = await initFirebase();
-    if (!ok || !fcmSupported) return null;
-
-    const { getToken } = await import('firebase/messaging');
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return null;
-
-    // Service worker registration — skip silently on localhost (Vite dev server
-    // doesn't serve firebase-messaging-sw.js, 404.html redirects it to index.html)
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isLocalhost) {
-      await navigator.serviceWorker.register('./firebase-messaging-sw.js', {
-        scope: './'
-      });
+    if (permission !== 'granted') {
+      console.warn('[FCM] Web notification permission denied');
+      return null;
     }
 
-    const vapidKey =
-      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
-      'BFamja8NGJwmtzCNEA7i9JPX6CBC5DS-s1rA6USxv3QGorqRvkw6uPe5dBwXfyJmqa1iZYGU2POzvtWvBho_8H8';
-
-    const token = await getToken(fcmMessaging, {
-      vapidKey: String(vapidKey).trim(),
-      serviceWorkerRegistration: undefined  // service worker registered above
-    });
-
-    if (token) {
-      await saveTokenToSupabase(userId, token);
-      return token;
+    // Register service worker for background message handling
+    try {
+      const swUrl = new URL('./firebase-messaging-sw.js', window.location.href).href;
+      await navigator.serviceWorker.register(swUrl, { scope: './' });
+      await navigator.serviceWorker.ready;
+    } catch (swErr) {
+      console.warn('[FCM] Service worker registration error (non-fatal):', swErr);
+      return null;
     }
+
+    // Try Firebase getToken (requires SW at root scope — works on custom domain, not on GitHub Pages subpath)
+    const ok = await initFirebase();
+    if (ok && fcmSupported) {
+      try {
+        const { getToken } = await import('firebase/messaging');
+        const vapidKey =
+          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
+          'BFamja8NGJwmtzCNEA7i9JPX6CBC5DS-s1rA6USxv3QGorqRvkw6uPe5dBwXfyJmqa1iZYGU2POzvtWvBho_8H8';
+        const token = await getToken(fcmMessaging, {
+          vapidKey: String(vapidKey).trim(),
+          serviceWorkerRegistration: undefined
+        });
+        if (token) {
+          await saveTokenToSupabase(userId, token);
+          return token;
+        }
+      } catch (fbErr) {
+        console.warn('[FCM] Firebase getToken failed (expected on subdirectory deploys):', fbErr);
+      }
+    }
+
+    console.warn('[FCM] Web push not available on this deployment (GitHub Pages subpath). Use native Android for push.');
+    return null;
   } catch (error) {
     console.error('Web FCM Fehler:', error);
   }

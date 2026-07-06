@@ -22,7 +22,6 @@ const INITIAL_SETTINGS: AppSettings[] = [
         maintenance_start: null,
         maintenance_end: null,
         disabled_tabs: {},
-        global_easter_enabled: true,
         global_liquid_glass_enabled: true,
     }
 ];
@@ -167,6 +166,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('userId' in payload) { payload.user_id = payload.userId; delete payload.userId; }
             if ('userName' in payload) { payload.user_name = payload.userName; delete payload.userName; }
             if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+            if ('category' in payload) { payload.category = payload.category; }
         }
 
         if (this.table === 'meal_plans') {
@@ -205,6 +205,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('weatherLat' in payload) { payload.weather_lat = payload.weatherLat; delete payload.weatherLat; }
             if ('weatherLng' in payload) { payload.weather_lng = payload.weatherLng; delete payload.weatherLng; }
             if ('weatherLocationName' in payload) { payload.weather_location_name = payload.weatherLocationName; delete payload.weatherLocationName; }
+            if ('weatherLayout' in payload) { payload.weather_layout = payload.weatherLayout; delete payload.weatherLayout; }
         }
 
         if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
@@ -241,6 +242,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }
             if ('user_name' in item) { item.userName = item.user_name; delete item.user_name; }
             if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+            if ('category' in item) { item.category = item.category; }
         }
         if (this.table === 'meal_plans') {
             if ('meal_name' in item) { item.mealName = item.meal_name; delete item.meal_name; }
@@ -259,6 +261,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('weather_lat' in item) { item.weatherLat = item.weather_lat; delete item.weather_lat; }
             if ('weather_lng' in item) { item.weatherLng = item.weather_lng; delete item.weather_lng; }
             if ('weather_location_name' in item) { item.weatherLocationName = item.weather_location_name; delete item.weather_location_name; }
+            if ('weather_layout' in item) { item.weatherLayout = item.weather_layout; delete item.weather_layout; }
         }
         if (this.table === 'notifications') {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }

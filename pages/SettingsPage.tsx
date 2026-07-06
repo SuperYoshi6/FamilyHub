@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FamilyMember, FeedbackItem, NewsItem, AppRoute, CalendarEvent } from '../types';
-import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Egg, Utensils, Palmtree, Trophy, Target } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Utensils, Palmtree, Trophy, Target } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
 import Logo from '../components/Logo';
@@ -9,7 +9,7 @@ import { t, Language } from '../services/translations';
 // --- CONFIG & UPDATE ANLEITUNG ---
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
 const WEBSITE_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.0.0 (Beta)";
 
 interface SettingsPageProps {
     currentUser: FamilyMember;
@@ -27,12 +27,8 @@ interface SettingsPageProps {
     onToggleSummerMode?: () => void;
     wmMode?: boolean;
     onToggleWmMode?: () => void;
-    easterMode?: boolean;
-    onToggleEasterMode?: () => void;
     liquidGlass?: boolean;
     onToggleLiquidGlass?: () => void;
-    globalEasterEnabled?: boolean;
-    onToggleGlobalEaster?: () => void;
     globalLiquidGlassEnabled?: boolean;
     onToggleGlobalLiquidGlass?: () => void;
     globalSummerEnabled?: boolean;
@@ -91,7 +87,7 @@ const EXPANDED_COLORS = [
 ];
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, summerMode, onToggleSummerMode, wmMode, onToggleWmMode, easterMode, onToggleEasterMode, liquidGlass, onToggleLiquidGlass, globalEasterEnabled, onToggleGlobalEaster, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, globalSummerEnabled, onToggleGlobalSummer, globalWmEnabled, onToggleGlobalWm, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, summerMode, onToggleSummerMode, wmMode, onToggleWmMode, liquidGlass, onToggleLiquidGlass, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, globalSummerEnabled, onToggleGlobalSummer, globalWmEnabled, onToggleGlobalWm, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e293b&color=fff&bold=true`);
@@ -107,10 +103,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const adminFileInputRef = useRef<HTMLInputElement>(null);
 
     // Modal States
-    const [activeModal, setActiveModal] = useState<'none' | 'about' | 'feedback' | 'reset-confirm' | 'admin-feedback' | 'compose' | 'inbox' | 'edit-user' | 'add-user'>('none');
+    const [activeModal, setActiveModal] = useState<'none' | 'about' | 'feedback' | 'reset-confirm' | 'admin-feedback' | 'compose' | 'inbox' | 'edit-user' | 'add-user' | 'feedback-flow'>('none');
     const [feedbackText, setFeedbackText] = useState('');
     const [rating, setRating] = useState(0);
     const [feedbackSent, setFeedbackSent] = useState(false);
+    const [feedbackFlowTab, setFeedbackFlowTab] = useState<'compose' | 'inbox'>('compose');
+    const feedbackSwipeStart = useRef<number | null>(null);
 
     // Message States
     const [selectedRecipientId, setSelectedRecipientId] = useState<string>('');
@@ -131,8 +129,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     // Admin Add User States
     const [newUserName, setNewUserName] = useState('');
-    const [newUserRole, setNewUserRole] = useState<'parent' | 'child'>('parent');
+    const [newUserRole, setNewUserRole] = useState<'parent' | 'child'>('child');
+    const [isNewTempPassword, setIsNewTempPassword] = useState(false);
     const [newUserPassword, setNewUserPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [isAddingUser, setIsAddingUser] = useState(false);
 
     // Admin Broadcast Notification States
@@ -142,7 +142,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [syncingCalendar, setSyncingCalendar] = useState(false);
 
     const isAdmin = currentUser.role === 'admin';
-    const isEasterLocked = !isAdmin && globalEasterEnabled === false;
     const isLiquidLocked = !isAdmin && globalLiquidGlassEnabled === false;
     const isSummerLocked = !isAdmin && globalSummerEnabled === false;
     const isWmLocked = !isAdmin && globalWmEnabled === false;
@@ -337,21 +336,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const handleAddUserSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (newUserName.trim() && onAddFamilyMember) {
-            if (isTempPassword && !newUserPassword.trim()) {
+            if (isNewTempPassword && !newUserPassword.trim()) {
                 alert("Bitte geben Sie ein temporäres Passwort ein.");
                 return;
             }
-            const password = isTempPassword ? newUserPassword.trim() : undefined;
-            onAddFamilyMember(newUserName, newUserRole, isTempPassword, password);
+            const password = isNewTempPassword ? newUserPassword.trim() : undefined;
+            onAddFamilyMember(newUserName, newUserRole, isNewTempPassword, password);
             setNewUserName('');
             setNewUserRole('parent');
             setNewUserPassword('');
             setActiveModal('none');
-            setIsTempPassword(false);
+            setIsNewTempPassword(false);
         }
     };
 
-    const submitFeedback = (e: React.FormEvent) => {
+    const submitFeedback = (e: React.FormEvent, category?: 'bug' | 'feedback') => {
         e.preventDefault();
         if (onSendFeedback) {
             onSendFeedback({
@@ -360,6 +359,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 userName: currentUser.name,
                 text: feedbackText,
                 rating: rating,
+                category: category || 'bug',
                 createdAt: new Date().toISOString()
             });
         }
@@ -372,9 +372,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
         }, 2000);
     };
 
-    const openAdminFeedback = () => {
-        setActiveModal('admin-feedback');
-        if (unreadCount > 0 && onMarkFeedbackRead) {
+    const openFeedbackFlow = (tab: 'compose' | 'feedback' | 'inbox') => {
+        setFeedbackFlowTab(tab);
+        setActiveModal('feedback-flow');
+        if (tab === 'inbox' && unreadCount > 0 && onMarkFeedbackRead) {
             const ids = unreadFeedbacks.map(f => f.id);
             onMarkFeedbackRead(ids);
         }
@@ -547,27 +548,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 </>
                             )}
 
-                            {/* 5. Easter Mode (Global) */}
-                            {onToggleEasterMode && (
-                                <>
-                                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                                    <div className="flex items-center justify-between py-2">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="bg-pink-100 dark:bg-pink-900/30 p-2 rounded-full text-pink-600 dark:text-pink-400">
-                                                <Egg size={20} />
-                                            </div>
-                                            <span className="font-bold text-gray-800 dark:text-white">Ostermodus</span>
-                                        </div>
-                                        <button onClick={() => { if (!isEasterLocked) onToggleEasterMode(); }} disabled={isEasterLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${easterMode ? 'bg-pink-500' : 'bg-gray-300'} ${isEasterLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${easterMode ? 'translate-x-6' : 'translate-x-0'}`} />
-                                        </button>
-                                    </div>
-                                    {isEasterLocked && (
-                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 ml-12">Vom Admin deaktiviert</div>
-                                    )}
-                                </>
-                            )}
-
                             {/* 6. Summer Mode */}
                             {onToggleSummerMode && (
                                 <>
@@ -627,7 +607,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             </div>
                             <div className="rounded-2xl shadow-lg border border-red-500/40 overflow-hidden bg-red-50/40 dark:bg-red-900/40">
                                 {/* Global Feature Gates */}
-                                {(onToggleGlobalEaster || onToggleGlobalLiquidGlass || onToggleGlobalSummer) && (
+                                {(onToggleGlobalLiquidGlass || onToggleGlobalSummer) && (
                                     <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                                         <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                                             <Layout size={16} className="mr-2 text-blue-500" />
@@ -864,7 +844,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                                 {/* Admin Feedback Sub-Section */}
                                 <div className="p-4">
-                                    <button onClick={openAdminFeedback} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition bg-yellow-50/50 dark:bg-yellow-900/10">
+                                    <button onClick={() => openFeedbackFlow('inbox')} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition bg-yellow-50/50 dark:bg-yellow-900/10">
                                         <div className="flex items-center space-x-3">
                                             <div className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 p-2 rounded-full">
                                                 <Inbox size={18} />
@@ -887,7 +867,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                         <section className="space-y-4">
                             <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider ml-1">{t('settings.info_help', lang)}</h2>
                             <div className={`rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden bg-white dark:bg-gray-800`}>
-                                <button onClick={() => setActiveModal('feedback')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
+                                <button onClick={() => openFeedbackFlow('compose')} className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
                                     <div className="flex items-center space-x-3">
                                         <div className={`${wmMode ? 'bg-yellow-50 dark:bg-yellow-900/20 text-red-600 dark:text-yellow-400' : summerMode ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400'} p-2 rounded-full`}><MessageSquare size={18} /></div>
                                         <span className="font-medium text-gray-800 dark:text-white">Fehler melden</span>
@@ -1088,7 +1068,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 {/* What's New Section - RESTORED HERE */}
                                 <section>
                                     <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2 text-gray-400 dark:text-gray-500`}>
-                                        <Zap size={14} className="text-yellow-500" /> Neu in {APP_VERSION}
+                                        <Zap size={14} className="text-yellow-500" /> Neu in {APP_VERSION} 
                                     </h3>
                                     <div className="space-y-3">
                                         <div className={`${wmMode ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800' : summerMode ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800' : 'bg-cyan-50 dark:bg-cyan-900/10 border-cyan-100 dark:border-cyan-800'} p-3 rounded-xl border flex gap-3 items-start`}>
@@ -1119,7 +1099,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <h3 className="font-bold text-gray-900 dark:text-white text-base">Besuche unsere Website</h3>
-                                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io/FamilyHub/install</p>
+                                            <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">superyoshi6.github.io</p>
                                         </div>
                                     </div>
                                     <ExternalLink size={20} className="text-gray-400 group-hover:text-purple-500 transition ml-2" />
@@ -1279,20 +1259,25 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     <span className="text-sm font-medium">Temporäres Passwort</span>
                                     <button
                                         type="button"
-                                        onClick={() => setIsTempPassword(!isTempPassword)}
-                                        className={`w-12 h-6 rounded-full transition-colors relative ${isTempPassword ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                        onClick={() => setIsNewTempPassword(!isNewTempPassword)}
+                                        className={`w-12 h-6 rounded-full transition-colors relative ${isNewTempPassword ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}
                                     >
-                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isTempPassword ? 'right-1' : 'left-1'}`}></div>
+                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isNewTempPassword ? 'right-1' : 'left-1'}`}></div>
                                     </button>
                                 </div>
-                                {isTempPassword && (
-                                    <input
-                                        type="password"
-                                        value={newUserPassword}
-                                        onChange={(e) => setNewUserPassword(e.target.value)}
-                                        placeholder="Einfaches Passwort (z.B. 1234)"
-                                        className={`w-full rounded-xl p-3 text-sm outline-none font-bold bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
-                                    />
+                                {isNewTempPassword && (
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={newUserPassword}
+                                            onChange={(e) => setNewUserPassword(e.target.value)}
+                                            placeholder="Einfaches Passwort (z.B. 1234)"
+                                            className="w-full rounded-xl p-3 text-sm outline-none font-bold bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600 pr-12"
+                                        />
+                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
                                 )}
                                 <button
                                     type="submit"
@@ -1307,63 +1292,136 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 )
             }
 
-            {/* Feedback Modal */}
+            {/* Feedback + Fehlerberichte (swipebar) */}
             {
-                activeModal === 'feedback' && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
-                        <div className={`${modalBgClass} w-full max-w-sm rounded-2xl shadow-2xl p-6 relative ${modalBorderClass}`}>
-                            <button onClick={() => setActiveModal('none')} className={`absolute top-4 right-4 ${closeBtnClass}`}><X size={24} /></button>
-                            {!feedbackSent ? (
-                                <form onSubmit={submitFeedback} className="space-y-4">
-                                    <h3 className={`text-lg font-bold ${titleClass} flex items-center`}><MessageSquare size={20} className={`mr-2 ${wmMode ? 'text-red-600' : summerMode ? 'text-amber-500' : 'text-pink-500'}`} /> Fehler melden</h3>
-                                    <textarea
-                                        value={feedbackText}
-                                        onChange={(e) => setFeedbackText(e.target.value)}
-                                        placeholder="Bitte beschreibe den Fehler oder das Problem..."
-                                        rows={4}
-                                        required
-                                        className={`w-full rounded-xl p-3 text-sm focus:ring-2 ${wmMode ? 'focus:ring-red-500' : summerMode ? 'focus:ring-amber-500' : 'focus:ring-pink-500'} outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600`}
-                                    />
-                                    <button type="submit" className={`w-full font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition text-white ${wmMode ? 'bg-red-600 hover:bg-red-700' : summerMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-pink-500 hover:bg-pink-600'}`}>Absenden</button>
-                                </form>
-                            ) : (
-                                <div className="py-8 flex flex-col items-center text-center animate-fade-in">
-                                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600"><Check size={32} /></div>
-                                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Danke!</h3>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* ADMIN Feedback View Modal */}
-            {
-                activeModal === 'admin-feedback' && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                activeModal === 'feedback-flow' && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in"
+                        onTouchStart={(e) => { feedbackSwipeStart.current = e.touches[0].clientX; }}
+                        onTouchEnd={(e) => {
+                            if (feedbackSwipeStart.current === null) return;
+                            const dx = e.changedTouches[0].clientX - feedbackSwipeStart.current;
+                            feedbackSwipeStart.current = null;
+                            if (Math.abs(dx) < 50) return;
+                            const tabs = isAdmin ? ['compose', 'feedback', 'inbox'] : ['compose', 'feedback'];
+                            const idx = tabs.indexOf(feedbackFlowTab);
+                            const next = dx < 0 ? Math.min(idx + 1, tabs.length - 1) : Math.max(idx - 1, 0);
+                            setFeedbackFlowTab(tabs[next] as 'compose' | 'feedback' | 'inbox');
+                        }}
+                    >
                         <div className={`${modalBgClass} w-full max-w-md rounded-2xl shadow-2xl p-6 relative max-h-[80vh] flex flex-col ${modalBorderClass}`}>
+                            {/* Tabs */}
                             <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">
-                                <h3 className={`text-lg font-bold ${titleClass}`}>Fehlerberichte</h3>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => setFeedbackFlowTab('compose')}
+                                        className={`text-sm font-bold pb-1 border-b-2 transition ${feedbackFlowTab === 'compose' ? 'text-yellow-500 border-yellow-500' : 'text-gray-400 border-transparent'}`}
+                                    >
+                                        <MessageSquare size={16} className="inline mr-1" />Fehler melden
+                                    </button>
+                                    <button
+                                        onClick={() => setFeedbackFlowTab('feedback')}
+                                        className={`text-sm font-bold pb-1 border-b-2 transition ${feedbackFlowTab === 'feedback' ? 'text-blue-500 border-blue-500' : 'text-gray-400 border-transparent'}`}
+                                    >
+                                        <MessageSquare size={16} className="inline mr-1" />Feedback
+                                    </button>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => {
+                                                setFeedbackFlowTab('inbox');
+                                                if (unreadCount > 0 && onMarkFeedbackRead) {
+                                                    const ids = unreadFeedbacks.map(f => f.id);
+                                                    onMarkFeedbackRead(ids);
+                                                }
+                                            }}
+                                            className={`text-sm font-bold pb-1 border-b-2 transition ${feedbackFlowTab === 'inbox' ? 'text-yellow-500 border-yellow-500' : 'text-gray-400 border-transparent'}`}
+                                        >
+                                            <Inbox size={16} className="inline mr-1" />Eingänge{unreadCount > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
+                                        </button>
+                                    )}
+                                </div>
                                 <button onClick={() => setActiveModal('none')} className={closeBtnClass}><X size={24} /></button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
-                                {allFeedbacks && allFeedbacks.length > 0 ? (
-                                    allFeedbacks.map(fb => (
-                                        <div key={fb.id} className={`p-3 rounded-xl border bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700`}>
-                                            <div className="flex justify-between items-start mb-1">
-                                                <span className={`font-bold text-sm text-gray-800 dark:text-white`}>{fb.userName}</span>
-                                                <div className="flex">
+                            {/* Fehler melden */}
+                            {feedbackFlowTab === 'compose' && (
+                                !feedbackSent ? (
+                                    <form onSubmit={(e) => submitFeedback(e, 'bug')} className="space-y-4">
+                                        <textarea
+                                            value={feedbackText}
+                                            onChange={(e) => setFeedbackText(e.target.value)}
+                                            placeholder="Bitte beschreibe den Fehler oder das Problem..."
+                                            rows={4}
+                                            required
+                                            className="w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-yellow-500 outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600"
+                                        />
+                                        <button type="submit" className={`w-full font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition text-white ${wmMode ? 'bg-red-600 hover:bg-red-700' : summerMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-yellow-500 hover:bg-yellow-600'}`}>Absenden</button>
+                                    </form>
+                                ) : (
+                                    <div className="py-8 flex flex-col items-center text-center animate-fade-in">
+                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600"><Check size={32} /></div>
+                                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Danke!</h3>
+                                    </div>
+                                )
+                            )}
+
+                            {/* Feedback */}
+                            {feedbackFlowTab === 'feedback' && (
+                                !feedbackSent ? (
+                                    <form onSubmit={(e) => submitFeedback(e, 'feedback')} className="space-y-4">
+                                        <div className="flex justify-center gap-1">
+                                            {[1, 2, 3, 4, 5].map(star => (
+                                                <button key={star} type="button" onClick={() => setRating(star)} className="p-1 transition">
+                                                    <Star size={28} fill={star <= rating ? '#EAB308' : 'none'} stroke={star <= rating ? '#EAB308' : '#9CA3AF'} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            value={feedbackText}
+                                            onChange={(e) => setFeedbackText(e.target.value)}
+                                            placeholder="Teile uns deine Meinung, Wünsche oder Verbesserungsvorschläge mit..."
+                                            rows={4}
+                                            required
+                                            className="w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600"
+                                        />
+                                        <button type="submit" className={`w-full font-bold py-3 rounded-xl shadow-md active:scale-[0.98] transition text-white ${wmMode ? 'bg-red-600 hover:bg-red-700' : summerMode ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-500 hover:bg-blue-600'}`}>Absenden</button>
+                                    </form>
+                                ) : (
+                                    <div className="py-8 flex flex-col items-center text-center animate-fade-in">
+                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-600"><Check size={32} /></div>
+                                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">Danke für dein Feedback!</h3>
+                                    </div>
+                                )
+                            )}
+
+                            {/* Admin Eingänge */}
+                            {feedbackFlowTab === 'inbox' && isAdmin && (
+                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3">
+                                    {allFeedbacks && allFeedbacks.length > 0 ? (
+                                        [...allFeedbacks].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map(fb => (
+                                            <div key={fb.id} className={`p-3 rounded-xl border bg-gray-50 dark:bg-gray-700/50 border-gray-100 dark:border-gray-700`}>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className="font-bold text-sm text-gray-800 dark:text-white">{fb.userName}</span>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${fb.category === 'bug' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                        {fb.category === 'bug' ? 'Fehler' : 'Feedback'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm mb-2 text-gray-600 dark:text-gray-300">{fb.text}</p>
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex gap-0.5">
+                                                        {fb.category === 'feedback' && [1, 2, 3, 4, 5].map(star => (
+                                                            <Star key={star} size={12} fill={star <= fb.rating ? '#3B82F6' : 'none'} stroke={star <= fb.rating ? '#3B82F6' : '#D1D5DB'} />
+                                                        ))}
+                                                    </div>
+                                                    <div className="text-[10px] text-gray-400">{new Date(fb.createdAt).toLocaleString()}</div>
                                                 </div>
                                             </div>
-                                            <p className={`text-sm mb-2 text-gray-600 dark:text-gray-300`}>{fb.text}</p>
-                                            <div className="text-[10px] text-gray-400 text-right">{new Date(fb.createdAt).toLocaleString()}</div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8 text-gray-400">Keine Fehlerberichte vorhanden.</div>
-                                )}
-                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-8 text-gray-400">Keine Einträge vorhanden.</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )

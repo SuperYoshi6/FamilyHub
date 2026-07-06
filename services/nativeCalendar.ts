@@ -147,6 +147,13 @@ export class NativeCalendarService {
     ): Promise<void> {
         if (!Capacitor.isNativePlatform()) return;
 
+        // Verhindere doppelte Synchronisation des gleichen Events
+        const map = getEventMap();
+        if (map[event.id]) {
+            console.log(`[Calendar] Event ${event.id} bereits synchronisiert, überspringe`);
+            return;
+        }
+
         try {
             const startDateStr = event.date;
             const startTimeStr = event.time?.trim();
@@ -189,13 +196,16 @@ export class NativeCalendarService {
                 ...(isIos ? { alertOffsetInMinutes: [30] } : {}),
             });
 
+            const map = getEventMap();
+            const assigned = event.assignedTo?.filter(Boolean) || [];
             if (result) {
-                const map = getEventMap();
-                const assigned = event.assignedTo?.filter(Boolean) || [];
                 map[event.id] = { id: result, type: assigned.length === 1 ? 'private' : 'family' };
-                setEventMap(map);
                 console.log(`[Calendar] Synchronisiert (${assigned.length === 1 ? 'Privat' : 'Familie'}) mit ID: ${result}`);
+            } else {
+                map[event.id] = { id: 'skipped', type: assigned.length === 1 ? 'private' : 'family' };
+                console.log(`[Calendar] Event ${event.id} als synchronisiert markiert (keine native ID)`);
             }
+            setEventMap(map);
         } catch (e) {
             console.error('[Calendar] Fehler bei nativer Synchronisation:', e);
         }
@@ -206,11 +216,14 @@ export class NativeCalendarService {
         try {
             const map = getEventMap();
             const ref = map[eventId];
-            if (ref?.id) {
+            if (ref?.id && ref.id !== 'skipped') {
                 await CapacitorCalendar.deleteEventsById({ ids: [ref.id] });
                 delete map[eventId];
                 setEventMap(map);
                 console.log(`[Calendar] Gelöscht aus nativem Kalender: ${ref.id}`);
+            } else if (ref) {
+                delete map[eventId];
+                setEventMap(map);
             }
         } catch (e) {
             console.error('[Calendar] Fehler beim Löschen aus nativem Kalender:', e);

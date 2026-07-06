@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { WeatherMetric, WeatherData, SavedLocation } from '../types';
 import { fetchWeather, getWeatherDescription, searchCity, searchCitySuggestions } from '../services/weather';
-import { Sun, CloudRain, Wind, Droplets, Thermometer, MapPinOff, ArrowLeft, Cloud, CloudSnow, CloudLightning, CloudFog, Moon, Umbrella, Calendar, Eye, Gauge, Sunrise, Sunset, Search, MapPin, Loader2, Star, ArrowRightLeft, ArrowUp, ArrowDown, Navigation, GripHorizontal, Clock } from 'lucide-react';
+import { Sun, CloudRain, Wind, Droplets, Thermometer, MapPinOff, ArrowLeft, Cloud, CloudSnow, CloudLightning, CloudFog, Moon, Umbrella, Calendar, Eye, Gauge, Sunrise, Sunset, Search, MapPin, Loader2, Star, ArrowRightLeft, ArrowUp, ArrowDown, Navigation, GripHorizontal, Clock, X } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 
@@ -12,6 +12,9 @@ interface WeatherPageProps {
     initialLocation: { lat: number, lng: number, name: string } | null;
     onUpdateCurrentWeatherLocation: (location: { lat: number, lng: number, name: string }) => void;
     liquidGlass?: boolean;
+    userId?: string;
+    weatherLayout?: { sectionOrder: string[]; metricsOrder: string[] };
+    onUpdateWeatherLayout?: (layout: { sectionOrder: string[]; metricsOrder: string[] }) => void;
 }
 
 const getMoonPhase = (date: Date) => {
@@ -241,14 +244,13 @@ const LocationClock = ({ utcOffsetSeconds, isSnowyBg, liquidGlass }: { utcOffset
     }, [utcOffsetSeconds]);
 
     return (
-        <div className={`text-[10px] font-medium opacity-80 flex items-center justify-center mt-0.5 ${liquidGlass ? 'text-slate-900 dark:text-white' : (isSnowyBg ? 'text-slate-700' : 'text-white')}`}>
-            <Clock size={10} className="mr-1" />
+        <div className={`text-xs font-medium opacity-90 flex items-center justify-center mt-0.5 ${liquidGlass ? 'text-slate-900 dark:text-white' : (isSnowyBg ? 'text-slate-700' : 'text-white')}`}>
             {timeStr} Ortszeit
         </div>
     );
 };
 
-const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onUpdateCurrentWeatherLocation, liquidGlass = false }: WeatherPageProps) => {
+const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onUpdateCurrentWeatherLocation, liquidGlass = false, userId, weatherLayout, onUpdateWeatherLayout }: WeatherPageProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<WeatherData | null>(null);
@@ -263,11 +265,12 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     // Radar State
     const [radarType, setRadarType] = useState<'rain' | 'temp'>('rain');
 
-    // Reordering State (Tap to move)
+    // Reordering State (Tap to move) — per Nutzer initialisiert
+    const metricIdOrder = weatherLayout?.metricsOrder ?? ['1','2','3','4','5','6','7','8'];
     const [metrics, setMetrics] = useState<WeatherMetric[]>([]);
     const [selectedSwapMetricIndex, setSelectedSwapMetricIndex] = useState<number | null>(null);
 
-    const [sectionOrder, setSectionOrder] = useState<string[]>(['hourly', 'daily', 'details']);
+    const [sectionOrder, setSectionOrder] = useState<string[]>(weatherLayout?.sectionOrder ?? ['hourly', 'daily', 'details']);
     const [selectedSwapSectionIndex, setSelectedSwapSectionIndex] = useState<number | null>(null);
 
     const loadWeather = async (lat: number, lng: number, name?: string) => {
@@ -284,16 +287,18 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
             const sunset = result.daily.sunset && result.daily.sunset[0] ? new Date(result.daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
             const visibilityKm = result.current.visibility ? (result.current.visibility / 1000).toFixed(1) : '--';
 
-            setMetrics([
-                { id: '1', label: 'Gefühlt', value: `${Math.round(result.current.apparent_temperature)}°`, icon: 'thermometer', colorClass: 'bg-orange-500/20 text-orange-200' },
-                { id: '2', label: 'Feuchtigkeit', value: `${result.current.relative_humidity_2m}%`, icon: 'humidity', colorClass: 'bg-blue-500/20 text-blue-200' },
-                { id: '3', label: 'Wind', value: `${Math.round(result.current.wind_speed_10m)} km/h`, icon: 'wind', colorClass: 'bg-teal-500/20 text-teal-200' },
-                { id: '4', label: 'UV Index', value: result.daily.uv_index_max && result.daily.uv_index_max[0] != null ? result.daily.uv_index_max[0].toFixed(1) : '--', icon: 'sun', colorClass: 'bg-yellow-500/20 text-yellow-200' },
-                { id: '5', label: 'Luftdruck', value: `${Math.round(result.current.surface_pressure)} hPa`, icon: 'gauge', colorClass: 'bg-purple-500/20 text-purple-200' },
-                { id: '6', label: 'Sichtweite', value: `${visibilityKm} km`, icon: 'eye', colorClass: 'bg-indigo-500/20 text-indigo-200' },
-                { id: '7', label: 'Sonnenaufgang', value: sunrise, icon: 'sunrise', colorClass: 'bg-amber-500/20 text-amber-200' },
-                { id: '8', label: 'Sonnenuntergang', value: sunset, icon: 'sunset', colorClass: 'bg-red-500/20 text-red-200' },
-            ]);
+            const allMetrics: Record<string, WeatherMetric> = {
+                '1': { id: '1', label: 'Gefühlt', value: `${Math.round(result.current.apparent_temperature)}°`, icon: 'thermometer', colorClass: 'bg-orange-500/20 text-orange-200' },
+                '2': { id: '2', label: 'Feuchtigkeit', value: `${result.current.relative_humidity_2m}%`, icon: 'humidity', colorClass: 'bg-blue-500/20 text-blue-200' },
+                '3': { id: '3', label: 'Wind', value: `${Math.round(result.current.wind_speed_10m)} km/h`, icon: 'wind', colorClass: 'bg-teal-500/20 text-teal-200' },
+                '4': { id: '4', label: 'UV Index', value: result.daily.uv_index_max && result.daily.uv_index_max[0] != null ? result.daily.uv_index_max[0].toFixed(1) : '--', icon: 'sun', colorClass: 'bg-yellow-500/20 text-yellow-200' },
+                '5': { id: '5', label: 'Luftdruck', value: `${Math.round(result.current.surface_pressure)} hPa`, icon: 'gauge', colorClass: 'bg-purple-500/20 text-purple-200' },
+                '6': { id: '6', label: 'Sichtweite', value: `${visibilityKm} km`, icon: 'eye', colorClass: 'bg-indigo-500/20 text-indigo-200' },
+                '7': { id: '7', label: 'Sonnenaufgang', value: sunrise, icon: 'sunrise', colorClass: 'bg-amber-500/20 text-amber-200' },
+                '8': { id: '8', label: 'Sonnenuntergang', value: sunset, icon: 'sunset', colorClass: 'bg-red-500/20 text-red-200' },
+            };
+            const sorted = metricIdOrder.map(id => allMetrics[id]).filter(Boolean);
+            setMetrics(sorted);
         } else {
             setError("Daten konnten nicht geladen werden");
         }
@@ -348,6 +353,21 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         } else {
             attemptCurrentLocation();
         }
+
+        // Automatische Standort-Aktualisierung per watchPosition
+        let watchId: number | null = null;
+        if (navigator.geolocation && !initialLocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    loadWeather(pos.coords.latitude, pos.coords.longitude, "Aktueller Standort");
+                },
+                () => {},
+                { enableHighAccuracy: false, timeout: 30000, maximumAge: 300000 }
+            );
+        }
+        return () => {
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        };
     }, []);
 
     useEffect(() => {
@@ -389,6 +409,11 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
 
     const isFavorite = (favorites || []).some(f => f.name === locationName);
 
+    const saveLayout = (sections: string[], orderedMetrics: WeatherMetric[]) => {
+        if (!onUpdateWeatherLayout) return;
+        onUpdateWeatherLayout({ sectionOrder: sections, metricsOrder: orderedMetrics.map(m => m.id) });
+    };
+
     // --- Swapping Logic (Tap to move) ---
     const handleSectionClick = (index: number) => {
         if (selectedSwapSectionIndex === null) {
@@ -402,6 +427,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
             newOrder[selectedSwapSectionIndex] = temp;
             setSectionOrder(newOrder);
             setSelectedSwapSectionIndex(null);
+            saveLayout(newOrder, metrics);
         }
     };
 
@@ -417,6 +443,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
             newMetrics[selectedSwapMetricIndex] = temp;
             setMetrics(newMetrics);
             setSelectedSwapMetricIndex(null);
+            saveLayout(sectionOrder, newMetrics);
         }
     };
 
@@ -658,101 +685,64 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     const bgGradient = getBackgroundClass(currentCode, isDay, liquidGlass);
 
     return (
-        <main className={`min-h-screen pb-24 bg-gradient-to-b ${bgGradient} ${textColorClass} transition-all duration-1000 relative overflow-hidden`}>
+        <main className={`min-h-screen pb-24 bg-gradient-to-b ${bgGradient} ${textColorClass} transition-all duration-1000 relative`}>
             <WeatherEffects code={currentCode} isDay={isDay} />
 
-            {/* Sticky Header Section (Not Sticky per user request) */}
-            <div className={`z-40 transition-all duration-500 overflow-hidden ${liquidGlass ? 'backdrop-blur-xl bg-white/10' : ''}`}>
+            {/* Header mit integrierter Suche (keine Icons sichtbar im Normalmodus) */}
+            <div className={`z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-white/10' : ''}`}>
                 <div className="pt-4 pb-4 px-4 flex items-center">
                     <button onClick={onBack} className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition flex-shrink-0 mr-2 active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}>
                         <ArrowLeft size={24} />
                     </button>
-                    <div className="flex-1 min-w-0 flex flex-col items-center justify-center mx-2 bg-white/10 rounded-2xl py-1.5 px-3 backdrop-blur-md border border-white/10">
-                        <div className="flex items-center space-x-1">
-                            <MapPin size={12} className="opacity-70 flex-shrink-0" />
-                            <span className="font-bold tracking-tight text-xs opacity-90 truncate">{locationName}</span>
+                    <div className="flex-1 min-w-0 mx-2">
+                        <div className={`relative bg-white/10 rounded-2xl py-2 px-4 backdrop-blur-md border border-white/10 ${isSearching ? '' : 'cursor-pointer'}`}>
+                            {isSearching ? (
+                                <form onSubmit={handleSearchSubmit}>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Stadt eingeben..."
+                                        className="w-full bg-white/40 dark:bg-gray-900/40 text-gray-900 dark:text-white text-sm font-bold rounded-xl px-3 py-2 outline-none border border-white/30 focus:border-blue-400 transition-all placeholder-gray-500 dark:placeholder-gray-400"
+                                        onBlur={() => { setTimeout(() => { setIsSearching(false); setSearchQuery(''); setSuggestions([]); }, 200); }}
+                                    />
+                                </form>
+                            ) : (
+                                <button onClick={() => setIsSearching(true)} className="w-full text-center">
+                                    <span className="font-bold text-sm tracking-tight block whitespace-nowrap overflow-x-auto no-scrollbar">{locationName}</span>
+                                    {data && <LocationClock utcOffsetSeconds={data.utc_offset_seconds} isSnowyBg={isSnowyBg} liquidGlass={liquidGlass} />}
+                                </button>
+                            )}
                         </div>
-                        {data && <LocationClock utcOffsetSeconds={data.utc_offset_seconds} isSnowyBg={isSnowyBg} liquidGlass={liquidGlass} />}
                     </div>
-                    <div className="flex space-x-1 flex-shrink-0">
-                        <button
-                            onClick={() => attemptCurrentLocation(true)}
-                            className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
-                            title="Aktueller Standort"
-                        >
-                            <Navigation size={20} />
-                        </button>
-                        <button
-                            onClick={handleFavoriteClick}
-                            className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
-                        >
-                            <Star size={20} fill={isFavorite ? 'currentColor' : 'none'} className={isFavorite ? 'text-yellow-400' : ''} />
-                        </button>
-                        <button onClick={() => setIsSearching(!isSearching)} className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}>
-                            <Search size={20} />
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleFavoriteClick}
+                        className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 flex-shrink-0 ml-1 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
+                    >
+                        <Star size={20} fill={isFavorite ? 'currentColor' : 'none'} className={isFavorite ? 'text-yellow-400' : ''} />
+                    </button>
                 </div>
             </div>
 
-            {/* Search Bar Overlay */}
-            {isSearching && (
-                <div className="absolute top-20 left-4 right-4 z-30 animate-fade-in-down">
-                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl p-2 shadow-xl border border-white/20">
-                        <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                            <input
-                                type="text"
-                                autoFocus
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Stadt eingeben"
-                                className="w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl py-3 pl-4 pr-12 outline-none border border-transparent focus:border-blue-500 transition-all"
-                            />
-                            <button type="submit" className="absolute right-2 top-2 p-1.5 bg-blue-500 text-white rounded-lg">
-                                <Search size={20} />
-                            </button>
-                        </form>
-                        {suggestions.length > 0 && (
-                            <div className="mb-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden shadow-sm">
-                                {suggestions.map((s, i) => (
-                                    <button
-                                        key={i}
-                                        type="button"
-                                        onClick={() => {
-                                            loadWeather(s.lat, s.lng, s.name);
-                                            setIsSearching(false);
-                                            setSuggestions([]);
-                                            setSearchQuery('');
-                                        }}
-                                        className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 text-sm text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-600 last:border-b-0 transition-colors"
-                                    >
-                                        <MapPin size={12} className="inline mr-2 opacity-50" />
-                                        {s.name}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        {favorites.length > 0 && (
-                            <div className="flex flex-wrap gap-2 px-1 pb-2">
-                                {favorites.map(fav => (
-                                    <button
-                                        key={fav.id}
-                                        onClick={() => {
-                                            loadWeather(fav.lat, fav.lng, fav.name);
-                                            setIsSearching(false);
-                                        }}
-                                        className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-full text-xs font-medium transition"
-                                    >
-                                        <Star size={10} className="fill-current text-yellow-500" />
-                                        <span>{fav.name}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        <div className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2 text-center">
-                            <button onClick={() => setIsSearching(false)} className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white">Schließen</button>
-                        </div>
-                    </div>
+            {/* Suchergebnisse als Overlay unter dem Header */}
+            {isSearching && suggestions.length > 0 && (
+                <div className="mx-4 mb-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden z-30 relative max-h-60 overflow-y-auto">
+                    {suggestions.map((s, i) => (
+                        <button
+                            key={i}
+                            type="button"
+                            onMouseDown={() => {
+                                loadWeather(s.lat, s.lng, s.name);
+                                setIsSearching(false);
+                                setSuggestions([]);
+                                setSearchQuery('');
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors truncate"
+                        >
+                            {s.name}
+                        </button>
+                    ))}
                 </div>
             )}
 

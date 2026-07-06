@@ -13,6 +13,7 @@ export interface FamilyMember {
   weatherLat?: number | null;
   weatherLng?: number | null;
   weatherLocationName?: string | null;
+  weatherLayout?: { sectionOrder: string[]; metricsOrder: string[] };
 }
 
 export interface CalendarEvent {
@@ -80,7 +81,6 @@ export interface AppSettings {
   maintenance_start?: string | null;
   maintenance_end?: string | null;
   disabled_tabs?: Record<string, boolean>;
-  global_easter_enabled?: boolean;
   global_liquid_glass_enabled?: boolean;
   global_summer_enabled?: boolean;
   global_wm_enabled?: boolean;
@@ -151,7 +151,8 @@ export interface FeedbackItem {
   text: string;
   rating: number;
   createdAt: string;
-  read?: boolean; 
+  read?: boolean;
+  category?: 'bug' | 'feedback';
 }
 
 export enum AppRoute {

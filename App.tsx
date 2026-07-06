@@ -24,6 +24,13 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { supabase } from './services/backend';
 import { ensureFamilyHubAndroidNotificationChannel, androidNotificationChannelFields } from './services/notificationsAndroid';
 
+// Unterdrückt bekannten Chromium SW-Kanal-Fehler (Firebase compat SDK)
+window.addEventListener('unhandledrejection', (e) => {
+  if (e.reason?.message?.includes('listener indicated an asynchronous response')) {
+    e.preventDefault();
+  }
+});
+
 // Helper for local settings
 const useLocalSetting = <T,>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
   const [value, setValue] = useState<T>(() => {
@@ -54,10 +61,10 @@ const hashCode = (str: string): number => {
 };
 
 // --- APP VERSION CONFIGURATION ---
-const CURRENT_APP_VERSION = "1.0.0";
+const CURRENT_APP_VERSION = "1.0.0 (Beta)";
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
-const EXE_DOWNLOAD_LINK: string = "#";
-const SWIFT_DOWNLOAD_LINK: string = "#";
+const EXE_DOWNLOAD_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
+const SWIFT_DOWNLOAD_LINK: string = "https://apps.apple.com/de/app/swift-playground/id908519492";
 const POLLING_INTERVAL = 30000;
 const DEFAULT_APP_SETTINGS = {
   id: 'global',
@@ -65,7 +72,6 @@ const DEFAULT_APP_SETTINGS = {
   maintenance_start: null,
   maintenance_end: null,
   disabled_tabs: {},
-  global_easter_enabled: true,
   global_liquid_glass_enabled: true,
   global_summer_enabled: true,
   push_test_at: null,
@@ -99,9 +105,7 @@ const App: React.FC = () => {
   // --- 2. Settings & Session State ---
   const [darkMode, setDarkMode] = useState(false);
   const [enableSwipe, setEnableSwipe] = useLocalSetting<boolean>('fh_enableswipe', false);
-  const [easterMode, setEasterMode] = useLocalSetting<boolean>('fh_eastermode', false);
   const [liquidGlass, setLiquidGlass] = useLocalSetting<boolean>('fh_liquidglass', true);
-  const [globalEasterEnabled, setGlobalEasterEnabled] = useLocalSetting<boolean>('fh_global_easter_enabled', true);
   const [globalLiquidGlassEnabled, setGlobalLiquidGlassEnabled] = useLocalSetting<boolean>('fh_global_liquidglass_enabled', true);
   const [summerMode, setSummerMode] = useLocalSetting<boolean>('fh_summermode', false);
   const [globalSummerEnabled, setGlobalSummerEnabled] = useLocalSetting<boolean>('fh_global_summer_enabled', true);
@@ -196,7 +200,6 @@ const App: React.FC = () => {
   const regularFamily = family.filter(f => f.role !== 'admin');
   const myOpenTaskCount = householdTasks.filter(t => t.assignedTo === currentUser?.id && !t.done).length + personalTasks.filter(t => !t.done).length;
   const userWeatherFavorites = (currentUser && weatherFavorites) ? weatherFavorites.filter(f => f.userId === currentUser.id) : [];
-  const allowEasterForUser = currentUser ? (currentUser.role === 'admin' || globalEasterEnabled) : globalEasterEnabled;
   const allowLiquidGlassForUser = currentUser ? (currentUser.role === 'admin' || globalLiquidGlassEnabled) : globalLiquidGlassEnabled;
   const allowSummerForUser = currentUser ? (currentUser.role === 'admin' || globalSummerEnabled) : globalSummerEnabled;
 
@@ -323,13 +326,9 @@ const App: React.FC = () => {
   // Ensure attributes are set correctly on mount AND whenever modes change
   useEffect(() => {
     const el = document.documentElement;
-    // Always clean stale attributes first (handles any leftover from previous session)
-    el.removeAttribute('data-easter');
     el.removeAttribute('data-summer');
-    // Then set active modes
-    if (easterMode) el.setAttribute('data-easter', '');
     if (effectiveSummerMode) el.setAttribute('data-summer', '');
-  }, [easterMode, effectiveSummerMode]);
+  }, [effectiveSummerMode]);
 
   useEffect(() => {
     if (!loadingData && family.length > 0 && !currentUser) {
@@ -386,22 +385,23 @@ const App: React.FC = () => {
         setMaintenanceStart(settingsRow.maintenance_start || '');
         setMaintenanceEnd(settingsRow.maintenance_end || '');
         setDisabledTabs(settingsRow.disabled_tabs || {});
-        if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
         if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
         if (typeof settingsRow.global_summer_enabled === 'boolean') setGlobalSummerEnabled(settingsRow.global_summer_enabled);
       } else {
         await Backend.appSettings.add(DEFAULT_APP_SETTINGS as any);
       }
 
-      // --- AUTOMATIC CALENDAR SYNC ---
-      if (Capacitor.isNativePlatform() && ev.length > 0) {
+      // --- AUTOMATIC CALENDAR SYNC (nur einmalig global) ---
+      if (Capacitor.isNativePlatform() && ev.length > 0 && !localStorage.getItem('fh_native_cal_sync_done')) {
+        localStorage.setItem('fh_native_cal_sync_done', '1');
         try {
           const { NativeCalendarService } = await import('./services/nativeCalendar');
-          setTimeout(() => NativeCalendarService.syncAllToNative(ev, family), 5000);
+          NativeCalendarService.syncAllToNative(ev, family);
         } catch (e) {
           console.error('Auto Calendar Sync fail:', e);
         }
       }
+      
 
     } finally { setLoadingData(false); }
   }, []);
@@ -567,7 +567,6 @@ const App: React.FC = () => {
       maintenance_start: maintenanceStart ? new Date(maintenanceStart).toISOString() : null,
       maintenance_end: maintenanceEnd ? new Date(maintenanceEnd).toISOString() : null,
       disabled_tabs: disabledTabs || {},
-      global_easter_enabled: globalEasterEnabled,
       global_liquid_glass_enabled: globalLiquidGlassEnabled,
       global_summer_enabled: globalSummerEnabled,
     };
@@ -582,7 +581,7 @@ const App: React.FC = () => {
     }, 500);
 
     return () => clearTimeout(timeout);
-  }, [loadingData, currentUser, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalEasterEnabled, globalLiquidGlassEnabled, globalSummerEnabled]);
+  }, [loadingData, currentUser, maintenanceMode, maintenanceStart, maintenanceEnd, disabledTabs, globalLiquidGlassEnabled, globalSummerEnabled]);
 
   const applyAppSettings = (settingsRow: any) => {
     if (!settingsRow) return;
@@ -594,7 +593,6 @@ const App: React.FC = () => {
       if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
       return next;
     });
-    if (typeof settingsRow.global_easter_enabled === 'boolean') setGlobalEasterEnabled(settingsRow.global_easter_enabled);
     if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
     if (typeof settingsRow.global_summer_enabled === 'boolean') setGlobalSummerEnabled(settingsRow.global_summer_enabled);
   };
@@ -1009,8 +1007,8 @@ const App: React.FC = () => {
         const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
         if (ua.includes('android')) return { link: APK_DOWNLOAD_LINK, label: 'Android Update (.apk)' };
-        if (ua.includes('win')) return { link: '#', label: 'Windows bald verfügbar' };
-        if (isIOS) return { link: '#', label: 'Apple bald verfügbar' };
+        if (ua.includes('win')) return { link: EXE_DOWNLOAD_LINK, label: 'Windows Desktop App' };
+        if (isIOS) return { link: SWIFT_DOWNLOAD_LINK, label: 'Apple Swift Playgrounds' };
         return { link: APK_DOWNLOAD_LINK, label: t('maintenance.download_update', language) };
       };
       const updateInfo = getUpdateInfo();
@@ -1163,7 +1161,23 @@ const App: React.FC = () => {
     let PageComponent;
     switch (currentRoute) {
       case AppRoute.WEATHER:
-        PageComponent = <WeatherPage onBack={() => setCurrentRoute(AppRoute.DASHBOARD)} favorites={userWeatherFavorites} onToggleFavorite={toggleWeatherFavorite} initialLocation={currentWeatherLocation} onUpdateCurrentWeatherLocation={setCurrentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
+        PageComponent = <WeatherPage
+          onBack={() => setCurrentRoute(AppRoute.DASHBOARD)}
+          favorites={userWeatherFavorites}
+          onToggleFavorite={toggleWeatherFavorite}
+          initialLocation={currentWeatherLocation}
+          onUpdateCurrentWeatherLocation={setCurrentWeatherLocation}
+          liquidGlass={effectiveLiquidGlass}
+          userId={currentUser?.id}
+          weatherLayout={currentUser?.weatherLayout}
+          onUpdateWeatherLayout={(layout) => {
+            if (!currentUser) return;
+            const updated = { ...currentUser, weatherLayout: layout };
+            setCurrentUser(updated);
+            setFamily(prev => prev.map(m => m.id === currentUser.id ? { ...m, weatherLayout: layout } : m));
+            Backend.family.update(currentUser.id, { weatherLayout: layout }).catch(() => {});
+          }}
+        />;
         break;
       case AppRoute.CALENDAR:
         PageComponent = <CalendarPage
@@ -1221,7 +1235,7 @@ const App: React.FC = () => {
         PageComponent = <ActivitiesPage onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} currentLocation={currentWeatherLocation} liquidGlass={effectiveLiquidGlass} />;
         break;
       case AppRoute.SETTINGS:
-        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} summerMode={summerMode} onToggleSummerMode={() => setSummerMode(!summerMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalEasterEnabled={globalEasterEnabled} onToggleGlobalEaster={() => setGlobalEasterEnabled(!globalEasterEnabled)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} globalSummerEnabled={globalSummerEnabled} onToggleGlobalSummer={() => setGlobalSummerEnabled(!globalSummerEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
+        PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} summerMode={summerMode} onToggleSummerMode={() => setSummerMode(!summerMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} globalSummerEnabled={globalSummerEnabled} onToggleGlobalSummer={() => setGlobalSummerEnabled(!globalSummerEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
           const newVal = !maintenanceMode;
           setMaintenanceMode(newVal);
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {

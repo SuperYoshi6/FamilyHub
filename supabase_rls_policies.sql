@@ -67,6 +67,30 @@ CREATE POLICY "app_settings_insert_admin" ON public.app_settings
   FOR INSERT
   WITH CHECK ((SELECT role FROM public.family WHERE id = auth.uid()) = 'admin');
 
+-- FCM Tokens: any authenticated user can manage their own device tokens
+ALTER TABLE public.fcm_tokens ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "fcm_tokens_select_own" ON public.fcm_tokens;
+CREATE POLICY "fcm_tokens_select_own" ON public.fcm_tokens
+  FOR SELECT
+  USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "fcm_tokens_insert_own" ON public.fcm_tokens;
+CREATE POLICY "fcm_tokens_insert_own" ON public.fcm_tokens
+  FOR INSERT
+  WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "fcm_tokens_update_own" ON public.fcm_tokens;
+CREATE POLICY "fcm_tokens_update_own" ON public.fcm_tokens
+  FOR UPDATE
+  USING (auth.uid()::text = user_id)
+  WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "fcm_tokens_delete_own" ON public.fcm_tokens;
+CREATE POLICY "fcm_tokens_delete_own" ON public.fcm_tokens
+  FOR DELETE
+  USING (auth.uid()::text = user_id);
+
 -- Notes and recommendations:
 -- - These policies assume that admin accounts exist as rows in the same family table and that their role column is set to 'admin'.
 -- - If your admin users are represented differently (e.g. external list or JWT claims), replace the (SELECT role FROM public.family WHERE id = auth.uid()) checks with the appropriate expression (e.g. a custom claim check: current_setting('jwt.claims.role') = 'admin' or auth.role() checks).

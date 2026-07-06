@@ -27,7 +27,6 @@ interface CalendarPageProps {
     liquidGlass?: boolean;
     unreadNotifications?: number;
     onNotificationClick?: () => void;
-    easterEnabled?: boolean;
 }
 const CalendarPage: React.FC<CalendarPageProps> = ({
     events, news, polls, family, currentUser,
@@ -35,7 +34,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
     onAddNews, onUpdateNews, onDeleteNews,
     onAddPoll, onUpdatePoll, onDeletePoll,
     onProfileClick, initialTab = 'calendar', liquidGlass = false,
-    unreadNotifications = 0, onNotificationClick, easterEnabled = false
+    unreadNotifications = 0, onNotificationClick
 }) => {
     // Main Tab Categories (calendar | board)
     const [activeTab, setActiveTab] = useState<'calendar' | 'board'>(() => {
@@ -592,7 +591,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             <div className="flex justify-center">
                                 <button
                                     onClick={() => setShowNewsForm(true)}
-                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl font-bold flex items-center space-x-2 transition active:scale-95`}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center space-x-2 transition active:scale-95"
                                 >
                                     <Plus size={20} /> <span>News erstellen</span>
                                 </button>
@@ -634,7 +633,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                             <input type="text" placeholder="https://..." value={newsImageUrlInput} onChange={(e) => setNewsImageUrlInput(e.target.value)} className="w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs" />
                                         )}
                                     </div>
-                                    <button type="submit" disabled={!newsTitle.trim() || processingImage} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl active:scale-95 transition disabled:opacity-50`}>Veröffentlichen</button>
+                                    <button type="submit" disabled={!newsTitle.trim() || processingImage} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl active:scale-95 transition disabled:opacity-50">Veröffentlichen</button>
                                 </form>
                             </div>
                         )}
@@ -684,7 +683,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             <div className="flex justify-center">
                                 <button
                                     onClick={() => setShowPollForm(true)}
-                                    className={`${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white px-6 py-3 rounded-xl font-bold flex items-center space-x-2 transition active:scale-95`}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center space-x-2 transition active:scale-95"
                                 >
                                     <Plus size={20} /> <span>Umfrage erstellen</span>
                                 </button>
@@ -758,7 +757,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         <label htmlFor="multiVote" className="text-xs font-medium cursor-pointer">Mehrfachauswahl erlauben</label>
                                     </div>
 
-                                    <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className={`w-full ${easterEnabled ? 'bg-pink-500 hover:bg-pink-600' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-3 rounded-xl active:scale-95 transition disabled:opacity-50`}>Umfrage starten</button>
+                                    <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl active:scale-95 transition disabled:opacity-50">Umfrage starten</button>
                                 </form>
                             </div>
                         )}
