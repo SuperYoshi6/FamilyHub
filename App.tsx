@@ -589,6 +589,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
     requestAppPermissions();
+    let cancelled = false;
     let unsubscribeFCM: (() => void) | undefined;
     const setupFCM = async () => {
       await ensureFamilyHubAndroidNotificationChannel();
@@ -598,7 +599,7 @@ const App: React.FC = () => {
         return;
       }
       const token = await requestFirebaseToken(currentUser.id);
-      if (token) {
+      if (token && !cancelled) {
         unsubscribeFCM = onMessageListener((payload: any) => {
           if (payload.notification) {
             const title = payload.notification.title || 'Mitteilung';
@@ -621,7 +622,10 @@ const App: React.FC = () => {
       }
     };
     setupFCM();
-    return () => { if (unsubscribeFCM) unsubscribeFCM(); };
+    return () => {
+      cancelled = true;
+      if (unsubscribeFCM) unsubscribeFCM();
+    };
   }, [currentUser]);
 
   useEffect(() => {

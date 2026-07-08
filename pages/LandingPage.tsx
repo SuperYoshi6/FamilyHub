@@ -336,7 +336,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex items-center space-x-2">
                         <Logo size={30} />
-                        <span className="font-bold opacity-50">© 2024-2026 FamilyHub</span>
+                        <span className="font-bold opacity-50">©2026 FamilyHub</span>
                     </div>
                     <div className="flex space-x-6 text-sm font-medium text-gray-500">
                         <a href="https://github.com/SuperYoshi6/FamilyHub" className="hover:text-blue-500 transition-colors">GitHub</a>

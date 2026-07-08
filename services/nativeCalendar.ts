@@ -175,16 +175,27 @@ export class NativeCalendarService {
             let endDate: Date;
             let isAllDay = false;
 
+            const parseLocalDate = (dateStr: string) => {
+                const [y, m, d] = dateStr.split('-').map(Number);
+                return new Date(y, m - 1, d);
+            };
+
             if (!startTimeStr) {
                 isAllDay = true;
-                startDate = new Date(`${startDateStr}T00:00:00`);
-                endDate = new Date(`${startDateStr}T23:59:59`);
+                startDate = parseLocalDate(startDateStr);
+                const endParts = startDateStr.split('-').map(Number);
+                endDate = new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59);
             } else {
-                startDate = new Date(`${startDateStr}T${startTimeStr}:00`);
+                const [h, mi] = startTimeStr.split(':').map(Number);
+                const startParts = startDateStr.split('-').map(Number);
+                startDate = new Date(startParts[0], startParts[1] - 1, startParts[2], h, mi);
                 if (event.endDate && event.endTime?.trim()) {
-                    endDate = new Date(`${event.endDate}T${event.endTime.trim()}:00`);
+                    const [eh, em] = event.endTime.trim().split(':').map(Number);
+                    const eParts = event.endDate.split('-').map(Number);
+                    endDate = new Date(eParts[0], eParts[1] - 1, eParts[2], eh, em);
                 } else if (event.endDate) {
-                    endDate = new Date(`${event.endDate}T23:59:59`);
+                    const eParts = event.endDate.split('-').map(Number);
+                    endDate = new Date(eParts[0], eParts[1] - 1, eParts[2], 23, 59, 59);
                 } else {
                     endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
                 }
