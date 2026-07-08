@@ -14,9 +14,9 @@ interface ListsPageProps {
     onToggleShopping: (id: string) => void;
     onAddShopping: (name: string, note?: string, category?: string) => void;
     onDeleteShopping: (id: string) => void;
-    onAddHousehold: (title: string, assignedTo: string, priority: TaskPriority, note?: string) => void;
+    onAddHousehold: (title: string, assignedTo: string, priority: TaskPriority, note?: string, dueDate?: string) => void;
     onToggleTask: (id: string, type: 'household' | 'personal') => void;
-    onAddPersonal: (title: string, priority: TaskPriority, note?: string) => void;
+    onAddPersonal: (title: string, priority: TaskPriority, note?: string, dueDate?: string) => void;
     onDeleteTask: (id: string, type: 'household' | 'personal') => void;
     onAddRecipe: (recipe: Recipe) => void;
     onDeleteRecipe: (id: string) => void;
@@ -54,7 +54,8 @@ const ListsPage: React.FC<ListsPageProps> = ({
     const [newCategory, setNewCategory] = useState('Sonstiges');
     const [newPriority, setNewPriority] = useState<TaskPriority>('medium');
     const [selectedAssignee, setSelectedAssignee] = useState<string>(family.length > 0 ? family[0].id : (currentUser?.id || ''));
-    const [showExtendedForm, setShowExtendedForm] = useState(false);
+    const [showExtendedForm, setShowExtendedForm] = useState(true);
+    const [newDueDate, setNewDueDate] = useState('');
     const [recipeLink, setRecipeLink] = useState('');
     const [isScraping, setIsScraping] = useState(false);
     const [expandedRecipeId, setExpandedRecipeId] = useState<string | null>(null);
@@ -93,13 +94,15 @@ const ListsPage: React.FC<ListsPageProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newItem.trim()) return;
+        const due = newDueDate || undefined;
         if (activeTab === 'shopping') onAddShopping(newItem.trim(), newNote.trim(), newCategory);
-        else if (activeTab === 'household') onAddHousehold(newItem.trim(), selectedAssignee, newPriority, newNote.trim());
-        else if (activeTab === 'personal') onAddPersonal(newItem.trim(), newPriority, newNote.trim());
+        else if (activeTab === 'household') onAddHousehold(newItem.trim(), selectedAssignee, newPriority, newNote.trim(), due);
+        else if (activeTab === 'personal') onAddPersonal(newItem.trim(), newPriority, newNote.trim(), due);
         setNewItem(''); setNewNote('');
         setNewCategory('Sonstiges');
         setNewPriority('medium');
-        setShowExtendedForm(false);
+        setNewDueDate('');
+        setShowExtendedForm(true);
     };
 
     const renderPriority = (p?: TaskPriority) => {
@@ -304,6 +307,9 @@ const ListsPage: React.FC<ListsPageProps> = ({
         const priorityWeight = { high: 3, medium: 2, low: 1 };
         const sorted = [...visibleTasks].sort((a, b) => {
             if (a.done !== b.done) return Number(a.done) - Number(b.done);
+            const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+            const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+            if (aDate !== bDate) return aDate - bDate;
             return (priorityWeight[b.priority || 'medium'] || 2) - (priorityWeight[a.priority || 'medium'] || 2);
         });
 
@@ -331,6 +337,14 @@ const ListsPage: React.FC<ListsPageProps> = ({
                             </div>
                             <div className={`pl-7 ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !isReadOnly && onToggleTask(task.id, type)}>
                                 {task.note && <p className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 p-1.5 rounded-md mb-2">{task.note}</p>}
+                                {task.dueDate && (
+                                    <div className={`flex items-center ${task.done ? 'mb-0' : 'mb-2'}`}>
+                                        <Calendar size={10} className={`mr-1 ${task.done ? 'text-gray-300' : 'text-gray-400'}`} />
+                                        <span className={`text-[10px] ${task.done ? 'text-gray-300' : new Date(task.dueDate) < new Date(new Date().toDateString()) ? 'text-red-500 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
+                                            {new Date(task.dueDate).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                                        </span>
+                                    </div>
+                                )}
                                 {type === 'household' && assignee && !task.done && (
                                     <div className="flex items-center pt-1">
                                         <img src={assignee.avatar} className="w-4 h-4 rounded-full border border-gray-200 dark:border-gray-700 mr-1.5" />
@@ -670,16 +684,33 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                         </div>
                                     )}
 
-                                    {activeTab !== 'shopping' && (
-                                        <div className="flex items-center space-x-2">
-                                            <Flag size={16} className="text-gray-400" />
-                                            <div className="flex space-x-2">
-                                                <button type="button" onClick={() => setNewPriority('high')} className={`px-3 py-1 rounded-full text-xs font-bold border transition ${newPriority === 'high' ? 'bg-red-100 text-red-600 border-red-200' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'}`}>Hoch</button>
-                                                <button type="button" onClick={() => setNewPriority('medium')} className={`px-3 py-1 rounded-full text-xs font-bold border transition ${newPriority === 'medium' ? 'bg-gray-200 text-gray-700 border-gray-300' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'}`}>Mittel</button>
-                                                <button type="button" onClick={() => setNewPriority('low')} className={`px-3 py-1 rounded-full text-xs font-bold border transition ${newPriority === 'low' ? 'bg-blue-100 text-blue-600 border-blue-200' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500'}`}>Niedrig</button>
-                                            </div>
-                                        </div>
-                                    )}
+                    {activeTab !== 'shopping' && (
+                        <div className="flex items-center space-x-2">
+                            <Flag size={16} className="text-gray-400" />
+                            <div className="flex space-x-2">
+                                <button type="button" onClick={() => setNewPriority('high')} className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${newPriority === 'high' ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Hoch</button>
+                                <button type="button" onClick={() => setNewPriority('medium')} className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${newPriority === 'medium' ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Mittel</button>
+                                <button type="button" onClick={() => setNewPriority('low')} className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${newPriority === 'low' ? 'bg-blue-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>Niedrig</button>
+                            </div>
+                        </div>
+                    )}
+                    {activeTab !== 'shopping' && (
+                        <div className="flex items-center space-x-2">
+                            <Calendar size={16} className="text-gray-400" />
+                            <input
+                                type="date"
+                                value={newDueDate}
+                                onChange={(e) => setNewDueDate(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-white outline-none border border-gray-200 dark:border-gray-600 focus:border-orange-500/50"
+                            />
+                            {newDueDate && (
+                                <button type="button" onClick={() => setNewDueDate('')} className="text-gray-400 hover:text-red-400 p-1">
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+                    )}
 
                                     {activeTab === 'household' && (
                                         <div className="flex space-x-2 pt-1 overflow-x-auto px-1">

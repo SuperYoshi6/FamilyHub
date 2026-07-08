@@ -91,6 +91,16 @@ const translations = {
       download_update: 'Update herunterladen',
       active_error: 'Wartungsmodus aktiv. Login nur für Administratoren.',
     },
+    notification_categories: {
+      events: 'Kalender-Termine',
+      shopping: 'Einkaufsliste',
+      household_tasks: 'Hausarbeiten',
+      personal_tasks: 'Persönliche Aufgaben',
+      news: 'News',
+      polls: 'Umfragen',
+      meal_requests: 'Essenswünsche',
+      weather: 'Wetter-Updates',
+    },
     summer: {
       title: 'Sommer-Modus',
       summer: 'Sommer',
@@ -175,6 +185,16 @@ const translations = {
       description: 'The app is currently being updated. Please try again later.',
       download_update: 'Download Update',
       active_error: 'Maintenance mode active. Login only for administrators.',
+    },
+    notification_categories: {
+      events: 'Calendar Events',
+      shopping: 'Shopping List',
+      household_tasks: 'Household Tasks',
+      personal_tasks: 'Personal Tasks',
+      news: 'News',
+      polls: 'Polls',
+      meal_requests: 'Meal Requests',
+      weather: 'Weather Updates',
     },
     summer: {
       title: 'Summer Mode',

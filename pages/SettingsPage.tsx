@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { FamilyMember, FeedbackItem, NewsItem, AppRoute, CalendarEvent } from '../types';
 import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Utensils, Palmtree, Trophy, Target } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
+import { getNotificationPrefs, saveNotificationPrefs } from '../services/backend';
 import Logo from '../components/Logo';
 import { t, Language } from '../services/translations';
 
@@ -99,6 +100,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [avatarBroken, setAvatarBroken] = useState(false);
 
+    const currentColorHex = useMemo(() => {
+        const found = EXPANDED_COLORS.find(c => c.val === selectedColor);
+        return found ? found.hex : '#fee2e2';
+    }, [selectedColor]);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const adminFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,7 +113,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [feedbackText, setFeedbackText] = useState('');
     const [rating, setRating] = useState(0);
     const [feedbackSent, setFeedbackSent] = useState(false);
-    const [feedbackFlowTab, setFeedbackFlowTab] = useState<'compose' | 'inbox'>('compose');
+    const [feedbackFlowTab, setFeedbackFlowTab] = useState<'compose' | 'feedback' | 'inbox'>('compose');
     const feedbackSwipeStart = useRef<number | null>(null);
 
     // Message States
@@ -140,6 +146,44 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const [broadcastMessage, setBroadcastMessage] = useState('Wir haben ein Update oder eine Wartung. Bitte prüfen.');
     const [broadcastStatus, setBroadcastStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
     const [syncingCalendar, setSyncingCalendar] = useState(false);
+
+    // Notification Preferences
+    const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
+        events: true, shopping: true, household_tasks: true, news: true, polls: true, meal_requests: true, weather: true, personal_tasks: true,
+    });
+    const [notifPrefsLoaded, setNotifPrefsLoaded] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            const prefs = await getNotificationPrefs(currentUser.id);
+            setNotifPrefs({
+                events: prefs.events,
+                shopping: prefs.shopping,
+                household_tasks: prefs.household_tasks,
+                news: prefs.news,
+                polls: prefs.polls,
+                meal_requests: prefs.meal_requests,
+                weather: prefs.weather,
+            });
+            setNotifPrefsLoaded(true);
+        })();
+    }, [currentUser.id]);
+
+    const toggleNotifPref = (key: string) => {
+        const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
+        setNotifPrefs(updated);
+        saveNotificationPrefs({
+            user_id: currentUser.id,
+            events: updated.events || false,
+            shopping: updated.shopping || false,
+            household_tasks: updated.household_tasks || false,
+            news: updated.news || false,
+            polls: updated.polls || false,
+            meal_requests: updated.meal_requests || false,
+            weather: updated.weather || false,
+            personal_tasks: updated.personal_tasks || false,
+        });
+    };
 
     const isAdmin = currentUser.role === 'admin';
     const isLiquidLocked = !isAdmin && globalLiquidGlassEnabled === false;
@@ -432,7 +476,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                         <div className="flex flex-col items-center space-y-4">
                             <div className="relative group">
-                                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-md relative bg-gray-200">
+                                <div className="w-32 h-32 rounded-full overflow-hidden border-4 shadow-md relative bg-gray-200" style={{ borderColor: currentColorHex }}>
                                     {generatingAvatar ? (
                                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                                             <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -456,6 +500,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     <button onClick={handleUrlSubmit} className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-bold">OK</button>
                                 </div>
                             )}
+
+                            <div className="flex flex-wrap justify-center gap-1.5 px-2">
+                                {EXPANDED_COLORS.map((c) => (
+                                    <button key={c.val} onClick={() => setSelectedColor(c.val)}
+                                        className={`w-5 h-5 rounded-full transition-all active:scale-90 shadow-sm hover:shadow-md ${selectedColor === c.val ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-offset-gray-800 scale-110' : ''}`}
+                                        style={{ backgroundColor: c.hex }}
+                                    />
+                                ))}
+                            </div>
                         </div>
 
                         <div className={`p-4 rounded-2xl shadow-sm space-y-4 ${sectionBgClass}`}>
@@ -470,16 +523,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 </div>
                             )}
 
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">{t('settings.your_color', lang)}</label>
-                                <div className="grid grid-cols-6 gap-3">
-                                    {EXPANDED_COLORS.map((c) => (
-                                        <button key={c.val} onClick={() => setSelectedColor(c.val)} className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm hover:shadow-md relative overflow-hidden" style={{ backgroundColor: c.hex }}>
-                                            {selectedColor === c.val && <div className="bg-black/20 w-full h-full flex items-center justify-center"><Check size={16} className="text-white drop-shadow-md" /></div>}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
                     </section>
 
@@ -580,7 +623,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="font-bold text-gray-800 dark:text-white leading-none">Liquid Glass</span>
-                                                <span className="text-[10px] text-gray-500 mt-0.5">Glaseffekte & Gesten</span>
                                             </div>
                                         </div>
                                         <button onClick={() => { if (!isLiquidLocked) onToggleLiquidGlass(); }} disabled={isLiquidLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${liquidGlass ? 'bg-blue-500' : 'bg-gray-300'} ${isLiquidLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
@@ -594,6 +636,42 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                             )}
                         </div>
                     </section>
+
+                    {/* Notification Preferences */}
+                    {notifPrefsLoaded && (
+                        <section className="space-y-4">
+                            <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 tracking-wider ml-1">{t('settings.title', lang)} • Benachrichtigungen</h2>
+                            <div className={`p-4 rounded-2xl shadow-sm space-y-2 ${sectionBgClass}`}>
+                                {[
+                                    { key: 'events', icon: Calendar, color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' },
+                                    { key: 'shopping', icon: ShoppingCart, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' },
+                                    { key: 'household_tasks', icon: Bell, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' },
+
+                                    { key: 'news', icon: MessageSquare, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
+                                    { key: 'polls', icon: Activity, color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' },
+                                    { key: 'meal_requests', icon: Utensils, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' },
+                                    { key: 'weather', icon: Droplets, color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400' },
+                                ].map((item, i) => (
+                                    <div key={item.key}>
+                                        {i > 0 && <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>}
+                                        <div className="flex items-center justify-between py-2">
+                                            <div className="flex items-center space-x-3">
+                                                <div className={`${item.color} p-2 rounded-full`}>
+                                                    <item.icon size={20} />
+                                                </div>
+                                                <span className="font-bold text-gray-800 dark:text-white text-sm">
+                                                    {t(`notification_categories.${item.key}`, lang)}
+                                                </span>
+                                            </div>
+                                            <button onClick={() => toggleNotifPref(item.key)} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none ${notifPrefs[item.key] ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                                                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${notifPrefs[item.key] ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
                     {/* Admin Panel (Admin Only) */}
                     {currentUser.role === 'admin' && (
@@ -1379,7 +1457,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         <textarea
                                             value={feedbackText}
                                             onChange={(e) => setFeedbackText(e.target.value)}
-                                            placeholder="Teile uns deine Meinung, Wünsche oder Verbesserungsvorschläge mit..."
+                                            placeholder="Teile deine Meinung, Wünsche oder Verbesserungsvorschläge..."
                                             rows={4}
                                             required
                                             className="w-full rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white border-gray-200 dark:border-gray-600"

@@ -1,10 +1,10 @@
 import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from './backend';
 
-// --- Lazy / Safe Firebase & Capacitor Push Imports ---
-// All native/remote SDK calls are deferred into functions so that a
-// missing plugin or blocked network does NOT crash the module at load time
-// (which would produce a white screen on mobile).
+// --- Lazy / Safe Firebase Imports (web only) ---
+// Firebase Web SDK is deferred so a missing dependency does NOT crash
+// the app on native (Android) where we use the Capacitor plugin instead.
 
 let fcmApp: any = null;
 let fcmMessaging: any = null;
@@ -35,29 +35,17 @@ const initFirebase = async (): Promise<boolean> => {
   }
 };
 
-const getPushNotifications = async (): Promise<any> => {
-  try {
-    const { PushNotifications } = await import('@capacitor/push-notifications');
-    return PushNotifications;
-  } catch (e) {
-    console.warn('[FCM] Capacitor PushNotifications plugin not available:', e);
-    return null;
-  }
-};
-
 const saveTokenToSupabase = async (userId: string, token: string) => {
   if (!supabase) {
     console.warn('[FCM] saveTokenToSupabase: supabase not initialized');
     return;
   }
 
-  // Insert or update: delete old entry for this (user, token) first, then insert fresh
-  // Dadurch können mehrere Accounts auf einem Gerät je eigene Zeilen haben
+  // Delete ALL old tokens for this user first to prevent accumulation across re-registrations
   const { error: deleteError } = await supabase
     .from('fcm_tokens')
     .delete()
-    .eq('user_id', userId)
-    .eq('token', token);
+    .eq('user_id', userId);
 
   if (deleteError) {
     console.warn('[FCM] Delete before insert failed:', deleteError.message);
@@ -73,14 +61,8 @@ const saveTokenToSupabase = async (userId: string, token: string) => {
     console.log('[FCM] Token registriert (fcm_tokens).');
   }
 
-  // Always update the family row as well (used as fallback by push-notify)
-  const { error: familyError } = await supabase
-    .from('family')
-    .update({ fcm_token: token })
-    .eq('id', userId);
-
-  if (familyError) console.error('[FCM] Token update on family row failed:', familyError.message);
-  else console.log('[FCM] Token updated on family row.');
+  // Note: family.fcm_token is no longer updated — only fcm_tokens table is authoritative
+  // to prevent duplicate pushes from the fallback in collectRecipientTokens.
 };
 
 /**
@@ -101,9 +83,10 @@ export const requestFirebaseToken = async (userId: string): Promise<string | nul
   }
 };
 
+const CACHED_TOKEN_KEY = 'fcm_device_token';
+
 const requestNativeToken = async (userId: string): Promise<string | null> => {
   try {
-    const PushNotifications = await getPushNotifications();
     if (!PushNotifications) {
       console.warn('[FCM] PushNotifications plugin not available');
       return null;
@@ -119,7 +102,15 @@ const requestNativeToken = async (userId: string): Promise<string | null> => {
       return null;
     }
 
-    // Add listeners BEFORE getToken/register to avoid race conditions
+    // Check for cached token first (für Account-Wechsel, da register() kein zweites Event feuert)
+    const cachedToken = localStorage.getItem(CACHED_TOKEN_KEY);
+    if (cachedToken) {
+      console.log('[FCM] Using cached token for user', userId);
+      await saveTokenToSupabase(userId, cachedToken);
+      return cachedToken;
+    }
+
+    // First registration: add listeners BEFORE register() to avoid race conditions
     let registrationResolved = false;
     const tokenFromRegistration = await new Promise<string | null>((resolve) => {
       const timeout = setTimeout(() => {
@@ -136,6 +127,7 @@ const requestNativeToken = async (userId: string): Promise<string | null> => {
         const token = typeof data === 'string' ? data : data?.value || '';
         if (token) {
           console.log('[FCM] Native Token received via event:', token.substring(0, 20) + '...');
+          localStorage.setItem(CACHED_TOKEN_KEY, token);
           await saveTokenToSupabase(userId, token);
           resolve(token);
         } else {
@@ -153,25 +145,6 @@ const requestNativeToken = async (userId: string): Promise<string | null> => {
 
       PushNotifications.addListener('registration', regHandler);
       PushNotifications.addListener('registrationError', errHandler);
-
-      // Also try getToken immediately (may return cached token)
-      (async () => {
-        try {
-          const existingToken = await PushNotifications.getToken();
-          if (!registrationResolved && existingToken) {
-            const token = typeof existingToken === 'string' ? existingToken : (existingToken as any)?.value || '';
-            if (token) {
-              registrationResolved = true;
-              clearTimeout(timeout);
-              console.log('[FCM] Using cached native token:', token.substring(0, 20) + '...');
-              await saveTokenToSupabase(userId, token);
-              resolve(token);
-            }
-          }
-        } catch (e) {
-          console.log('[FCM] getToken() returned no cached token, registering...');
-        }
-      })();
 
       PushNotifications.register().then(() => {
         console.log('[FCM] PushNotifications.register call triggered');
@@ -201,9 +174,10 @@ const requestWebToken = async (userId: string): Promise<string | null> => {
     }
 
     // Register service worker for background message handling
+    let swRegistration: ServiceWorkerRegistration | null = null;
     try {
       const swUrl = new URL('./firebase-messaging-sw.js', window.location.href).href;
-      await navigator.serviceWorker.register(swUrl, { scope: './' });
+      swRegistration = await navigator.serviceWorker.register(swUrl, { scope: './' });
       await navigator.serviceWorker.ready;
     } catch (swErr) {
       console.warn('[FCM] Service worker registration error (non-fatal):', swErr);
@@ -220,7 +194,7 @@ const requestWebToken = async (userId: string): Promise<string | null> => {
           'BFamja8NGJwmtzCNEA7i9JPX6CBC5DS-s1rA6USxv3QGorqRvkw6uPe5dBwXfyJmqa1iZYGU2POzvtWvBho_8H8';
         const token = await getToken(fcmMessaging, {
           vapidKey: String(vapidKey).trim(),
-          serviceWorkerRegistration: undefined
+          serviceWorkerRegistration: swRegistration || undefined
         });
         if (token) {
           await saveTokenToSupabase(userId, token);
@@ -244,23 +218,18 @@ const requestWebToken = async (userId: string): Promise<string | null> => {
  */
 export const onMessageListener = (callback: (payload: any) => void): (() => void) => {
   if (Capacitor.isNativePlatform()) {
-    let removeFn: (() => void) | null = null;
-    getPushNotifications().then((PushNotifications) => {
-      if (!PushNotifications) return;
-      const handler = PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
-        console.log('Push empfangen (Native):', notification);
-        callback({
-          notification: {
-            title: notification.title,
-            body: notification.body
-          },
-          data: notification.data
-        });
+    if (!PushNotifications) return () => {};
+    const handler = PushNotifications.addListener('pushNotificationReceived', (notification: any) => {
+      console.log('Push empfangen (Native):', notification);
+      callback({
+        notification: {
+          title: notification.title,
+          body: notification.body
+        },
+        data: notification.data
       });
-      // store the async remove result
-      removeFn = async () => (await handler).remove();
-    }).catch(() => {});
-    return removeFn ?? (() => {});
+    });
+    return async () => { try { (await handler).remove(); } catch {} };
   } else {
     let unsubscribe = () => { };
     initFirebase().then((ok) => {

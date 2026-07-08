@@ -1,0 +1,5 @@
+ALTER TABLE IF EXISTS household_tasks
+    ADD COLUMN IF NOT EXISTS due_date DATE;
+
+ALTER TABLE IF EXISTS personal_tasks
+    ADD COLUMN IF NOT EXISTS due_date DATE;

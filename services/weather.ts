@@ -58,6 +58,40 @@ export const searchCitySuggestions = async (query: string): Promise<{lat: number
   }
 };
 
+export const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+  try {
+    const cached = localStorage.getItem(`geo_${lat.toFixed(4)}_${lng.toFixed(4)}`);
+    if (cached) return cached;
+    const response = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${lat},${lng}&count=1&language=de&format=json`
+    );
+    const data = await response.json();
+    if (data.results && data.results.length > 0) {
+      const name = `${data.results[0].name}${data.results[0].admin1 ? ', ' + data.results[0].admin1 : ''}`;
+      localStorage.setItem(`geo_${lat.toFixed(4)}_${lng.toFixed(4)}`, name);
+      return name;
+    }
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=de`
+    );
+    const loc = await res.json();
+    if (loc?.address) {
+      const parts = [loc.address.city || loc.address.town || loc.address.village || loc.address.municipality, loc.address.state].filter(Boolean);
+      const name = parts.join(', ') || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+      localStorage.setItem(`geo_${lat.toFixed(4)}_${lng.toFixed(4)}`, name);
+      return name;
+    }
+    return `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+  } catch {
+    return `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+  }
+};
+
+export const resolveLocationName = async (lat: number, lng: number, currentName?: string): Promise<string> => {
+  if (currentName && currentName !== 'Aktueller Standort') return currentName;
+  return reverseGeocode(lat, lng);
+};
+
 export const getWeatherDescription = (code: number): string => {
   // Simple WMO code mapping to German descriptions
   if (code === 0) return 'Klar';

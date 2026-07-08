@@ -75,6 +75,18 @@ export interface AppNotification {
   authorId?: string;
 }
 
+export interface NotificationPreferences {
+  user_id: string;
+  events: boolean;
+  shopping: boolean;
+  household_tasks: boolean;
+  personal_tasks: boolean;
+  news: boolean;
+  polls: boolean;
+  meal_requests: boolean;
+  weather: boolean;
+}
+
 export interface AppSettings {
   id: string;
   maintenance_mode: boolean;
@@ -108,6 +120,7 @@ export interface Task {
   type: 'household' | 'personal';
   priority?: TaskPriority;
   note?: string;
+  dueDate?: string; // ISO date string for due date/reminder
   authorId?: string; // New: Track who created the task
 }
 

@@ -3,6 +3,7 @@ import { CapacitorCalendar } from '@ebarooni/capacitor-calendar';
 import { CalendarEvent, FamilyMember } from '../types';
 
 const MAP_KEY = 'familyhub_native_calendar_map';
+const SYNC_INIT_KEY = 'familyhub_native_calendar_synced';
 
 /** Zwischengespeicherte Ziel-Kalender-IDs. */
 let familyCalendarId: string | null | undefined;
@@ -21,6 +22,16 @@ function setEventMap(map: Record<string, NativeEventRef>) {
     localStorage.setItem(MAP_KEY, JSON.stringify(map));
 }
 
+function extractCalendarId(result: unknown): string | undefined {
+    if (!result) return undefined;
+    if (typeof result === 'string') return result;
+    if (typeof result === 'object' && result !== null && 'id' in result) {
+        const maybeId = (result as { id?: unknown }).id;
+        return typeof maybeId === 'string' ? maybeId : undefined;
+    }
+    return undefined;
+}
+
 /**
  * Erstellt oder findet den FamilyHub-Familienkalender.
  * Fallback: Gerät-Standardkalender wenn createCalendar nicht unterstützt.
@@ -35,9 +46,10 @@ async function getFamilyCalendarId(): Promise<string | undefined> {
                 title: calName,
                 color: '#3B82F6',
             });
-            if (result?.id) {
-                familyCalendarId = result.id;
-                console.log(`[Calendar] Familienkalender erstellt: ${calName} (ID: ${result.id})`);
+            const createdId = extractCalendarId(result);
+            if (createdId) {
+                familyCalendarId = createdId;
+                console.log(`[Calendar] Familienkalender erstellt: ${calName} (ID: ${createdId})`);
                 return familyCalendarId;
             }
         } catch {
@@ -45,7 +57,7 @@ async function getFamilyCalendarId(): Promise<string | undefined> {
         }
         // Fallback: Standardkalender
         const { result } = await CapacitorCalendar.getDefaultCalendar();
-        familyCalendarId = result?.id ?? null;
+        familyCalendarId = extractCalendarId(result) ?? null;
     } catch (e) {
         console.warn('[Calendar] Familienkalender nicht ermittelbar:', e);
         familyCalendarId = null;
@@ -67,16 +79,17 @@ async function getPrivateCalendarId(userId: string, userName: string): Promise<s
                 title: calName,
                 color: '#10B981',
             });
-            if (result?.id) {
-                privateCalendarIds.set(userId, result.id);
-                console.log(`[Calendar] Privater Kalender erstellt: ${calName} (ID: ${result.id})`);
-                return result.id;
+            const createdId = extractCalendarId(result);
+            if (createdId) {
+                privateCalendarIds.set(userId, createdId);
+                console.log(`[Calendar] Privater Kalender erstellt: ${calName} (ID: ${createdId})`);
+                return createdId;
             }
         } catch {
             console.log('[Calendar] createCalendar nicht verfügbar, nutze Standard');
         }
         const { result } = await CapacitorCalendar.getDefaultCalendar();
-        privateCalendarIds.set(userId, result?.id ?? null);
+        privateCalendarIds.set(userId, extractCalendarId(result) ?? null);
     } catch (e) {
         console.warn(`[Calendar] Privater Kalender für ${userName} nicht ermittelbar:`, e);
         privateCalendarIds.set(userId, null);
@@ -193,7 +206,8 @@ export class NativeCalendarService {
                 endDate: endDate.getTime(),
                 isAllDay: isAllDay,
                 notes,
-                ...(isIos ? { alertOffsetInMinutes: [30] } : {}),
+                // 24h before (1440 min) + at event time (0 min) for both platforms
+                alertOffsetInMinutes: [1440, 0],
             });
 
             const map = getEventMap();
@@ -244,13 +258,28 @@ export class NativeCalendarService {
     }
 
     /**
-     * Synchronisiert alle Events in einer Schleife (für Ersteinrichtung oder Refresh)
+     * Synchronisiert alle Events in einer Schleife (nur beim ersten Start).
+     * Spätere Änderungen werden einzeln über syncEventToNative/updateEventInNative/deleteEventFromNative
+     * synchronisiert, damit der Samsung-Kalender nicht bei jedem Daten-Load alle Events neu anlegt
+     * und dadurch mehrfache Benachrichtigungen auslöst.
      */
     public static async syncAllToNative(
         events: CalendarEvent[],
         family: FamilyMember[] = [],
     ): Promise<void> {
         if (!Capacitor.isNativePlatform()) return;
+
+        // Nur beim ersten Mal wirklich alles löschen und neu anlegen (max. 1× pro Tag)
+        const lastSync = localStorage.getItem(SYNC_INIT_KEY);
+        if (lastSync) {
+            const lastSyncTime = parseInt(lastSync, 10);
+            if (!isNaN(lastSyncTime) && Date.now() - lastSyncTime < 24 * 60 * 60 * 1000) {
+                console.log('[Calendar] Initial-Sync bereits erfolgt — überspringe Batch-Sync');
+                return;
+            }
+            console.log('[Calendar] Letzter Sync >24h her — führe erneuten Komplett-Sync durch');
+        }
+
         const access = await CapacitorCalendar.requestFullCalendarAccess();
         if (access.result !== 'granted') {
             console.warn('[Calendar] Keine Kalender-Berechtigung — Batch-Sync abgebrochen.');
@@ -258,10 +287,25 @@ export class NativeCalendarService {
         }
         familyCalendarId = undefined;
         privateCalendarIds.clear();
+
+        // Alte native Einträge löschen, bevor neu synchronisiert wird
+        const oldMap = getEventMap();
+        const nativeIds = Object.values(oldMap).map(ref => ref.id).filter(Boolean) as string[];
+        if (nativeIds.length > 0) {
+            console.log(`[Calendar] Lösche ${nativeIds.length} alte native Einträge...`);
+            try {
+                await CapacitorCalendar.deleteEventsById({ ids: nativeIds });
+            } catch (e) {
+                console.warn('[Calendar] Löschen alter Einträge fehlgeschlagen:', e);
+            }
+        }
+        localStorage.removeItem(MAP_KEY);
+
         console.log(`[Calendar] Starte Batch-Synchronisation von ${events.length} Terminen...`);
         for (const ev of events) {
             await this.syncEventToNative(ev, family);
         }
+        localStorage.setItem(SYNC_INIT_KEY, String(Date.now()));
         console.log('[Calendar] Batch-Synchronisation abgeschlossen.');
     }
 }

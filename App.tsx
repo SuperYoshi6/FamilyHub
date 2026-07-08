@@ -15,7 +15,7 @@ import NotificationModal from './components/NotificationModal';
 import { requestFirebaseToken, onMessageListener } from './services/fcm';
 import { Lock, X, Loader2, ArrowRight, UserPlus, Eye, EyeOff, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { t, Language } from './services/translations';
-import { Backend } from './services/backend';
+import { Backend, processMutationQueue, hasPendingMutations, getPendingMutationCount } from './services/backend';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -23,6 +23,8 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { supabase } from './services/backend';
 import { ensureFamilyHubAndroidNotificationChannel, androidNotificationChannelFields } from './services/notificationsAndroid';
+import { updateShoppingWidget, updateCalendarWidget, updateTasksWidget } from './services/widgetBridge';
+import { scheduleAllReminders, scheduleTaskReminder, cancelTaskReminder, cancelEventReminder } from './services/reminders';
 
 // Unterdrückt bekannten Chromium SW-Kanal-Fehler (Firebase compat SDK)
 window.addEventListener('unhandledrejection', (e) => {
@@ -101,6 +103,9 @@ const App: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
+
+  // --- Offline State ---
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   // --- 2. Settings & Session State ---
   const [darkMode, setDarkMode] = useState(false);
@@ -281,10 +286,11 @@ const App: React.FC = () => {
         } catch (e) { }
       } catch (e) { }
     } else if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => setCurrentWeatherLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'Aktueller Standort' }),
-        null, { enableHighAccuracy: false, timeout: 5000 }
-      );
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { resolveLocationName } = await import('./services/weather');
+        const name = await resolveLocationName(pos.coords.latitude, pos.coords.longitude);
+        setCurrentWeatherLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, name });
+      }, null, { enableHighAccuracy: false, timeout: 5000 });
     }
   };
 
@@ -391,15 +397,35 @@ const App: React.FC = () => {
         await Backend.appSettings.add(DEFAULT_APP_SETTINGS as any);
       }
 
-      // --- AUTOMATIC CALENDAR SYNC (nur einmalig global) ---
-      if (Capacitor.isNativePlatform() && ev.length > 0 && !localStorage.getItem('fh_native_cal_sync_done')) {
-        localStorage.setItem('fh_native_cal_sync_done', '1');
+      // --- AUTOMATIC CALENDAR SYNC (bei jedem Daten-Load) ---
+      if (Capacitor.isNativePlatform() && ev.length > 0) {
         try {
           const { NativeCalendarService } = await import('./services/nativeCalendar');
-          NativeCalendarService.syncAllToNative(ev, family);
+          await NativeCalendarService.syncAllToNative(ev, family);
         } catch (e) {
           console.error('Auto Calendar Sync fail:', e);
         }
+      }
+
+      // --- WIDGET UPDATES ---
+      if (Capacitor.isNativePlatform()) {
+        const shoppingNames = shop.map((s: ShoppingItem) => s.name);
+        const uncheckedCount = shop.filter((s: ShoppingItem) => !s.checked).length;
+        updateShoppingWidget(shoppingNames, uncheckedCount);
+
+        const todayEvents = ev
+          .filter((e: CalendarEvent) => e.date === new Date().toISOString().split('T')[0])
+          .map((e: CalendarEvent) => `${e.time?.slice(0, 5) || ''} ${e.title}`);
+        updateCalendarWidget(todayEvents);
+
+        const openTasks = [...house.filter((t: Task) => !t.done), ...pers.filter((t: Task) => !t.done)]
+          .map((t: Task) => t.title);
+        updateTasksWidget(openTasks);
+      }
+
+      // --- SCHEDULE REMINDERS ---
+      if (Capacitor.isNativePlatform()) {
+        scheduleAllReminders([...house, ...pers], ev);
       }
       
 
@@ -439,6 +465,42 @@ const App: React.FC = () => {
     };
   }, [loadAllData]);
 
+  // Online/Offline detection + sync
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOffline(false);
+      const count = getPendingMutationCount();
+      if (count > 0) {
+        console.log(`🌐 Online — syncing ${count} pending mutation(s)...`);
+        const synced = await processMutationQueue();
+        if (synced > 0) {
+          loadAllData();
+        }
+      }
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      console.log('📡 Offline — changes will be queued and synced later.');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Periodic sync every 2 minutes (processes queued mutations)
+    const syncInterval = setInterval(async () => {
+      if (!isOffline && getPendingMutationCount() > 0) {
+        const synced = await processMutationQueue();
+        if (synced > 0) loadAllData();
+      }
+    }, 120000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(syncInterval);
+    };
+  }, [loadAllData, isOffline]);
+
   // Supabase Realtime subscription for live sync (news, events, shopping, tasks)
   useEffect(() => {
     if (!supabase) return;
@@ -453,7 +515,50 @@ const App: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
-        () => { loadAllData(); }
+        async (payload: any) => {
+          await loadAllData();
+          // Native calendar sync für Änderungen von anderen Familienmitgliedern
+          // Nutzt payload.new direkt (snake_case → camelCase), da events-State im Closure stale sein kann
+          if (Capacitor.isNativePlatform() && family.length > 0) {
+            try {
+              const { NativeCalendarService } = await import('./services/nativeCalendar');
+              const eventType = payload.eventType as string;
+              if (eventType === 'DELETE' && payload.old?.id) {
+                await NativeCalendarService.deleteEventFromNative(payload.old.id);
+              } else if (eventType === 'INSERT' && payload.new) {
+                const ev: CalendarEvent = {
+                  id: payload.new.id,
+                  title: payload.new.title || '',
+                  date: payload.new.date || '',
+                  time: payload.new.time || undefined,
+                  endDate: payload.new.end_date || undefined,
+                  endTime: payload.new.end_time || undefined,
+                  location: payload.new.location || undefined,
+                  description: payload.new.description || undefined,
+                  assignedTo: payload.new.assigned_to || [],
+                  authorId: payload.new.author_id || undefined,
+                };
+                await NativeCalendarService.syncEventToNative(ev, family);
+              } else if (eventType === 'UPDATE' && payload.new) {
+                const ev: CalendarEvent = {
+                  id: payload.new.id,
+                  title: payload.new.title || '',
+                  date: payload.new.date || '',
+                  time: payload.new.time || undefined,
+                  endDate: payload.new.end_date || undefined,
+                  endTime: payload.new.end_time || undefined,
+                  location: payload.new.location || undefined,
+                  description: payload.new.description || undefined,
+                  assignedTo: payload.new.assigned_to || [],
+                  authorId: payload.new.author_id || undefined,
+                };
+                await NativeCalendarService.updateEventInNative(ev, family);
+              }
+            } catch (e) {
+              console.warn('[Realtime] Native calendar sync failed:', e);
+            }
+          }
+        }
       )
       .on(
         'postgres_changes',
@@ -487,6 +592,11 @@ const App: React.FC = () => {
     let unsubscribeFCM: (() => void) | undefined;
     const setupFCM = async () => {
       await ensureFamilyHubAndroidNotificationChannel();
+      // Admin bekommt keine Push-Benachrichtigungen
+      if (currentUser.role === 'admin') {
+        console.log('[FCM] Admin user — skipping push registration');
+        return;
+      }
       const token = await requestFirebaseToken(currentUser.id);
       if (token) {
         unsubscribeFCM = onMessageListener((payload: any) => {
@@ -923,9 +1033,8 @@ const App: React.FC = () => {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!enableSwipe) return;
-    if (currentRoute === AppRoute.CALENDAR) return;
     const target = e.target as HTMLElement;
-    if (target.closest('input, textarea, select, button')) return;
+    if (target.closest('input, textarea, select, button, [data-no-swipe]')) return;
     const t = e.touches[0];
     swipeStartX.current = t.clientX;
     swipeStartY.current = t.clientY;
@@ -933,7 +1042,6 @@ const App: React.FC = () => {
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!enableSwipe) return;
-    if (currentRoute === AppRoute.CALENDAR) return;
     if (swipeStartX.current === null || swipeStartY.current === null) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - swipeStartX.current;
@@ -941,7 +1049,8 @@ const App: React.FC = () => {
     swipeStartX.current = null;
     swipeStartY.current = null;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
-    const nextRoute = dx < 0 ? getNextSwipeRoute(1) : getNextSwipeRoute(-1);
+    // Swipe left → vorheriger Tab (links), Swipe right → nächster Tab (rechts)
+    const nextRoute = dx < 0 ? getNextSwipeRoute(-1) : getNextSwipeRoute(1);
     if (nextRoute !== currentRoute) setCurrentRoute(nextRoute);
   };
 
@@ -1210,10 +1319,10 @@ const App: React.FC = () => {
           onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? { ...i, checked: !i.checked } : i)); await Backend.shopping.update(id, { checked: !item.checked }); } }}
           onAddShopping={async (name) => { const i: ShoppingItem = { id: Date.now().toString(), name, checked: false, authorId: currentUser?.id }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }}
           onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }}
-          onAddHousehold={async (t, a) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: 'medium', authorId: currentUser?.id }; setHouseholdTasks(p => [...p, task]); await Backend.householdTasks.add(task); }}
-          onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.householdTasks.update(id, { done: !t.done }); } } else { const t = personalTasks.find(x => x.id === id); if (t) { setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: !x.done } : x)); await Backend.personalTasks.update(id, { done: !t.done }); } } }}
-          onAddPersonal={async (t) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: 'medium', authorId: currentUser?.id }; setPersonalTasks(p => [...p, task]); await Backend.personalTasks.add(task); }}
-          onDeleteTask={async (id, type) => { if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }}
+          onAddHousehold={async (t, a, pr, n, d) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: pr || 'medium', note: n, dueDate: d, authorId: currentUser?.id }; setHouseholdTasks(prev => [...prev, task]); await Backend.householdTasks.add(task); }}
+          onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.householdTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); } } else { const t = personalTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.personalTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); } } }}
+          onAddPersonal={async (t, pr, n, d) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: pr || 'medium', note: n, dueDate: d, authorId: currentUser?.id }; setPersonalTasks(prev => [...prev, task]); await Backend.personalTasks.add(task); }}
+          onDeleteTask={async (id, type) => { cancelTaskReminder(id); if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }}
           onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }}
           onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }}
           onAddIngredientsToShopping={async (ings) => {
@@ -1249,7 +1358,18 @@ const App: React.FC = () => {
 
     return (
       <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-        { }
+        {/* Offline Banner */}
+        {(isOffline || getPendingMutationCount() > 0) && (
+          <div className="flex-shrink-0 bg-amber-500 dark:bg-amber-600 text-white px-4 py-1.5 flex items-center justify-center gap-2 text-xs font-bold z-50">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+            </span>
+            {isOffline
+              ? 'Offline — Änderungen werden später synchronisiert'
+              : `${getPendingMutationCount()} Änderung${getPendingMutationCount() !== 1 ? 'en' : ''} warten auf Sync`}
+          </div>
+        )}
         <main
           ref={mainScrollRef}
           className="flex-1 overflow-y-auto no-scrollbar relative"

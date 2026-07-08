@@ -170,6 +170,19 @@ CREATE TABLE IF NOT EXISTS notifications (
     author_id TEXT REFERENCES family(id)
 );
 
+-- Table: notification_preferences (per-user push notification toggles)
+CREATE TABLE IF NOT EXISTS notification_preferences (
+    user_id TEXT PRIMARY KEY REFERENCES family(id),
+    events BOOLEAN DEFAULT TRUE,
+    shopping BOOLEAN DEFAULT TRUE,
+    household_tasks BOOLEAN DEFAULT TRUE,
+    personal_tasks BOOLEAN DEFAULT TRUE,
+    news BOOLEAN DEFAULT TRUE,
+    polls BOOLEAN DEFAULT TRUE,
+    meal_requests BOOLEAN DEFAULT TRUE,
+    weather BOOLEAN DEFAULT TRUE
+);
+
 -- Table: app_settings (global singleton)
 CREATE TABLE IF NOT EXISTS app_settings (
     id TEXT PRIMARY KEY,
@@ -215,3 +228,9 @@ ALTER TABLE IF EXISTS household_tasks
 
 ALTER TABLE IF EXISTS personal_tasks
     ADD COLUMN IF NOT EXISTS author_id TEXT REFERENCES family(id);
+
+ALTER TABLE IF EXISTS household_tasks
+    ADD COLUMN IF NOT EXISTS due_date DATE;
+
+ALTER TABLE IF EXISTS personal_tasks
+    ADD COLUMN IF NOT EXISTS due_date DATE;

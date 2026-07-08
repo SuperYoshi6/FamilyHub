@@ -4,4 +4,12 @@
     <string name="title_activity_main">FamilyHub</string>
     <string name="package_name">com.familienhub.app</string>
     <string name="custom_url_scheme">com.familienhub.app</string>
+    <string name="widget_shopping_title">Einkaufsliste</string>
+    <string name="widget_calendar_title">Termine</string>
+    <string name="widget_tasks_title">Aufgaben</string>
+    <string name="widget_shopping_desc">Zeigt die aktuelle Einkaufsliste</string>
+    <string name="widget_calendar_desc">Zeigt die heutigen Termine</string>
+    <string name="widget_tasks_desc">Zeigt offene Aufgaben</string>
+    <string name="widget_empty">Keine Einträge</string>
+    <string name="widget_update">Aktualisieren</string>
 </resources>

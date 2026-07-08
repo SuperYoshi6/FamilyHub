@@ -1,4 +1,4 @@
-import { FamilyMember, CalendarEvent, ShoppingItem, Task, MealPlan, MealRequest, SavedLocation, Recipe, NewsItem, FeedbackItem, Poll, AppNotification, AppSettings } from "../types";
+import { FamilyMember, CalendarEvent, ShoppingItem, Task, MealPlan, MealRequest, SavedLocation, Recipe, NewsItem, FeedbackItem, Poll, AppNotification, AppSettings, NotificationPreferences } from "../types";
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // --- INITIAL DATA MOCKS (Fallback) ---
@@ -123,6 +123,76 @@ class LocalStorageCollection<T extends { id: string }> implements ICollection<T>
     }
 }
 
+// --- OFFLINE MUTATION QUEUE ---
+const MUTATION_QUEUE_KEY = 'fh_mutation_queue';
+
+interface QueuedMutation {
+    id: string;
+    table: string;
+    operation: 'add' | 'update' | 'delete';
+    item?: any;
+    updates?: any;
+    itemId?: string;
+    timestamp: number;
+}
+
+function getMutationQueue(): QueuedMutation[] {
+    try {
+        const stored = localStorage.getItem(MUTATION_QUEUE_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+}
+
+function saveMutationQueue(queue: QueuedMutation[]): void {
+    try { localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(queue)); } catch { }
+}
+
+function addMutation(mutation: Omit<QueuedMutation, 'id' | 'timestamp'>): void {
+    const queue = getMutationQueue();
+    queue.push({ ...mutation, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), timestamp: Date.now() });
+    saveMutationQueue(queue);
+}
+
+function removeMutation(id: string): void {
+    saveMutationQueue(getMutationQueue().filter(m => m.id !== id));
+}
+
+export async function processMutationQueue(): Promise<number> {
+    if (!supabase) return 0;
+    const queue = getMutationQueue();
+    if (queue.length === 0) return 0;
+
+    let processed = 0;
+    for (const mutation of queue) {
+        try {
+            const payload = { ...(mutation.item || mutation.updates || {}) };
+            if (mutation.operation === 'add') {
+                const { error } = await supabase.from(mutation.table).insert(payload);
+                if (!error) { removeMutation(mutation.id); processed++; }
+            } else if (mutation.operation === 'update') {
+                if (Object.keys(payload).length > 0) {
+                    const { error } = await supabase.from(mutation.table).update(payload).eq('id', mutation.itemId);
+                    if (!error) { removeMutation(mutation.id); processed++; }
+                } else { removeMutation(mutation.id); processed++; }
+            } else if (mutation.operation === 'delete') {
+                const { error } = await supabase.from(mutation.table).delete().eq('id', mutation.itemId);
+                if (!error) { removeMutation(mutation.id); processed++; }
+            }
+        } catch {
+            // Keep in queue for next attempt
+        }
+    }
+    return processed;
+}
+
+export function hasPendingMutations(): boolean {
+    return getMutationQueue().length > 0;
+}
+
+export function getPendingMutationCount(): number {
+    return getMutationQueue().length;
+}
+
 // --- SUPABASE IMPLEMENTATION WITH ROBUST FALLBACK ---
 class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
     private localFallback: LocalStorageCollection<T>;
@@ -211,6 +281,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if (this.table.includes('tasks') && 'assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
+            if (this.table.includes('tasks') && 'dueDate' in payload) { payload.due_date = payload.dueDate; delete payload.dueDate; }
         }
 
         return payload;
@@ -282,6 +353,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
             if (this.table.includes('tasks') && 'assigned_to' in item) { item.assignedTo = item.assigned_to; delete item.assigned_to; }
+            if (this.table.includes('tasks') && 'due_date' in item) { item.dueDate = item.due_date; delete item.due_date; }
         }
 
         return item as T;
@@ -326,10 +398,24 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                 const { data, error } = await supabase.from(this.table).select('*');
 
                 if (!error && data) {
-                    const mapped = data.map(d => this.desanitize(d));
+                    let mapped: T[] = data.map(d => this.desanitize(d));
 
-                    // Supabase is the source of truth — always trust its response
-                    // (even if it returns 0 rows, that means items were deleted)
+                    // Apply queued offline mutations on top of fresh Supabase data
+                    const queue = getMutationQueue().filter(m => m.table === this.table);
+                    for (const mutation of queue) {
+                        if (mutation.operation === 'add' && mutation.item) {
+                            const desanitized = this.desanitize ? this.desanitize(mutation.item) : mutation.item;
+                            if (!mapped.find((i: any) => i.id === desanitized.id)) {
+                                mapped.push(desanitized);
+                            }
+                        } else if (mutation.operation === 'update' && mutation.updates && mutation.itemId) {
+                            const desanitized = this.desanitize ? this.desanitize(mutation.updates) : mutation.updates;
+                            mapped = mapped.map((i: any) => i.id === mutation.itemId ? { ...i, ...desanitized } : i) as T[];
+                        } else if (mutation.operation === 'delete' && mutation.itemId) {
+                            mapped = mapped.filter((i: any) => i.id !== mutation.itemId) as T[];
+                        }
+                    }
+
                     await this.localFallback.setAll(mapped);
                     return mapped;
                 } else if (error) {
@@ -352,9 +438,14 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             try {
                 const payload = this.sanitize(item);
                 const { error } = await supabase.from(this.table).insert(payload);
-                if (error) console.error(`[Supabase] Add sync error (${this.table}):`, error.message);
+                if (error) {
+                    console.error(`[Supabase] Add sync error (${this.table}):`, error.message);
+                    addMutation({ table: this.table, operation: 'add', item: payload });
+                }
             } catch (err) {
                 console.error(`[Supabase] Add network error (${this.table}):`, err);
+                const payload = this.sanitize(item);
+                addMutation({ table: this.table, operation: 'add', item: payload });
             }
         }
         return this.localFallback.getAll();
@@ -371,18 +462,24 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                         const { error: updateError } = await supabase.from(this.table).update(payload).eq('id', id);
                         if (updateError) {
                             const { error: insertError } = await supabase.from(this.table).insert({ id, ...payload });
-                            if (insertError) console.error(`[Supabase] Upsert error (${this.table}):`, insertError.message);
+                            if (insertError) {
+                                console.error(`[Supabase] Upsert error (${this.table}):`, insertError.message);
+                                addMutation({ table: this.table, operation: 'update', updates: payload, itemId: id });
+                            }
                         }
                     } else {
                         const { error } = await supabase.from(this.table).update(payload).eq('id', id);
                         if (error) {
                             const isNetworkError = error.message === 'Failed to fetch' || error.message?.includes('network');
                             console.error(`[Supabase] ${isNetworkError ? 'Network' : 'Sync'} error (${this.table}):`, error.message);
+                            addMutation({ table: this.table, operation: 'update', updates: payload, itemId: id });
                         }
                     }
                 }
             } catch (err) {
                 console.error(`[Supabase] Update network error (${this.table}):`, err);
+                const payload = this.sanitize(updates);
+                addMutation({ table: this.table, operation: 'update', updates: payload, itemId: id });
             }
         }
         return this.localFallback.getAll();
@@ -397,11 +494,13 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
                 const { error, data: deleteData } = await supabase.from(this.table).delete().eq('id', id);
                 if (error) {
                     console.error(`[Supabase] Delete sync error (${this.table}):`, error.message, error.code);
+                    addMutation({ table: this.table, operation: 'delete', itemId: id });
                 } else {
                     console.log(`[Supabase] Deleted ${this.table}:${id} successfully`);
                 }
             } catch (err) {
                 console.error(`[Supabase] Delete network error (${this.table}):`, err);
+                addMutation({ table: this.table, operation: 'delete', itemId: id });
             }
         }
         return this.localFallback.getAll();
@@ -484,6 +583,44 @@ const createCollection = <T extends { id: string }>(key: string, defaultVal: T[]
         }
     }
     return new LocalStorageCollection<T>(key, defaultVal);
+}
+
+// --- NOTIFICATION PREFERENCES HELPER ---
+const DEFAULT_PREFS: Omit<NotificationPreferences, 'user_id'> = {
+  events: true,
+  shopping: true,
+  household_tasks: true,
+  personal_tasks: true,
+  news: true,
+  polls: true,
+  meal_requests: true,
+  weather: true,
+};
+
+export async function getNotificationPrefs(userId: string): Promise<NotificationPreferences> {
+  if (!supabase) {
+    const stored = localStorage.getItem('fh_notification_prefs');
+    if (stored) {
+      try { return JSON.parse(stored); } catch { }
+    }
+    return { user_id: userId, ...DEFAULT_PREFS };
+  }
+  const { data, error } = await supabase.from('notification_preferences').select('*').eq('user_id', userId).single();
+  if (error || !data) {
+    return { user_id: userId, ...DEFAULT_PREFS };
+  }
+  return data as NotificationPreferences;
+}
+
+export async function saveNotificationPrefs(prefs: NotificationPreferences): Promise<void> {
+  localStorage.setItem('fh_notification_prefs', JSON.stringify(prefs));
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.from('notification_preferences').upsert(prefs, { onConflict: 'user_id' });
+    if (error) console.error('[Supabase] saveNotificationPrefs error:', error.message);
+  } catch (err) {
+    console.error('[Supabase] saveNotificationPrefs network error:', err);
+  }
 }
 
 // --- EXPORT ---

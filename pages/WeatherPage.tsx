@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WeatherMetric, WeatherData, SavedLocation } from '../types';
 import { fetchWeather, getWeatherDescription, searchCity, searchCitySuggestions } from '../services/weather';
 import { Sun, CloudRain, Wind, Droplets, Thermometer, MapPinOff, ArrowLeft, Cloud, CloudSnow, CloudLightning, CloudFog, Moon, Umbrella, Calendar, Eye, Gauge, Sunrise, Sunset, Search, MapPin, Loader2, Star, ArrowRightLeft, ArrowUp, ArrowDown, Navigation, GripHorizontal, Clock, X } from 'lucide-react';
@@ -261,6 +261,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     const [suggestions, setSuggestions] = useState<{lat: number, lng: number, name: string}[]>([]);
     const [locationName, setLocationName] = useState<string>('Standort');
     const [currentCoords, setCurrentCoords] = useState<{ lat: number, lng: number } | null>(null);
+    const watchPositionRef = useRef<number | null>(null);
 
     // Radar State
     const [radarType, setRadarType] = useState<'rain' | 'temp'>('rain');
@@ -320,7 +321,9 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                     timeout: 10000,
                     maximumAge: Infinity
                 });
-                loadWeather(coordinates.coords.latitude, coordinates.coords.longitude, "Aktueller Standort");
+                const { resolveLocationName } = await import('../services/weather');
+                const name = await resolveLocationName(coordinates.coords.latitude, coordinates.coords.longitude);
+                loadWeather(coordinates.coords.latitude, coordinates.coords.longitude, name);
                 return;
             } catch (err: any) {
                 console.error("Capacitor Geo Error:", err);
@@ -330,8 +333,10 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         // Web Fallback
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    loadWeather(pos.coords.latitude, pos.coords.longitude, "Aktueller Standort");
+                async (pos) => {
+                    const { resolveLocationName } = await import('../services/weather');
+                    const name = await resolveLocationName(pos.coords.latitude, pos.coords.longitude);
+                    loadWeather(pos.coords.latitude, pos.coords.longitude, name);
                 },
                 (err2) => {
                     setError("Standort nicht verfügbar. Bitte suche manuell.");
@@ -354,19 +359,20 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
             attemptCurrentLocation();
         }
 
-        // Automatische Standort-Aktualisierung per watchPosition
-        let watchId: number | null = null;
+        // Automatische Standort-Aktualisierung per watchPosition (nur ohne initialLocation)
         if (navigator.geolocation && !initialLocation) {
-            watchId = navigator.geolocation.watchPosition(
-                (pos) => {
-                    loadWeather(pos.coords.latitude, pos.coords.longitude, "Aktueller Standort");
+            watchPositionRef.current = navigator.geolocation.watchPosition(
+                async (pos) => {
+                    const { resolveLocationName } = await import('../services/weather');
+                    const name = await resolveLocationName(pos.coords.latitude, pos.coords.longitude);
+                    loadWeather(pos.coords.latitude, pos.coords.longitude, name);
                 },
                 () => {},
                 { enableHighAccuracy: false, timeout: 30000, maximumAge: 300000 }
             );
         }
         return () => {
-            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            if (watchPositionRef.current !== null) navigator.geolocation.clearWatch(watchPositionRef.current);
         };
     }, []);
 
@@ -387,6 +393,11 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         e.preventDefault();
         const trimmedQuery = searchQuery.trim();
         if (!trimmedQuery) return;
+        // Stop GPS watch so manual location persists
+        if (watchPositionRef.current !== null) {
+            navigator.geolocation.clearWatch(watchPositionRef.current);
+            watchPositionRef.current = null;
+        }
         setLoading(true);
         setIsSearching(false);
         setSuggestions([]);
@@ -733,6 +744,10 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                             key={i}
                             type="button"
                             onMouseDown={() => {
+                                if (watchPositionRef.current !== null) {
+                                    navigator.geolocation.clearWatch(watchPositionRef.current);
+                                    watchPositionRef.current = null;
+                                }
                                 loadWeather(s.lat, s.lng, s.name);
                                 setIsSearching(false);
                                 setSuggestions([]);

@@ -959,7 +959,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex-1">
                                                             <h4 className={`font-bold text-base ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-800 dark:text-white'}`}>{event.title}</h4>
-                                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center"><Clock size={14} className="mr-1.5 text-blue-500" /> {event.time} - {event.endTime}</div>
+                                                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center"><Clock size={14} className="mr-1.5 text-blue-500" /> {event.time?.slice(0, 5)} - {event.endTime?.slice(0, 5)}</div>
                                                             {event.location && (
                                                                 <button
                                                                     type="button"
@@ -976,6 +976,16 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                             {event.description && (
                                                                 <div className={`mt-2 p-2.5 rounded-lg text-sm border-l-2 border-blue-400 whitespace-pre-line ${liquidGlass ? 'bg-white/30 text-slate-700 dark:text-gray-300' : 'bg-gray-100/50 dark:bg-gray-900/40 text-gray-600 dark:text-gray-300'}`}>
                                                                     {event.description}
+                                                                </div>
+                                                            )}
+                                                            {event.assignedTo && event.assignedTo.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                    {family.filter(m => event.assignedTo.includes(m.id) && m.role !== 'admin').sort((a, b) => { const order = ['Mama', 'Papa', 'Tim', 'Jan']; return order.indexOf(a.name) - order.indexOf(b.name); }).map(m => (
+                                                                        <span key={m.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                                                                            <img src={m.avatar} className="w-3.5 h-3.5 rounded-full" />
+                                                                            {m.name}
+                                                                        </span>
+                                                                    ))}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1022,7 +1032,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                 <label className="text-[10px] font-bold text-gray-500">Ort</label>
                                                 <button
                                                     type="button"
-                                                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(manualLocation || 'Aktueller Standort')}`, '_blank')}
+                                                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(manualLocation || 'Standort wählen')}`, '_blank')}
                                                     className={`text-[10px] font-bold flex items-center gap-1 transition-all active:scale-95 px-2 py-0.5 rounded-full ${liquidGlass ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20' : 'text-blue-500 hover:text-blue-600'}`}
                                                 >
                                                     <Search size={10} /> Auf Karte suchen
@@ -1037,7 +1047,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-gray-500 ml-1">Wer nimmt teil?</label>
                                             <div className="flex flex-wrap gap-2 pt-1">
-                                                {family.filter(member => member.role !== 'admin').map(member => (
+                                                {family.filter(member => member.role !== 'admin').sort((a, b) => { const order = ['Mama', 'Papa', 'Tim', 'Jan']; return order.indexOf(a.name) - order.indexOf(b.name); }).map(member => (
                                                     <button
                                                         key={member.id}
                                                         type="button"

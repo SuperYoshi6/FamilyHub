@@ -88,8 +88,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, name: 'Aktueller Standort' };
+        async (pos) => {
+          const { resolveLocationName } = await import('../services/weather');
+          const name = await resolveLocationName(pos.coords.latitude, pos.coords.longitude);
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, name };
           loadWeatherData(loc.lat, loc.lng, loc.name);
           onUpdateWeatherLocation(loc);
         },

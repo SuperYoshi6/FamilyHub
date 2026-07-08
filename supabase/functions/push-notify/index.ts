@@ -1,6 +1,9 @@
-﻿import { serve } from "std/http/server.ts";
-import { createClient } from "supabase";
-import * as jose from "jose";
+﻿// @ts-ignore: Deno std library import - allow unresolved module in this TypeScript environment
+import { serve } from "https://deno.land/std@0.203.0/http/server.ts";
+// @ts-ignore: Deno supabase-js import - allow unresolved module in this TypeScript environment
+import { createClient } from "https://esm.sh/@supabase/supabase-js?no-check";
+// @ts-ignore: Deno jose import - allow unresolved module in this TypeScript environment
+import * as jose from "https://esm.sh/jose@4.15.3?no-check";
 
 /**
  * Gets an OAuth2 Access Token for the Firebase HTTP v1 API.
@@ -127,7 +130,7 @@ async function sendFcmMessage(
 }
 
 function resolveFirebaseCredentials(): { clientEmail: string; privateKey: string; projectId: string } {
-  const b64 = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_B64")?.trim();
+  const b64 = process.env["FIREBASE_SERVICE_ACCOUNT_B64"]?.trim();
   if (b64) {
     try {
       const binary = atob(b64);
@@ -141,14 +144,14 @@ function resolveFirebaseCredentials(): { clientEmail: string; privateKey: string
       return {
         clientEmail: sa.client_email,
         privateKey: sa.private_key.replace(/\\n/g, "\n"),
-        projectId: sa.project_id || Deno.env.get("FIREBASE_PROJECT_ID") || "familyhub-notification",
+        projectId: sa.project_id || process.env["FIREBASE_PROJECT_ID"] || "familyhub-notification",
       };
     } catch (e) {
       throw new Error("FIREBASE_SERVICE_ACCOUNT_B64 konnte nicht gelesen werden: " + String(e));
     }
   }
 
-  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON")?.trim();
+  const raw = process.env["FIREBASE_SERVICE_ACCOUNT_JSON"]?.trim();
   if (raw) {
     try {
       const sa = JSON.parse(raw) as FirebaseServiceAccountJson;
@@ -158,16 +161,16 @@ function resolveFirebaseCredentials(): { clientEmail: string; privateKey: string
       return {
         clientEmail: sa.client_email,
         privateKey: sa.private_key.replace(/\\n/g, "\n"),
-        projectId: sa.project_id || Deno.env.get("FIREBASE_PROJECT_ID") || "familyhub-notification",
+        projectId: sa.project_id || process.env["FIREBASE_PROJECT_ID"] || "familyhub-notification",
       };
     } catch (e) {
       throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON ist kein gültiges JSON: " + String(e));
     }
   }
 
-  const clientEmail = Deno.env.get("FIREBASE_CLIENT_EMAIL");
-  let privateKey = Deno.env.get("FIREBASE_PRIVATE_KEY");
-  const projectId = Deno.env.get("FIREBASE_PROJECT_ID") || "familyhub-notification";
+  const clientEmail = process.env["FIREBASE_CLIENT_EMAIL"];
+  let privateKey = process.env["FIREBASE_PRIVATE_KEY"];
+  const projectId = process.env["FIREBASE_PROJECT_ID"] || "familyhub-notification";
 
   if (!clientEmail || !privateKey) {
     throw new Error(
@@ -178,40 +181,74 @@ function resolveFirebaseCredentials(): { clientEmail: string; privateKey: string
   return { clientEmail, privateKey, projectId };
 }
 
-async function collectRecipientTokens(supabase: ReturnType<typeof createClient>, excludeUserId?: string) {
+// Map table names to notification_preferences column names
+const TABLE_TO_PREFS_KEY: Record<string, string> = {
+  events: "events",
+  shopping: "shopping",
+  household_tasks: "household_tasks",
+  personal_tasks: "personal_tasks",
+  news: "news",
+  polls: "polls",
+  meal_requests: "meal_requests",
+};
+
+async function collectRecipientTokens(supabase: ReturnType<typeof createClient>, excludeUserId?: string, table?: string) {
   const tokenSet = new Map<string, string>(); // token → source
 
+  // Always exclude admin users (they should never receive pushes)
+  const { data: adminUsers } = await supabase.from("family").select("id").eq("role", "admin");
+  const adminUserIds = new Set<string>((adminUsers || []).map((r: any) => r.id));
+
+  // Determine which users are excluded by notification_preferences
+  const prefsKey = table ? TABLE_TO_PREFS_KEY[table] : undefined;
+  let disabledUserIds = new Set<string>(adminUserIds);
+  if (prefsKey) {
+    // Must select the category column explicitly, not just user_id
+    const { data: prefsData } = await supabase
+      .from("notification_preferences")
+      .select(`user_id, ${prefsKey}`);
+    if (prefsData) {
+      for (const row of prefsData) {
+        const val = (row as any)[prefsKey];
+        if (val === false) {
+          disabledUserIds.add(row.user_id as string);
+        }
+      }
+    }
+    console.log(`[push-notify] Table "${table}" → prefs key "${prefsKey}", ${disabledUserIds.size} user(s) disabled push for this category`);
+  }
+
+  // Only use fcm_tokens table (authoritative) — no fallback to family.fcm_token to avoid duplicates
   const { data: tokensData, error: tokensError } = await supabase.from("fcm_tokens").select("token, user_id");
   if (tokensError) {
     console.warn("[push-notify] fcm_tokens table read failed:", tokensError.message);
   } else {
     (tokensData || []).forEach((t: TokenRow) => {
-      if (t?.token && t.user_id && t.user_id !== excludeUserId) {
+      if (t?.token && t.user_id && t.user_id !== excludeUserId && !disabledUserIds.has(t.user_id)) {
         tokenSet.set(t.token, "fcm_tokens");
       }
     });
   }
 
-  const { data: familyTokens, error: familyTokensError } = await supabase.from("family").select("fcm_token, id");
-  if (familyTokensError) {
-    console.warn("[push-notify] family token read failed:", familyTokensError.message);
-  } else {
-    (familyTokens || []).forEach((t: FamilyRow) => {
-      if (t?.fcm_token && t.id !== excludeUserId && !tokenSet.has(t.fcm_token)) {
-        tokenSet.set(t.fcm_token, `family.${t.id}`);
-      }
-    });
-  }
-
   // Log sources for debugging
-  for (const [token, source] of tokenSet) {
-    console.log(`[push-notify] Token ${token.substring(0, 20)}... from ${source}`);
+  if (tokenSet.size > 0) {
+    for (const [token, source] of tokenSet) {
+      console.log(`[push-notify] Token ${token.substring(0, 20)}... from ${source}`);
+    }
   }
 
   return [...tokenSet.keys()];
 }
 
 async function collectWeatherRecipients(supabase: ReturnType<typeof createClient>) {
+  // Check which users have weather notifications disabled
+  const { data: prefsData } = await supabase
+    .from("notification_preferences")
+    .select("user_id, weather");
+  const weatherDisabled = new Set<string>(
+    (prefsData || []).filter((r: any) => r.weather === false).map((r: any) => r.user_id)
+  );
+
   const [familyResp, tokensResp, favsResp] = await Promise.all([
     supabase.from("family").select("id, name, fcm_token, weather_lat, weather_lng, weather_location_name"),
     supabase.from("fcm_tokens").select("token, user_id"),
@@ -259,6 +296,9 @@ async function collectWeatherRecipients(supabase: ReturnType<typeof createClient
     const tokens = tokensByUser.get(row.id) || [];
     if (tokens.length === 0) continue;
 
+    // Skip users who disabled weather notifications
+    if (weatherDisabled.has(row.id)) continue;
+
     let location: { lat: number; lng: number; name: string } | null = null;
     if (typeof row.weather_lat === "number" && typeof row.weather_lng === "number") {
       location = {
@@ -284,7 +324,7 @@ async function collectWeatherRecipients(supabase: ReturnType<typeof createClient
   return recipients;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: {
@@ -299,10 +339,10 @@ serve(async (req) => {
     const payload = await req.json();
     console.log("Payload received:", JSON.stringify(payload).substring(0, 200));
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseUrl = process.env["SUPABASE_URL"] || "";
     const supabaseKey =
-      Deno.env.get("FAMILYHUB_SUPABASE_SERVICE_ROLE_KEY") ||
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+      process.env["FAMILYHUB_SUPABASE_SERVICE_ROLE_KEY"] ||
+      process.env["SUPABASE_SERVICE_ROLE_KEY"] ||
       "";
     const supabase = createClient(supabaseUrl, supabaseKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -314,8 +354,9 @@ serve(async (req) => {
     const oldRecord = payload.old_record || {};
     const excludeUserId: string | undefined = payload.exclude_user_id;
 
-    if (type === "DELETE") {
-      return new Response("Skipping DELETE events", {
+    // DELETE wird nur für Events unterstützt (andere Tables werden übersprungen)
+    if (type === "DELETE" && table !== "events") {
+      return new Response("Skipping DELETE for " + table, {
         status: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
       });
@@ -326,6 +367,19 @@ serve(async (req) => {
 
     if (payload.trigger === "weather_cron" || table === "weather_cron") {
       const recipients = await collectWeatherRecipients(supabase);
+      console.log(`[push-notify] Weather cron: ${recipients.length} recipient(s) found`);
+
+      if (recipients.length === 0) {
+        return new Response(JSON.stringify({
+          success: true,
+          trigger: "weather_cron",
+          message: "No recipients — users need to set a weather location or save a favorite",
+          sent_to: 0,
+        }), {
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
       const weatherCache = new Map<string, WeatherSummary | null>();
       const results: any[] = [];
 
@@ -383,7 +437,7 @@ serve(async (req) => {
       const authorId = record?.author_id || record?.authorId || record?.requested_by || record?.requestedBy || record?.user_id || record?.userId;
 
       if (authorId) {
-        const { data: famData } = await supabase.from("family").select("name").eq("id", authorId).single();
+        const { data: famData } = await supabase.from("family").select("name").eq("id", authorId).maybeSingle();
         if (famData?.name) authorName = famData.name;
       }
 
@@ -397,9 +451,18 @@ serve(async (req) => {
 
       switch (table) {
         case "events":
-          if (type !== "INSERT" && type !== "UPDATE") return new Response("Skipped event update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
-          notificationTitle = "📅 Neuer Termin";
-          notificationBody = `${authorName} hat "${record?.title || "Termin"}" eingetragen.`;
+          if (type === "INSERT") {
+            notificationTitle = "📅 Neuer Termin";
+            notificationBody = `${authorName} hat "${record?.title || "Termin"}" eingetragen.`;
+          } else if (type === "UPDATE") {
+            notificationTitle = "📅🔁 Termin geändert";
+            notificationBody = `${authorName} hat "${record?.title || "Termin"}" bearbeitet.`;
+          } else if (type === "DELETE") {
+            notificationTitle = "📅❌ Termin gelöscht";
+            notificationBody = `${authorName} hat "${oldRecord?.title || "Termin"}" gelöscht.`;
+          } else {
+            return new Response("Skipped event " + type, { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+          }
           break;
         case "shopping":
           if (type !== "INSERT") return new Response("Skipped shopping update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
@@ -442,10 +505,10 @@ serve(async (req) => {
           }
           if (record?.maintenance_mode === true && oldRecord?.maintenance_mode !== true) {
             notificationTitle = "🔧 Wartungsmodus aktiv";
-            notificationBody = "FamilyHub ist kurz offline. Wir sind gleich wieder da.";
+            notificationBody = "FamilyHub ist kurz offline. Wir sind gleich wieder für dich da.";
           } else if (record?.maintenance_mode === false && oldRecord?.maintenance_mode === true) {
             notificationTitle = "✅ Wartung beendet";
-            notificationBody = "FamilyHub ist wieder online.";
+            notificationBody = "FamilyHub ist wieder online. Bitte App auf mögliche Updates prüfen";
           } else {
             return new Response("Skipped settings update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
           }
@@ -455,7 +518,7 @@ serve(async (req) => {
       }
     }
 
-    const tokens = await collectRecipientTokens(supabase, excludeUserId);
+    const tokens = await collectRecipientTokens(supabase, excludeUserId, table);
     if (tokens.length === 0) {
       console.log("No target tokens found — users may need to (re)login to register their FCM token");
       return new Response(JSON.stringify({ success: true, message: "No tokens to notify" }), {
