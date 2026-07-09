@@ -30,12 +30,9 @@ try {
 
 if (messaging) {
   messaging.onBackgroundMessage((payload) => {
-    const notificationTitle = payload.notification?.title || 'FamilyHub';
-    const notificationOptions = {
-      body: payload.notification?.body || '',
-      icon: '/icon.png'
-    };
-    self.registration.showNotification(notificationTitle, notificationOptions);
+    // System zeigt die Notification bereits via FCM-notification-Feld an.
+    // Hier nur loggen, keine zweite showNotification.
+    console.log('[SW] Background push received:', payload.notification?.title);
   });
 }
 
