@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Header from '../components/Header';
 import SlidingTabs from '../components/SlidingTabs';
 import { ShoppingItem, Task, FamilyMember, Recipe, MealPlan, TaskPriority } from '../types';
-import { ShoppingCart, Home, User, BookOpen, ChevronUp, ChevronDown, Plus, Tag, CheckCircle2, Circle, Trash2, Flag, AlignLeft, Lock, Loader2, Calendar, Clock, Utensils, X, Coffee, Sun } from 'lucide-react';
+import { ShoppingCart, Home, User, BookOpen, ChevronUp, ChevronDown, Plus, Tag, CheckCircle2, Circle, Trash2, Flag, AlignLeft, Lock, Loader2, Calendar, Clock, Utensils, X, Coffee, Sun, Edit3 } from 'lucide-react';
 
 interface ListsPageProps {
     shoppingItems: ShoppingItem[];
@@ -14,9 +14,9 @@ interface ListsPageProps {
     onToggleShopping: (id: string) => void;
     onAddShopping: (name: string, note?: string, category?: string) => void;
     onDeleteShopping: (id: string) => void;
-    onAddHousehold: (title: string, assignedTo: string, priority: TaskPriority, note?: string, dueDate?: string) => void;
+    onAddHousehold: (title: string, assignedTo: string, priority: TaskPriority, note?: string, dueDate?: string, startDate?: string) => void;
     onToggleTask: (id: string, type: 'household' | 'personal') => void;
-    onAddPersonal: (title: string, priority: TaskPriority, note?: string, dueDate?: string) => void;
+    onAddPersonal: (title: string, priority: TaskPriority, note?: string, dueDate?: string, startDate?: string) => void;
     onDeleteTask: (id: string, type: 'household' | 'personal') => void;
     onAddRecipe: (recipe: Recipe) => void;
     onDeleteRecipe: (id: string) => void;
@@ -56,6 +56,8 @@ const ListsPage: React.FC<ListsPageProps> = ({
     const [selectedAssignee, setSelectedAssignee] = useState<string>(family.length > 0 ? family[0].id : (currentUser?.id || ''));
     const [showExtendedForm, setShowExtendedForm] = useState(true);
     const [newDueDate, setNewDueDate] = useState('');
+    const [newStartDate, setNewStartDate] = useState('');
+    const [shoppingCategoryFilter, setShoppingCategoryFilter] = useState('');
     const [recipeLink, setRecipeLink] = useState('');
     const [isScraping, setIsScraping] = useState(false);
     const [expandedRecipeId, setExpandedRecipeId] = useState<string | null>(null);
@@ -70,11 +72,18 @@ const ListsPage: React.FC<ListsPageProps> = ({
     const [manualDesc, setManualDesc] = useState('');
     const [manualImageUrl, setManualImageUrl] = useState('');
     const [manualIngredients, setManualIngredients] = useState<{ name: string, amount: string }[]>([{ name: '', amount: '' }]);
+    const [manualCategory, setManualCategory] = useState('');
 
     const SHOPPING_CATEGORIES = [
         "Obst & Gemüse", "Fleisch & Fisch", "Molkereiprodukte",
         "Backwaren", "Vorratsschrank", "Getränke", "Haushalt", "Sonstiges"
     ];
+    const RECIPE_CATEGORIES = [
+        "Pasta", "Fleisch", "Fisch", "Salat", "Suppe", "Auflauf",
+        "Vegetarisch", "Vegan", "Backen", "Dessert", "Frühstück",
+        "Soßen & Dips", "Sonstiges"
+    ];
+    const [editRecipeModal, setEditRecipeModal] = useState<Recipe | null>(null);
 
     const tabs = [
         { id: 'shopping', label: 'Einkauf', icon: ShoppingCart },
@@ -95,13 +104,15 @@ const ListsPage: React.FC<ListsPageProps> = ({
         e.preventDefault();
         if (!newItem.trim()) return;
         const due = newDueDate || undefined;
+        const start = newStartDate || undefined;
         if (activeTab === 'shopping') onAddShopping(newItem.trim(), newNote.trim(), newCategory);
-        else if (activeTab === 'household') onAddHousehold(newItem.trim(), selectedAssignee, newPriority, newNote.trim(), due);
-        else if (activeTab === 'personal') onAddPersonal(newItem.trim(), newPriority, newNote.trim(), due);
+        else if (activeTab === 'household') onAddHousehold(newItem.trim(), selectedAssignee, newPriority, newNote.trim(), due, start);
+        else if (activeTab === 'personal') onAddPersonal(newItem.trim(), newPriority, newNote.trim(), due, start);
         setNewItem(''); setNewNote('');
         setNewCategory('Sonstiges');
         setNewPriority('medium');
         setNewDueDate('');
+        setNewStartDate('');
         setShowExtendedForm(true);
     };
 
@@ -150,7 +161,8 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     name: title.split(' | ')[0].split(' - ')[0],
                     ingredients: [],
                     image: "https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=800",
-                    description: "Konnte Metadaten nicht automatisch lesen. Bitte Details manuell ergänzen."
+                    description: "Konnte Metadaten nicht automatisch lesen. Bitte Details manuell ergänzen.",
+                    authorId: currentUser.id
                 };
                 onAddRecipe(fallbackRecipe);
             } else {
@@ -212,7 +224,8 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     image: imageUrl,
                     description: descriptionView || "Keine Anleitung gefunden.",
                     source,
-                    url: recipeLink.trim()
+                    url: recipeLink.trim(),
+                    authorId: currentUser.id
                 };
                 onAddRecipe(finalRecipe);
             }
@@ -235,7 +248,9 @@ const ListsPage: React.FC<ListsPageProps> = ({
             ingredients: manualIngredients.filter(i => i.name.trim()),
             image: manualImageUrl || undefined,
             description: manualDesc,
-            source: 'Manuell'
+            source: 'Manuell',
+            category: manualCategory || undefined,
+            authorId: currentUser.id
         };
 
         onAddRecipe(newRecipe);
@@ -243,6 +258,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
         setManualDesc('');
         setManualImageUrl('');
         setManualIngredients([{ name: '', amount: '' }]);
+        setManualCategory('');
         setShowManualForm(false);
     };
 
@@ -261,8 +277,16 @@ const ListsPage: React.FC<ListsPageProps> = ({
     };
 
     const renderShoppingList = () => {
+        const allCategories = [...new Set(shoppingItems.map(i => i.category || 'Sonstiges'))].sort((a, b) => {
+            if (a === 'Sonstiges') return 1;
+            if (b === 'Sonstiges') return -1;
+            return a.localeCompare(b);
+        });
+
+        const filtered = shoppingCategoryFilter ? shoppingItems.filter(i => (i.category || 'Sonstiges') === shoppingCategoryFilter) : shoppingItems;
+
         const grouped: Record<string, ShoppingItem[]> = {};
-        shoppingItems.forEach(item => {
+        filtered.forEach(item => {
             const cat = item.category || 'Sonstiges';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(item);
@@ -275,29 +299,50 @@ const ListsPage: React.FC<ListsPageProps> = ({
         });
 
         return (
-            <div className="space-y-6">
-                {categories.map(cat => (
-                    <div key={cat} className="space-y-2">
-                        <h4 className="text-[10px] font-extrabold text-gray-400 ml-2 tracking-wider flex items-center">
-                            <Tag size={10} className="mr-1" /> {cat}
-                        </h4>
-                        <div className="space-y-2">
-                            {grouped[cat].map(item => (
-                                <div key={item.id} className={`flex items-start justify-between p-3 rounded-xl border transition-all bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700 ${item.checked ? 'opacity-60' : ''}`} onClick={() => onToggleShopping(item.id)}>
-                                    <div className="flex items-start space-x-3 overflow-hidden w-full">
-                                        <div className="mt-0.5">{item.checked ? <CheckCircle2 className="text-gray-400" size={20} /> : <Circle className="text-orange-500" size={20} />}</div>
-                                        <div className="flex-1">
-                                            <span className={`block text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{item.name}</span>
-                                            {item.note && <p className="text-[10px] text-gray-500 dark:text-gray-400 italic">{item.note}</p>}
-                                        </div>
-                                    </div>
-                                    <button onClick={(e) => { e.stopPropagation(); onDeleteShopping(item.id) }} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>
-                                </div>
-                            ))}
-                        </div>
+            <div className="space-y-4">
+                {shoppingItems.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                        <button
+                            onClick={() => setShoppingCategoryFilter('')}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition ${!shoppingCategoryFilter ? 'bg-orange-500 text-white border-orange-500' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}
+                        >
+                            Alle
+                        </button>
+                        {allCategories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setShoppingCategoryFilter(cat)}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition ${shoppingCategoryFilter === cat ? 'bg-orange-500 text-white border-orange-500' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
                     </div>
-                ))}
-                {shoppingItems.length === 0 && <p className="text-center text-gray-400 mt-8">Liste ist leer</p>}
+                )}
+                <div className="space-y-6">
+                    {categories.map(cat => (
+                        <div key={cat} className="space-y-2">
+                            <h4 className="text-[10px] font-extrabold text-gray-400 ml-2 tracking-wider flex items-center">
+                                <Tag size={10} className="mr-1" /> {cat}
+                            </h4>
+                            <div className="space-y-2">
+                                {grouped[cat].map(item => (
+                                    <div key={item.id} className={`flex items-start justify-between p-3 rounded-xl border transition-all bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700 ${item.checked ? 'opacity-60' : ''}`} onClick={() => onToggleShopping(item.id)}>
+                                        <div className="flex items-start space-x-3 overflow-hidden w-full">
+                                            <div className="mt-0.5">{item.checked ? <CheckCircle2 className="text-gray-400" size={20} /> : <Circle className="text-orange-500" size={20} />}</div>
+                                            <div className="flex-1">
+                                                <span className={`block text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{item.name}</span>
+                                                {item.note && <p className="text-[10px] text-gray-500 dark:text-gray-400 italic">{item.note}</p>}
+                                            </div>
+                                        </div>
+                                        <button onClick={(e) => { e.stopPropagation(); onDeleteShopping(item.id) }} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                    {shoppingItems.length === 0 && <p className="text-center text-gray-400 mt-8">Liste ist leer</p>}
+                </div>
             </div>
         );
     };
@@ -337,11 +382,19 @@ const ListsPage: React.FC<ListsPageProps> = ({
                             </div>
                             <div className={`pl-7 ${isReadOnly ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !isReadOnly && onToggleTask(task.id, type)}>
                                 {task.note && <p className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 p-1.5 rounded-md mb-2">{task.note}</p>}
+                                {task.startDate && (
+                                    <div className={`flex items-center mb-1`}>
+                                        <Clock size={10} className={`mr-1 ${task.done ? 'text-gray-300' : 'text-gray-400'}`} />
+                                        <span className={`text-[10px] ${task.done ? 'text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                                            Aufgabedatum: {new Date(task.startDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                        </span>
+                                    </div>
+                                )}
                                 {task.dueDate && (
                                     <div className={`flex items-center ${task.done ? 'mb-0' : 'mb-2'}`}>
                                         <Calendar size={10} className={`mr-1 ${task.done ? 'text-gray-300' : 'text-gray-400'}`} />
                                         <span className={`text-[10px] ${task.done ? 'text-gray-300' : new Date(task.dueDate) < new Date(new Date().toDateString()) ? 'text-red-500 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
-                                            {new Date(task.dueDate).toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                                            {new Date(task.dueDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                                         </span>
                                     </div>
                                 )}
@@ -360,255 +413,311 @@ const ListsPage: React.FC<ListsPageProps> = ({
         );
     };
 
-    const renderRecipes = () => (
-        <div className="space-y-4">
-            <div className="px-1">
-                <SlidingTabs
-                    tabs={[
-                        { id: 'link', label: 'Link' },
-                        { id: 'manual', label: 'Manuell' }
-                    ]}
-                    activeTabId={showManualForm ? 'manual' : 'link'}
-                    onTabChange={(id) => setShowManualForm(id === 'manual')}
-                    liquidGlass={liquidGlass}
-                    className="w-full max-w-full"
-                />
-            </div>
+    const renderRecipes = () => {
+        const formatIng = (ing: any) => {
+            if (typeof ing === 'string') {
+                if (ing.startsWith('{')) {
+                    try {
+                        const obj = JSON.parse(ing);
+                        return `${obj.amount || ''} ${obj.name || ''}`.trim();
+                    } catch (e) { return ing; }
+                }
+                return ing;
+            }
+            return `${ing.amount || ''} ${ing.name || ''}`.trim();
+        };
 
-            {!showManualForm ? (
-                <form onSubmit={handleAddRecipeByLink} className={`p-4 rounded-xl border flex gap-2 items-center bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700`}>
-                    <input
-                        type="url"
-                        value={recipeLink}
-                        onChange={(e) => setRecipeLink(e.target.value)}
-                        placeholder="Rezept-Link einfügen"
-                        className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm placeholder:truncate"
-                    />
-                    <button
-                        type="submit"
-                        disabled={!recipeLink.trim() || isScraping}
-                        className="flex-shrink-0 bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1 shadow-sm whitespace-nowrap"
-                    >
-                        {isScraping ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                        Hinzufügen
-                    </button>
-                </form>
-            ) : (
-                <form onSubmit={handleManualRecipeSubmit} className="p-4 rounded-xl border bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700 space-y-4 animate-slide-in">
-                    <input
-                        type="text"
-                        placeholder="Name des Gerichts"
-                        value={manualName}
-                        onChange={(e) => setManualName(e.target.value)}
-                        className="w-full bg-white dark:bg-gray-700 rounded-lg px-3 py-2 text-sm outline-none border border-gray-100 dark:border-gray-600 focus:ring-1 focus:ring-orange-400"
-                        required
-                    />
+        const grouped: Record<string, Recipe[]> = {};
+        recipes.forEach(r => {
+            const cat = r.category || 'Sonstiges';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(r);
+        });
+        const catKeys = Object.keys(grouped).sort((a, b) => {
+            if (a === 'Sonstiges') return 1;
+            if (b === 'Sonstiges') return -1;
+            return a.localeCompare(b);
+        });
 
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-gray-400 ml-1">Zutaten</label>
-                        {manualIngredients.map((ing, idx) => (
-                            <div key={idx} className="flex gap-2">
-                                <input
-                                    type="text"
-                                    placeholder="Menge (z.B. 500g)"
-                                    value={ing.amount}
-                                    onChange={(e) => updateIngredient(idx, 'amount', e.target.value)}
-                                    className="w-24 bg-white dark:bg-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none border border-gray-100 dark:border-gray-600"
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Zutat"
-                                    value={ing.name}
-                                    onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
-                                    className="flex-1 bg-white dark:bg-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none border border-gray-100 dark:border-gray-600"
-                                />
-                                {manualIngredients.length > 1 && (
-                                    <button type="button" onClick={() => removeIngredient(idx)} className="text-red-400 p-1"><Trash2 size={14} /></button>
-                                )}
-                            </div>
-                        ))}
-                        <button type="button" onClick={addIngredientRow} className="text-[10px] font-bold text-orange-500 flex items-center gap-1 mt-1 hover:underline">
-                            <Plus size={12} /> Zutat hinzufügen
+        return (
+            <div className="space-y-4">
+                <div className="px-1">
+                    <SlidingTabs
+                        tabs={[
+                            { id: 'link', label: 'Link' },
+                            { id: 'manual', label: 'Manuell' }
+                        ]}
+                        activeTabId={showManualForm ? 'manual' : 'link'}
+                        onTabChange={(id) => setShowManualForm(id === 'manual')}
+                        liquidGlass={liquidGlass}
+                        className="w-full max-w-full"
+                    />
+                </div>
+
+                {!showManualForm ? (
+                    <form onSubmit={handleAddRecipeByLink} className={`p-4 rounded-xl border flex gap-2 items-center bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700`}>
+                        <input
+                            type="url"
+                            value={recipeLink}
+                            onChange={(e) => setRecipeLink(e.target.value)}
+                            placeholder="Rezept-Link einfügen"
+                            className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm placeholder:truncate"
+                        />
+                        <button
+                            type="submit"
+                            disabled={!recipeLink.trim() || isScraping}
+                            className="flex-shrink-0 bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1 shadow-sm whitespace-nowrap"
+                        >
+                            {isScraping ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                            Hinzufügen
                         </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleManualRecipeSubmit} className="p-4 rounded-xl border bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700 space-y-4 animate-slide-in">
+                        <input
+                            type="text"
+                            placeholder="Name des Gerichts"
+                            value={manualName}
+                            onChange={(e) => setManualName(e.target.value)}
+                            className="w-full bg-white dark:bg-gray-700 rounded-lg px-3 py-2 text-sm outline-none border border-gray-100 dark:border-gray-600 focus:ring-1 focus:ring-orange-400"
+                            required
+                        />
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-gray-400 ml-1">Zutaten</label>
+                            {manualIngredients.map((ing, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Menge (z.B. 500g)"
+                                        value={ing.amount}
+                                        onChange={(e) => updateIngredient(idx, 'amount', e.target.value)}
+                                        className="w-24 bg-white dark:bg-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none border border-gray-100 dark:border-gray-600"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Zutat"
+                                        value={ing.name}
+                                        onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
+                                        className="flex-1 bg-white dark:bg-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none border border-gray-100 dark:border-gray-600"
+                                    />
+                                    {manualIngredients.length > 1 && (
+                                        <button type="button" onClick={() => removeIngredient(idx)} className="text-red-400 p-1"><Trash2 size={14} /></button>
+                                    )}
+                                </div>
+                            ))}
+                            <button type="button" onClick={addIngredientRow} className="text-[10px] font-bold text-orange-500 flex items-center gap-1 mt-1 hover:underline">
+                                <Plus size={12} /> Zutat hinzufügen
+                            </button>
+                        </div>
+
+                        <textarea
+                            placeholder="Zubereitung..."
+                            value={manualDesc}
+                            onChange={(e) => setManualDesc(e.target.value)}
+                            className="w-full bg-white dark:bg-gray-700 rounded-lg px-3 py-2 text-sm outline-none border border-gray-100 dark:border-gray-600 focus:ring-1 focus:ring-orange-400 min-h-[80px]"
+                        />
+
+                        <input
+                            type="url"
+                            placeholder="Bild-URL (optional)"
+                            value={manualImageUrl}
+                            onChange={(e) => setManualImageUrl(e.target.value)}
+                            className="w-full bg-white dark:bg-gray-700 rounded-lg px-3 py-2 text-sm outline-none border border-gray-100 dark:border-gray-600"
+                        />
+
+                    <div>
+                        <label className="text-[10px] font-bold text-gray-400 ml-1 block mb-2">Kategorie</label>
+                        <div className="flex flex-wrap gap-2">
+                            {RECIPE_CATEGORIES.map(cat => (
+                                <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={() => setManualCategory(manualCategory === cat ? '' : cat)}
+                                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition ${manualCategory === cat ? 'bg-orange-500 text-white border-orange-500' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
-                    <textarea
-                        placeholder="Zubereitung..."
-                        value={manualDesc}
-                        onChange={(e) => setManualDesc(e.target.value)}
-                        className="w-full bg-white dark:bg-gray-700 rounded-lg px-3 py-2 text-sm outline-none border border-gray-100 dark:border-gray-600 focus:ring-1 focus:ring-orange-400 min-h-[80px]"
-                    />
+                        <button type="submit" disabled={!manualName.trim()} className="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl shadow-md active:scale-95 transition disabled:opacity-50">
+                            Speichern
+                        </button>
+                    </form>
+                )}
 
-                    <input
-                        type="url"
-                        placeholder="Bild-URL (optional)"
-                        value={manualImageUrl}
-                        onChange={(e) => setManualImageUrl(e.target.value)}
-                        className="w-full bg-white dark:bg-gray-700 rounded-lg px-3 py-2 text-sm outline-none border border-gray-100 dark:border-gray-600"
-                    />
+                {catKeys.length === 0 ? (
+                    <div className="text-center text-gray-400 col-span-full py-8">Keine Rezepte.</div>
+                ) : (
+                    catKeys.map(cat => (
+                        <div key={cat}>
+                            <h4 className="text-[10px] font-extrabold text-gray-400 ml-2 mb-2 tracking-wider flex items-center">
+                                <Tag size={10} className="mr-1" /> {cat}
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                                {grouped[cat].map(recipe => {
+                                    const isExpanded = expandedRecipeId === recipe.id;
+                                    const ingredientList = recipe.ingredients.map(ing => formatIng(ing));
 
-                    <button type="submit" disabled={!manualName.trim()} className="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl shadow-md active:scale-95 transition disabled:opacity-50">
-                        Speichern
-                    </button>
-                </form>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(recipes || []).map(recipe => {
-                    const isExpanded = expandedRecipeId === recipe.id;
-                    const formatIng = (ing: any) => {
-                        if (typeof ing === 'string') {
-                            if (ing.startsWith('{')) {
-                                try {
-                                    const obj = JSON.parse(ing);
-                                    return `${obj.amount || ''} ${obj.name || ''}`.trim();
-                                } catch (e) { return ing; }
-                            }
-                            return ing;
-                        }
-                        return `${ing.amount || ''} ${ing.name || ''}`.trim();
-                    };
-                    const ingredientList = recipe.ingredients.map(ing => formatIng(ing));
-
-                    return (
-                        <div key={recipe.id} className={`rounded-xl overflow-hidden border flex flex-col bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700`}>
-                            {recipe.image && <img src={recipe.image} className="w-full h-32 object-cover cursor-pointer" onClick={() => {
-                                if (isExpanded) {
-                                    setExpandedRecipeId(null);
-                                } else {
-                                    setExpandedRecipeId(recipe.id);
-                                    setSelectedIngredients(new Set(ingredientList));
-                                }
-                            }} />}
-                            <div className="p-3 flex-1 flex flex-col">
-                                <h4
-                                    className="font-bold text-sm mb-1 text-gray-800 dark:text-white cursor-pointer hover:text-orange-500 transition-colors flex justify-between items-center"
-                                    onClick={() => {
-                                        if (isExpanded) {
-                                            setExpandedRecipeId(null);
-                                        } else {
-                                            setExpandedRecipeId(recipe.id);
-                                            setSelectedIngredients(new Set(ingredientList));
-                                        }
-                                    }}
-                                >
-                                    {recipe.name}
-                                    {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
-                                </h4>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded font-bold">
-                                        {recipe.source || 'Rezept'}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400">{recipe.ingredients.length} Zutaten</span>
-                                </div>
-
-                                {isExpanded && (
-                                    <div className="mt-2 mb-4 animate-fade-in border-t border-gray-100 dark:border-gray-700 pt-2">
-                                        {recipe.description && (
-                                            <div className="mb-4">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <h5 className="text-[10px] font-bold text-gray-400">Zubereitung</h5>
-                                                    {recipe.url && (
-                                                        <a
-                                                            href={recipe.url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[10px] text-blue-500 flex items-center gap-1 hover:underline"
-                                                        >
-                                                            Original anzeigen <AlignLeft size={10} />
-                                                        </a>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">{recipe.description}</p>
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <div className="flex justify-between items-center mb-1">
-                                                <h5 className="text-[10px] font-bold text-gray-400">Zutaten ({selectedIngredients.size}/{recipe.ingredients.length})</h5>
-                                                <button
-                                                    className="text-[10px] text-blue-500 hover:underline"
+                                    return (
+                                        <div key={recipe.id} className={`rounded-xl overflow-hidden border flex flex-col bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700`}>
+                                            {recipe.image && <img src={recipe.image} className="w-full h-32 object-cover cursor-pointer" onClick={() => {
+                                                if (isExpanded) {
+                                                    setExpandedRecipeId(null);
+                                                } else {
+                                                    setExpandedRecipeId(recipe.id);
+                                                    setSelectedIngredients(new Set(ingredientList));
+                                                }
+                                            }} />}
+                                            <div className="p-3 flex-1 flex flex-col">
+                                                <h4
+                                                    className="font-bold text-sm mb-1 text-gray-800 dark:text-white cursor-pointer hover:text-orange-500 transition-colors flex justify-between items-center"
                                                     onClick={() => {
-                                                        if (selectedIngredients.size === recipe.ingredients.length) {
-                                                            setSelectedIngredients(new Set());
+                                                        if (isExpanded) {
+                                                            setExpandedRecipeId(null);
                                                         } else {
+                                                            setExpandedRecipeId(recipe.id);
                                                             setSelectedIngredients(new Set(ingredientList));
                                                         }
                                                     }}
                                                 >
-                                                    {selectedIngredients.size === recipe.ingredients.length ? 'Keine' : 'Alle'}
-                                                </button>
-                                            </div>
-                                            <ul className="space-y-1 mt-1 max-h-40 overflow-y-auto custom-scrollbar">
-                                                {ingredientList.map((ing, idx) => (
-                                                    <li key={idx} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
-                                                        <label className="flex items-center gap-2 cursor-pointer w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 p-1 rounded-md transition-colors">
-                                                            <input
-                                                                type="checkbox"
-                                                                className="rounded text-orange-500 focus:ring-orange-500 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
-                                                                checked={selectedIngredients.has(ing)}
-                                                                onChange={() => {
-                                                                    const next = new Set(selectedIngredients);
-                                                                    if (next.has(ing)) next.delete(ing);
-                                                                    else next.add(ing);
-                                                                    setSelectedIngredients(next);
+                                                    {recipe.name}
+                                                    {isExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                                                </h4>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-1.5 py-0.5 rounded font-bold">
+                                                        {recipe.source || 'Rezept'}
+                                                    </span>
+                                                    {recipe.category && (
+                                                        <span className="text-[10px] bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded font-bold">
+                                                            {recipe.category}
+                                                        </span>
+                                                    )}
+                                                    <span className="text-[10px] text-gray-400">{recipe.ingredients.length} Zutaten</span>
+                                                    {recipe.authorId && (() => {
+                                                        const author = family.find(m => m.id === recipe.authorId);
+                                                        return author ? <span className="text-[10px] text-gray-400">· {author.name}</span> : null;
+                                                    })()}
+                                                </div>
+
+                                                {isExpanded && (
+                                                    <div className="mt-2 mb-4 animate-fade-in border-t border-gray-100 dark:border-gray-700 pt-2">
+                                                        {recipe.description && (
+                                                            <div className="mb-4">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <h5 className="text-[10px] font-bold text-gray-400">Zubereitung</h5>
+                                                                    {recipe.url && (
+                                                                        <a
+                                                                            href={recipe.url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-[10px] text-blue-500 flex items-center gap-1 hover:underline"
+                                                                        >
+                                                                            Original anzeigen <AlignLeft size={10} />
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-line leading-relaxed">{recipe.description}</p>
+                                                            </div>
+                                                        )}
+
+                                                        <div>
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <h5 className="text-[10px] font-bold text-gray-400">Zutaten ({selectedIngredients.size}/{recipe.ingredients.length})</h5>
+                                                                <button
+                                                                    className="text-[10px] text-blue-500 hover:underline"
+                                                                    onClick={() => {
+                                                                        if (selectedIngredients.size === recipe.ingredients.length) {
+                                                                            setSelectedIngredients(new Set());
+                                                                        } else {
+                                                                            setSelectedIngredients(new Set(ingredientList));
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    {selectedIngredients.size === recipe.ingredients.length ? 'Keine' : 'Alle'}
+                                                                </button>
+                                                            </div>
+                                                            <ul className="space-y-1 mt-1 max-h-40 overflow-y-auto custom-scrollbar">
+                                                                {ingredientList.map((ing, idx) => (
+                                                                    <li key={idx} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                                                                        <label className="flex items-center gap-2 cursor-pointer w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 p-1 rounded-md transition-colors">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                className="rounded text-orange-500 focus:ring-orange-500 bg-gray-100 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                                                                                checked={selectedIngredients.has(ing)}
+                                                                                onChange={() => {
+                                                                                    const next = new Set(selectedIngredients);
+                                                                                    if (next.has(ing)) next.delete(ing);
+                                                                                    else next.add(ing);
+                                                                                    setSelectedIngredients(next);
+                                                                                }}
+                                                                            />
+                                                                            <span>{ing}</span>
+                                                                        </label>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="mt-auto flex justify-between items-center pt-2">
+                                                    {isExpanded ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                onAddIngredientsToShopping(Array.from(selectedIngredients));
+                                                                setExpandedRecipeId(null);
+                                                            }}
+                                                            disabled={selectedIngredients.size === 0}
+                                                            className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50 disabled:shadow-none"
+                                                        >
+                                                            <ShoppingCart size={14} /> Auf die Einkaufsliste setzen
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => onAddIngredientsToShopping(ingredientList)}
+                                                            className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-1 rounded-md font-bold flex items-center gap-1 hover:bg-orange-200 transition-colors"
+                                                        >
+                                                            <ShoppingCart size={10} /> +Alle ({recipe.ingredients.length})
+                                                        </button>
+                                                    )}
+
+                                                    {currentUser.role !== 'child' && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => setEditRecipeModal({ ...recipe, ingredients: recipe.ingredients || [] })}
+                                                                className="text-[10px] text-blue-400 hover:text-blue-500 p-1"
+                                                                title="Kategorie bearbeiten"
+                                                            >
+                                                                <Edit3 size={12} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setPlanningRecipeId(recipe.id);
+                                                                    setPlanSlot('main');
                                                                 }}
-                                                            />
-                                                            <span>{ing}</span>
-                                                        </label>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                                                className="text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-md font-bold flex items-center gap-1 hover:bg-blue-200 transition-colors"
+                                                            >
+                                                                <Calendar size={10} /> Planen
+                                                            </button>
+
+                                                            <button onClick={() => onDeleteRecipe(recipe.id)} className="text-[10px] text-red-400 hover:text-red-500 p-1">Löschen</button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-
-                                <div className="mt-auto flex justify-between items-center pt-2">
-                                    {isExpanded ? (
-                                        <button
-                                            onClick={() => {
-                                                onAddIngredientsToShopping(Array.from(selectedIngredients));
-                                                setExpandedRecipeId(null);
-                                            }}
-                                            disabled={selectedIngredients.size === 0}
-                                            className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50 disabled:shadow-none"
-                                        >
-                                            <ShoppingCart size={14} /> Auf die Einkaufsliste setzen
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => onAddIngredientsToShopping(ingredientList)}
-                                            className="text-[10px] bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 px-2 py-1 rounded-md font-bold flex items-center gap-1 hover:bg-orange-200 transition-colors"
-                                        >
-                                            <ShoppingCart size={10} /> +Alle ({recipe.ingredients.length})
-                                        </button>
-                                    )}
-
-                                    {currentUser.role !== 'child' && (
-                                        <>
-                                            <button
-                                                onClick={() => {
-                                                    setPlanningRecipeId(recipe.id);
-                                                    setPlanSlot('main');
-                                                }}
-                                                className="text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-md font-bold flex items-center gap-1 hover:bg-blue-200 transition-colors"
-                                            >
-                                                <Calendar size={10} /> Planen
-                                            </button>
-
-                                            <button onClick={() => onDeleteRecipe(recipe.id)} className="text-[10px] text-red-400 hover:text-red-500 p-1">Löschen</button>
-                                        </>
-                                    )}
-                                </div>
+                                    )
+                                })}
                             </div>
                         </div>
-                    )
-                })}
-                {recipes.length === 0 && <div className="text-center text-gray-400 col-span-full py-8">Keine Rezepte.</div>}
+                    ))
+                )}
             </div>
-        </div>
-    );
-
+        );
+    };
     const canAddHousehold = activeTab === 'household' && currentUser.role === 'parent';
     const showAddForm = (activeTab !== 'household' && activeTab !== 'recipes') || canAddHousehold;
 
@@ -699,6 +808,23 @@ const ListsPage: React.FC<ListsPageProps> = ({
                             <Calendar size={16} className="text-gray-400" />
                             <input
                                 type="date"
+                                value={newStartDate}
+                                onChange={(e) => setNewStartDate(e.target.value)}
+                                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-1.5 text-sm text-gray-800 dark:text-white outline-none border border-gray-200 dark:border-gray-600 focus:border-orange-500/50"
+                            />
+                            {newStartDate && (
+                                <button type="button" onClick={() => setNewStartDate('')} className="text-gray-400 hover:text-red-400 p-1">
+                                    <X size={14} />
+                                </button>
+                            )}
+                            <span className="text-[10px] text-gray-400">Aufgabedatum</span>
+                        </div>
+                    )}
+                    {activeTab !== 'shopping' && (
+                        <div className="flex items-center space-x-2">
+                            <Calendar size={16} className="text-gray-400" />
+                            <input
+                                type="date"
                                 value={newDueDate}
                                 onChange={(e) => setNewDueDate(e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
@@ -709,6 +835,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                     <X size={14} />
                                 </button>
                             )}
+                            <span className="text-[10px] text-gray-400">Fälligkeitsdatum</span>
                         </div>
                     )}
 
@@ -802,6 +929,128 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                     className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl active:scale-95 transition-all mt-4 ${liquidGlass ? 'shadow-none' : 'shadow-xl shadow-blue-500/20'}`}
                                 >
                                     Im Plan speichern
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Recipe Modal */}
+            {editRecipeModal && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className={`${liquidGlass ? 'liquid-shimmer-card' : 'bg-white dark:bg-gray-800 shadow-2xl'} w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[32px] border border-gray-100 dark:border-gray-700 animate-scale-in`}>
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Edit3 className="text-orange-500" /> Rezept bearbeiten
+                                </h3>
+                                <button onClick={() => setEditRecipeModal(null)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+                            </div>
+                            <div className="space-y-4">
+                                <input
+                                    type="text"
+                                    placeholder="Name"
+                                    value={editRecipeModal.name}
+                                    onChange={(e) => setEditRecipeModal({ ...editRecipeModal, name: e.target.value })}
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 text-sm outline-none border border-gray-200 dark:border-gray-600"
+                                />
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 block mb-2">Kategorie</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {RECIPE_CATEGORIES.map(cat => (
+                                            <button
+                                                key={cat}
+                                                type="button"
+                                                onClick={() => setEditRecipeModal({ ...editRecipeModal, category: editRecipeModal.category === cat ? '' : cat })}
+                                                className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition ${editRecipeModal.category === cat ? 'bg-orange-500 text-white border-orange-500' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <textarea
+                                    placeholder="Zubereitung..."
+                                    value={editRecipeModal.description || ''}
+                                    onChange={(e) => setEditRecipeModal({ ...editRecipeModal, description: e.target.value })}
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 text-sm outline-none border border-gray-200 dark:border-gray-600 min-h-[120px]"
+                                />
+                                <input
+                                    type="url"
+                                    placeholder="Bild-URL"
+                                    value={editRecipeModal.image || ''}
+                                    onChange={(e) => setEditRecipeModal({ ...editRecipeModal, image: e.target.value })}
+                                    className="w-full bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 text-sm outline-none border border-gray-200 dark:border-gray-600"
+                                />
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-400 ml-1 block mb-2">Zutaten</label>
+                                    {editRecipeModal.ingredients?.map((ing, idx) => (
+                                        <div key={idx} className="flex gap-2 mb-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Menge"
+                                                value={ing.amount}
+                                                onChange={(e) => {
+                                                    const next = [...(editRecipeModal.ingredients || [])];
+                                                    next[idx] = { ...next[idx], amount: e.target.value };
+                                                    setEditRecipeModal({ ...editRecipeModal, ingredients: next });
+                                                }}
+                                                className="w-24 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-2 py-1.5 text-xs outline-none border border-gray-200 dark:border-gray-600"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Zutat"
+                                                value={ing.name}
+                                                onChange={(e) => {
+                                                    const next = [...(editRecipeModal.ingredients || [])];
+                                                    next[idx] = { ...next[idx], name: e.target.value };
+                                                    setEditRecipeModal({ ...editRecipeModal, ingredients: next });
+                                                }}
+                                                className="flex-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-2 py-1.5 text-xs outline-none border border-gray-200 dark:border-gray-600"
+                                            />
+                                            {editRecipeModal.ingredients?.length > 1 && (
+                                                <button type="button" onClick={() => {
+                                                    const next = (editRecipeModal.ingredients || []).filter((_, i) => i !== idx);
+
+                                                    setEditRecipeModal({ ...editRecipeModal, ingredients: next });
+                                                }} className="text-red-400 p-1"><Trash2 size={14} /></button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditRecipeModal({ ...editRecipeModal, ingredients: [...(editRecipeModal.ingredients || []), { name: '', amount: '' }] })}
+                                        className="text-[10px] font-bold text-orange-500 flex items-center gap-1 mt-1 hover:underline"
+                                    >
+                                        <Plus size={12} /> Zutat hinzufügen
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => setEditRecipeModal(null)}
+                                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-bold py-3 rounded-2xl active:scale-95 transition-all"
+                                >
+                                    Abbrechen
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (editRecipeModal) {
+                                            onUpdateRecipe?.(editRecipeModal.id, {
+                                                name: editRecipeModal.name,
+                                                category: editRecipeModal.category || undefined,
+                                                description: editRecipeModal.description || undefined,
+                                                image: editRecipeModal.image || undefined,
+                                                ingredients: (editRecipeModal.ingredients || []).filter(i => i.name.trim())
+                                            });
+                                            setEditRecipeModal(null);
+                                        }
+                                    }}
+                                    disabled={!editRecipeModal?.name.trim()}
+                                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-black py-3 rounded-2xl active:scale-95 transition-all disabled:opacity-50"
+                                >
+                                    Speichern
                                 </button>
                             </div>
                         </div>

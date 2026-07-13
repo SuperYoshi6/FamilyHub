@@ -46,4 +46,15 @@
         android:textSize="12sp"
         android:lineSpacingExtra="4dp" />
 
+    <TextView
+        android:id="@+id/widget_refresh"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_update"
+        android:textColor="@color/widget_subtitle"
+        android:textSize="10sp"
+        android:gravity="center"
+        android:paddingTop="4dp"
+        android:letterSpacing="0.05" />
+
 </LinearLayout>

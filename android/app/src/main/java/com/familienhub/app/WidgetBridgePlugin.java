@@ -37,6 +37,24 @@ public class WidgetBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setMealPlanData(PluginCall call) {
+        String meals = call.getString("meals", "");
+        String count = call.getString("count", "");
+        WidgetProvider.saveWidgetData(getContext(), "mealplan_meals", meals);
+        WidgetProvider.saveWidgetData(getContext(), "mealplan_count", count);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void setMealRequestsData(PluginCall call) {
+        String requests = call.getString("requests", "");
+        String count = call.getString("count", "");
+        WidgetProvider.saveWidgetData(getContext(), "mealrequests", requests);
+        WidgetProvider.saveWidgetData(getContext(), "mealrequests_count", count);
+        call.resolve();
+    }
+
+    @PluginMethod
     public void notifyUpdate(PluginCall call) {
         WidgetProvider.notifyWidgets(getContext());
         call.resolve();

@@ -64,46 +64,21 @@ interface SettingsPageProps {
     onTriggerPushTest?: () => void;
     onNavigate?: (route: AppRoute) => void;
     events?: CalendarEvent[];
+    onClearTable?: (table: string) => void;
+    onRestartOnboarding?: () => void;
 }
 
-const EXPANDED_COLORS = [
-    { val: 'bg-red-100 text-red-700', hex: '#fee2e2' },
-    { val: 'bg-orange-100 text-orange-700', hex: '#ffedd5' },
-    { val: 'bg-amber-100 text-amber-700', hex: '#fef3c7' },
-    { val: 'bg-yellow-100 text-yellow-700', hex: '#fef9c3' },
-    { val: 'bg-lime-100 text-lime-700', hex: '#ecfccb' },
-    { val: 'bg-green-100 text-green-700', hex: '#dcfce7' },
-    { val: 'bg-emerald-100 text-emerald-700', hex: '#d1fae5' },
-    { val: 'bg-teal-100 text-teal-700', hex: '#ccfbf1' },
-    { val: 'bg-cyan-100 text-cyan-700', hex: '#cffafe' },
-    { val: 'bg-sky-100 text-sky-700', hex: '#e0f2fe' },
-    { val: 'bg-blue-100 text-blue-700', hex: '#dbeafe' },
-    { val: 'bg-indigo-100 text-indigo-700', hex: '#e0e7ff' },
-    { val: 'bg-violet-100 text-violet-700', hex: '#ede9fe' },
-    { val: 'bg-purple-100 text-purple-700', hex: '#f3e8ff' },
-    { val: 'bg-fuchsia-100 text-fuchsia-700', hex: '#fae8ff' },
-    { val: 'bg-pink-100 text-pink-700', hex: '#fce7f3' },
-    { val: 'bg-rose-100 text-rose-700', hex: '#ffe4e6' },
-    { val: 'bg-slate-100 text-slate-700', hex: '#f1f5f9' },
-];
-
 const SettingsPage: React.FC<SettingsPageProps> = ({
-    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, summerMode, onToggleSummerMode, wmMode, onToggleWmMode, liquidGlass, onToggleLiquidGlass, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, globalSummerEnabled, onToggleGlobalSummer, globalWmEnabled, onToggleGlobalWm, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = []
+    currentUser, onUpdateUser, onUpdateFamilyMember, onLogout, onClose, darkMode, onToggleDarkMode, enableSwipe, onToggleSwipe, christmasMode, onToggleChristmasMode, summerMode, onToggleSummerMode, wmMode, onToggleWmMode, liquidGlass, onToggleLiquidGlass, globalLiquidGlassEnabled, onToggleGlobalLiquidGlass, globalSummerEnabled, onToggleGlobalSummer, globalWmEnabled, onToggleGlobalWm, onTriggerSecurityScreen, disabledTabs, onToggleTabDisabled, maintenanceMode, onToggleMaintenance, maintenanceStart, maintenanceEnd, onChangeMaintenanceStart, onChangeMaintenanceEnd, lang, setLang, family, onSendFeedback, allFeedbacks, onMarkFeedbackRead, onAddNews, onAddFamilyMember, onDeleteUser, news = [], onDeleteNews, systemStats, backupData, onResetPassword, onMarkNewsRead, onSendAdminNotification, onTriggerPushTest, onNavigate, events = [], onClearTable, onRestartOnboarding
 }) => {
     const [name, setName] = useState(currentUser.name);
     const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=1e293b&color=fff&bold=true`);
-    const [selectedColor, setSelectedColor] = useState(currentUser.color);
     const [generatingAvatar, setGeneratingAvatar] = useState(false);
     const [showUrlInput, setShowUrlInput] = useState(false);
     const [urlInput, setUrlInput] = useState('');
     const [changePassword, setChangePassword] = useState('');
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [avatarBroken, setAvatarBroken] = useState(false);
-
-    const currentColorHex = useMemo(() => {
-        const found = EXPANDED_COLORS.find(c => c.val === selectedColor);
-        return found ? found.hex : '#fee2e2';
-    }, [selectedColor]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const adminFileInputRef = useRef<HTMLInputElement>(null);
@@ -213,7 +188,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     const sectionBgClass = 'bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700';
 
     const handleSave = () => {
-        const updates: Partial<FamilyMember> = { name, avatar: avatarUrl, color: selectedColor };
+        const updates: Partial<FamilyMember> = { name, avatar: avatarUrl };
         if (changePassword.trim()) {
             if (!isAdmin) {
                 alert("Nur Admins dürfen Passwörter setzen.");
@@ -476,7 +451,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
                         <div className="flex flex-col items-center space-y-4">
                             <div className="relative group">
-                                <div className="w-32 h-32 rounded-full overflow-hidden border-4 shadow-md relative bg-gray-200" style={{ borderColor: currentColorHex }}>
+                                <div className="w-32 h-32 rounded-full overflow-hidden border-4 shadow-md relative bg-gray-200 border-gray-300 dark:border-gray-600">
                                     {generatingAvatar ? (
                                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                                             <Loader2 className="animate-spin text-blue-500" size={32} />
@@ -501,14 +476,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                 </div>
                             )}
 
-                            <div className="flex flex-wrap justify-center gap-1.5 px-2">
-                                {EXPANDED_COLORS.map((c) => (
-                                    <button key={c.val} onClick={() => setSelectedColor(c.val)}
-                                        className={`w-5 h-5 rounded-full transition-all active:scale-90 shadow-sm hover:shadow-md ${selectedColor === c.val ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-offset-gray-800 scale-110' : ''}`}
-                                        style={{ backgroundColor: c.hex }}
-                                    />
-                                ))}
-                            </div>
+
                         </div>
 
                         <div className={`p-4 rounded-2xl shadow-sm space-y-4 ${sectionBgClass}`}>
@@ -935,6 +903,41 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                         </div>
                                     </button>
                                 </div>
+
+                                {/* Database Management */}
+                                {onClearTable && (
+                                    <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+                                        <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                                            <Database size={16} className="mr-2 text-red-500" />
+                                            Datenbank verwalten
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { key: 'shopping', label: 'Einkauf' },
+                                                { key: 'household', label: 'Haushalt' },
+                                                { key: 'personal', label: 'Privat' },
+                                                { key: 'recipes', label: 'Rezepte' },
+                                                { key: 'meal_plan', label: 'Speiseplan' },
+                                                { key: 'events', label: 'Termine' },
+                                                { key: 'polls', label: 'Umfragen' },
+                                                { key: 'feedback', label: 'Feedback' },
+                                            ].map(t => (
+                                                <button
+                                                    key={t.key}
+                                                    onClick={() => {
+                                                        if (window.confirm(`Tabelle "${t.label}" wirklich komplett leeren?`)) {
+                                                            onClearTable(t.key);
+                                                        }
+                                                    }}
+                                                    className="text-[10px] bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 font-bold px-2 py-2 rounded-lg transition flex items-center justify-center gap-1"
+                                                >
+                                                    <Trash2 size={10} /> {t.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Löscht alle Einträge der Tabelle aus der Supabase-Datenbank.</div>
+                                    </div>
+                                )}
                             </div>
                         </section>
                     )}
@@ -1030,7 +1033,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                     ) : (
                                                         <span className={`text-xs font-bold ${subTextColor}`}>{msg.title?.replace('Nachricht von ', '') || 'Unbekannt'}</span>
                                                     )}
-                                                    <span className={`text-[10px] ml-auto opacity-70 ${subTextColor}`}>{new Date(msg.createdAt).toLocaleDateString()}</span>
+                                                    <span className={`text-[10px] ml-auto opacity-70 ${subTextColor}`}>{new Date(msg.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                                                 </div>
                                                 <p className={`text-sm ${textColor}`}>{msg.description}</p>
 
@@ -1197,6 +1200,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     </div>
                                 </div>
 
+                                {onRestartOnboarding && (
+                                    <button
+                                        onClick={() => { onRestartOnboarding(); setActiveModal('none'); }}
+                                        className="w-full p-4 rounded-3xl border border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3 bg-white dark:bg-gray-800 hover:shadow-md transition active:scale-[0.98] group"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                                <RotateCcw size={24} />
+                                            </div>
+                                            <div className="text-left">
+                                                <h3 className="font-bold text-gray-900 dark:text-white text-base">Tour neu starten</h3>
+                                                <p className="text-gray-500 dark:text-gray-400 text-xs">Onboarding und Einführung erneut durchlaufen</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight size={20} className="text-gray-400 group-hover:text-purple-500 transition" />
+                                    </button>
+                                )}
 
                                 <div className="text-center pt-8 space-y-1">
                                     <p className={`text-[10px] font-medium text-gray-400`}>&copy; 2026 FamilyHub. Alle Rechte vorbehalten.</p>

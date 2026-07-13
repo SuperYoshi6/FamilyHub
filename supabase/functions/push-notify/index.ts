@@ -453,13 +453,13 @@ serve(async (req: Request) => {
         case "events":
           if (type === "INSERT") {
             notificationTitle = "📅 Neuer Termin";
-            notificationBody = `${authorName} hat "${record?.title || "Termin"}" eingetragen.`;
+            notificationBody = `${authorName} hat "${record?.title || "Termin"} am ${record?.date || "Datum"}" eingetragen.`;
           } else if (type === "UPDATE") {
             notificationTitle = "📅🔁 Termin geändert";
-            notificationBody = `${authorName} hat "${record?.title || "Termin"}" bearbeitet.`;
+            notificationBody = `${authorName} hat "${record?.title || "Termin"} am ${record?.date || "Datum"}"  bearbeitet.`;
           } else if (type === "DELETE") {
             notificationTitle = "📅❌ Termin gelöscht";
-            notificationBody = `${authorName} hat "${oldRecord?.title || "Termin"}" gelöscht.`;
+            notificationBody = `${authorName} hat "${oldRecord?.title || "Termin"} am ${oldRecord?.date || "Datum"}" gelöscht.`;
           } else {
             return new Response("Skipped event " + type, { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
           }

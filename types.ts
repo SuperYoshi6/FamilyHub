@@ -121,6 +121,7 @@ export interface Task {
   priority?: TaskPriority;
   note?: string;
   dueDate?: string; // ISO date string for due date/reminder
+  startDate?: string; // ISO date string when the task becomes active
   authorId?: string; // New: Track who created the task
 }
 
@@ -137,6 +138,8 @@ export interface Recipe {
   description?: string;
   source?: string; // New: Display site name like "Chefkoch"
   url?: string; // New: Direct link to the source
+  category?: string; // e.g. "Pasta", "Salat", "Fleisch"
+  authorId?: string;
 }
 
 export interface MealPlan {
@@ -153,6 +156,7 @@ export interface MealPlan {
 export interface MealRequest {
   id: string;
   dishName: string;
+  note?: string;
   requestedBy: string; // FamilyMember ID
   createdAt: string;
 }

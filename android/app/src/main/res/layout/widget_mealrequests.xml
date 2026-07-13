@@ -16,20 +16,20 @@
         <ImageView
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:src="@drawable/ic_widget_calendar"
+            android:src="@drawable/ic_widget_mealrequests"
             android:layout_marginEnd="6dp" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/widget_calendar_title"
+            android:text="@string/widget_mealrequests_title"
             android:textColor="@color/widget_title"
             android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/widget_calendar_count"
+            android:id="@+id/widget_mealrequests_count"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="@color/widget_subtitle"
@@ -37,7 +37,7 @@
     </LinearLayout>
 
     <TextView
-        android:id="@+id/widget_calendar_list"
+        android:id="@+id/widget_mealrequests_list"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"

@@ -10,7 +10,7 @@ interface MealsPageProps {
     family: FamilyMember[];
     currentUser: FamilyMember;
     onUpdatePlan: (plan: MealPlan[]) => void;
-    onAddRequest: (dish: string) => void;
+    onAddRequest: (dish: string, note?: string) => void;
     onDeleteRequest: (id: string) => void;
     onAddIngredientsToShopping?: (ingredients: string[]) => void;
     onProfileClick: () => void;
@@ -40,6 +40,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
 
     const [editingDay, setEditingDay] = useState<string | null>(null);
     const [newWish, setNewWish] = useState('');
+    const [newWishNote, setNewWishNote] = useState('');
 
     const getCurrentWeekCycle = () => {
         const days = [];
@@ -67,8 +68,9 @@ const MealsPage: React.FC<MealsPageProps> = ({
     const handleWishSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (newWish.trim()) {
-            onAddRequest(newWish.trim());
+            onAddRequest(newWish.trim(), newWishNote.trim() || undefined);
             setNewWish('');
+            setNewWishNote('');
         }
     };
 
@@ -185,9 +187,12 @@ const MealsPage: React.FC<MealsPageProps> = ({
                     <div className="animate-fade-in space-y-4 text-gray-800 dark:text-white">
                         <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-3xl">
                             <h3 className="text-lg font-bold text-orange-600 mb-4">Worauf hast du Hunger?</h3>
-                            <form onSubmit={handleWishSubmit} className="flex gap-2">
-                                <input type="text" value={newWish} onChange={(e) => setNewWish(e.target.value)} placeholder="Gericht eingeben..." className="flex-1 rounded-2xl p-3 text-sm outline-none bg-white dark:bg-gray-800 border-none shadow-inner" />
-                                <button type="submit" className="bg-orange-500 text-white p-3 rounded-2xl hover:bg-orange-600 shadow-lg"><Plus size={20} /></button>
+                            <form onSubmit={handleWishSubmit} className="flex flex-col gap-2">
+                                <div className="flex gap-2">
+                                    <input type="text" value={newWish} onChange={(e) => setNewWish(e.target.value)} placeholder="Gericht eingeben..." className="flex-1 rounded-2xl p-3 text-sm outline-none bg-white dark:bg-gray-800 border-none shadow-inner" />
+                                    <button type="submit" className="bg-orange-500 text-white p-3 rounded-2xl hover:bg-orange-600 shadow-lg"><Plus size={20} /></button>
+                                </div>
+                                <input type="text" value={newWishNote} onChange={(e) => setNewWishNote(e.target.value)} placeholder="Notiz (z.B. ohne Zwiebeln)..." className="w-full rounded-2xl p-2.5 text-xs outline-none bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-800/50 shadow-inner" />
                             </form>
                         </div>
 
@@ -202,6 +207,7 @@ const MealsPage: React.FC<MealsPageProps> = ({
                                             <div>
                                                 <p className="font-bold text-sm">{req.dishName}</p>
                                                 <p className="text-[10px] text-gray-400">Von {requester?.name || 'Unbekannt'}</p>
+                                                {req.note && <p className="text-[10px] text-gray-500 italic mt-0.5">{req.note}</p>}
                                             </div>
                                         </div>
                                         <button onClick={() => onDeleteRequest(req.id)} className="p-2 text-gray-300 hover:text-red-500 transition"><Trash2 size={18} /></button>

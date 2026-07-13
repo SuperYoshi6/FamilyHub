@@ -14,6 +14,13 @@ dist-ssr
 .env
 .env.*
 
+# Secrets / Service Accounts
+firebase-key.json
+firebase_secret.env
+check_*.js
+check_*.cjs
+delete_*.cjs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

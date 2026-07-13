@@ -42,8 +42,8 @@
             android:name="io.ionic.links.NOTIFICATION_ICON"
             android:resource="@drawable/notification_icon" />
 
-        <!-- Home Screen Widgets -->
-        <receiver
+        <!-- Home Screen Widgets (temporarily disabled) -->
+        <!--<receiver
             android:name=".ShoppingWidgetProvider"
             android:exported="true">
             <intent-filter>
@@ -75,6 +75,28 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_tasks_info" />
         </receiver>
+
+        <receiver
+            android:name=".MealPlanWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_mealplan_info" />
+        </receiver>
+
+        <receiver
+            android:name=".MealRequestsWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_mealrequests_info" />
+        </receiver>-->
     </application>
 
     <!-- Permissions -->

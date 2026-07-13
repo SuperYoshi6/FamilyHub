@@ -4,6 +4,8 @@ interface WidgetBridgePlugin {
     setShoppingData(options: { items: string; count: string }): Promise<void>;
     setCalendarData(options: { events: string; count: string }): Promise<void>;
     setTasksData(options: { tasks: string; count: string }): Promise<void>;
+    setMealPlanData(options: { meals: string; count: string }): Promise<void>;
+    setMealRequestsData(options: { requests: string; count: string }): Promise<void>;
     notifyUpdate(): Promise<void>;
 }
 
@@ -51,5 +53,33 @@ export async function updateTasksWidget(tasks: string[]) {
         await WidgetBridge.notifyUpdate();
     } catch (e) {
         console.warn('[WidgetBridge] setTasksData failed:', e);
+    }
+}
+
+export async function updateMealPlanWidget(meals: string[]) {
+    if (!WidgetBridge) return;
+    const text = meals.length > 0
+        ? meals.map(m => `• ${m}`).join('\n')
+        : 'Keine Mahlzeiten';
+    const count = `${meals.length} Mahlzeit${meals.length !== 1 ? 'en' : ''}`;
+    try {
+        await WidgetBridge.setMealPlanData({ meals: text, count });
+        await WidgetBridge.notifyUpdate();
+    } catch (e) {
+        console.warn('[WidgetBridge] setMealPlanData failed:', e);
+    }
+}
+
+export async function updateMealRequestsWidget(requests: string[]) {
+    if (!WidgetBridge) return;
+    const text = requests.length > 0
+        ? requests.slice(0, 5).map(r => `• ${r}`).join('\n')
+        : 'Keine Wünsche';
+    const count = `${requests.length} Wunsch${requests.length !== 1 ? 'ünsche' : ''}`;
+    try {
+        await WidgetBridge.setMealRequestsData({ requests: text, count });
+        await WidgetBridge.notifyUpdate();
+    } catch (e) {
+        console.warn('[WidgetBridge] setMealRequestsData failed:', e);
     }
 }

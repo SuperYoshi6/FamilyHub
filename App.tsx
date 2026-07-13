@@ -12,6 +12,7 @@ import WeatherPage from './pages/WeatherPage';
 import LandingPage from './pages/LandingPage';
 import Logo from './components/Logo';
 import NotificationModal from './components/NotificationModal';
+import Onboarding from './components/Onboarding';
 import { requestFirebaseToken, onMessageListener } from './services/fcm';
 import { Lock, X, Loader2, ArrowRight, UserPlus, Eye, EyeOff, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { t, Language } from './services/translations';
@@ -21,9 +22,10 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from './services/backend';
 import { ensureFamilyHubAndroidNotificationChannel, androidNotificationChannelFields } from './services/notificationsAndroid';
-import { updateShoppingWidget, updateCalendarWidget, updateTasksWidget } from './services/widgetBridge';
+import { updateShoppingWidget, updateCalendarWidget, updateTasksWidget, updateMealPlanWidget, updateMealRequestsWidget } from './services/widgetBridge';
 import { scheduleAllReminders, scheduleTaskReminder, cancelTaskReminder, cancelEventReminder } from './services/reminders';
 
 // Unterdrückt bekannten Chromium SW-Kanal-Fehler (Firebase compat SDK)
@@ -187,6 +189,7 @@ const App: React.FC = () => {
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [showSecurityScreen, setShowSecurityScreen] = useState(false);
   const [showPasswordResetScreen, setShowPasswordResetScreen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [resetPasswordInput, setResetPasswordInput] = useState('');
   const [resetPasswordConfirm, setResetPasswordConfirm] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
@@ -200,6 +203,7 @@ const App: React.FC = () => {
   const pullStartY = useRef<number | null>(null);
   const mainScrollRef = useRef<HTMLDivElement>(null);
   const lastSentPayloadRef = useRef<string>('');
+  const maintenanceEndNotifiedRef = useRef(false);
 
   // --- 4. Helper Logic (Non-Conditional) ---
   const regularFamily = family.filter(f => f.role !== 'admin');
@@ -347,6 +351,51 @@ const App: React.FC = () => {
     }
   }, [loadingData, family, currentUser]);
 
+  // FCM-Push-Token Registrierung (sobald ein User angemeldet ist)
+  useEffect(() => {
+    if (!currentUser || !Capacitor.isNativePlatform()) return;
+    const registerPush = async () => {
+      try {
+        let permStatus = await PushNotifications.checkPermissions();
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+        if (permStatus.receive !== 'granted') {
+          console.warn('[Push] Permission not granted');
+          return;
+        }
+        await PushNotifications.register();
+      } catch (e) {
+        console.warn('[Push] Registration init failed:', e);
+      }
+    };
+    registerPush();
+
+    const regListener = PushNotifications.addListener('registration', async (token) => {
+      console.log('[Push] FCM token erhalten:', token.value?.substring(0, 20) + '...');
+      if (!token.value || !currentUser || !supabase) return;
+      try {
+        const { error } = await supabase.from('fcm_tokens').upsert(
+          { token: token.value, user_id: currentUser.id },
+          { onConflict: 'token' }
+        );
+        if (error) console.warn('[Push] Token speichern fehlgeschlagen:', error);
+      } catch (e) {
+        console.warn('[Push] Token save error:', e);
+      }
+    });
+
+    const errorListener = PushNotifications.addListener('registrationError', (err) => {
+      console.warn('[Push] FCM registration error:', err.error);
+      // Fehler ignorieren – viele Android-Geräte ohne Google Play Services bekommen legitime Fehler
+    });
+
+    return () => {
+      regListener.then(l => l.remove());
+      errorListener.then(l => l.remove());
+    };
+  }, [currentUser]);
+
   useEffect(() => {
     if (!currentUser) return;
     if (currentWeatherLocation) return;
@@ -421,6 +470,28 @@ const App: React.FC = () => {
         const openTasks = [...house.filter((t: Task) => !t.done), ...pers.filter((t: Task) => !t.done)]
           .map((t: Task) => t.title);
         updateTasksWidget(openTasks);
+
+        const todayName = new Date().toLocaleDateString('de-DE', { weekday: 'long' });
+        const todayMeals = currentMealPlan
+          .filter((m: MealPlan) => m.day === todayName)
+          .flatMap((m: MealPlan) => {
+            const parts: string[] = [];
+            if (m.breakfast) parts.push(m.breakfast);
+            if (m.lunch) parts.push(m.lunch);
+            if (m.mealName) parts.push(m.mealName);
+            return parts;
+          });
+        updateMealPlanWidget(todayMeals);
+
+        const requestNames = (reqs || []).map((r: MealRequest) => {
+          const author = fam.find((f: FamilyMember) => f.id === r.requestedBy)?.name || '';
+          const lines: string[] = [];
+          lines.push(`${r.dishName}`);
+          if (r.note) lines.push(`${r.note}`);
+          if (author) lines.push(`von ${author}`);
+          return lines.join('\n');
+        });
+        updateMealRequestsWidget(requestNames);
       }
 
       // --- SCHEDULE REMINDERS ---
@@ -436,6 +507,36 @@ const App: React.FC = () => {
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
+
+  // Widgets bei jeder Änderung der relevanten Daten live aktualisieren
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const shoppingNames = shoppingList.map(s => s.name);
+    const uncheckedCount = shoppingList.filter(s => !s.checked).length;
+    updateShoppingWidget(shoppingNames, uncheckedCount);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayEvents = events
+      .filter(e => e.date === todayStr)
+      .map(e => `${e.time?.slice(0,5) || ''} ${e.title}`);
+    updateCalendarWidget(todayEvents);
+    const openTasks = [...householdTasks.filter(t => !t.done), ...personalTasks.filter(t => !t.done)]
+      .map(t => t.title);
+    updateTasksWidget(openTasks);
+    const todayName = new Date().toLocaleDateString('de-DE', { weekday: 'long' });
+    const todayMeals = mealPlan
+      .filter(m => m.day === todayName)
+      .flatMap(m => [m.breakfast, m.lunch, m.mealName].filter(Boolean)) as string[];
+    updateMealPlanWidget(todayMeals);
+    const requestNames = mealRequests.map(r => {
+      const author = family.find((f: FamilyMember) => f.id === r.requestedBy)?.name || '';
+      const lines: string[] = [];
+      lines.push(`${r.dishName}`);
+      if (r.note) lines.push(`${r.note}`);
+      if (author) lines.push(`von ${author}`);
+      return lines.join('\n');
+    });
+    updateMealRequestsWidget(requestNames);
+  }, [shoppingList, events, householdTasks, personalTasks, mealPlan, mealRequests, family]);
 
   // Reload data when app returns from background (mobile) or window gets focus (web)
   useEffect(() => {
@@ -665,8 +766,13 @@ const App: React.FC = () => {
     const endMs = new Date(maintenanceEnd).getTime();
     if (!Number.isNaN(endMs) && nowTs > endMs) {
       setMaintenanceMode(false);
+      if (!maintenanceEndNotifiedRef.current) {
+        maintenanceEndNotifiedRef.current = true;
+        addNotification('✅ Wartung beendet', 'Die geplante Wartung ist abgeschlossen. FamilyHub ist wieder voll verfügbar.');
+      }
     }
   }, [maintenanceMode, maintenanceEnd, nowTs]);
+
 
   useEffect(() => {
     if (loadingData) return;
@@ -755,11 +861,12 @@ const App: React.FC = () => {
   }, [currentRoute, darkMode]);
 
   const updateMealPlan = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
-  const addMealRequest = async (dishName: string) => {
+  const addMealRequest = async (dishName: string, note?: string) => {
     if (!currentUser) return;
     const request: MealRequest = {
       id: Date.now().toString(),
       dishName,
+      note,
       requestedBy: currentUser.id,
       createdAt: new Date().toISOString(),
     };
@@ -881,34 +988,6 @@ const App: React.FC = () => {
       push_test_message: 'FamilyHub hat gerade eine Test-Benachrichtigung gesendet.',
     };
     await Backend.appSettings.update('global', testPayload as any);
-    // 2. Also trigger edge function directly (works without webhook config)
-    try {
-      console.log('📡 Triggering push-test via edge function...');
-      const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8';
-      const resp = await fetch('https://hjkmfodzhradtkeiyele.supabase.co/functions/v1/push-notify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${ANON_KEY}`,
-          'apikey': ANON_KEY,
-        },
-        body: JSON.stringify({
-          trigger: 'manual_broadcast',
-          title: '🔔 Push-Test',
-          body: 'Das ist eine Test-Benachrichtigung von FamilyHub.',
-          exclude_user_id: currentUser.id,
-        }),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error('Push-Test edge function failed:', resp.status, errText);
-      } else {
-        const result = await resp.json();
-        console.log('Push-Test sent to', result.sent_to, 'devices:', JSON.stringify(result.results)?.substring(0, 200));
-      }
-    } catch (err) {
-      console.error('Push-Test failed:', err);
-    }
   };
   const triggerSecurityScreen = async (id: string) => {
     await Backend.family.update(id, { mustShowSecurityScreen: true });
@@ -958,6 +1037,8 @@ const App: React.FC = () => {
       setLoginError('');
       if (loginUser.mustChangePassword) {
         setShowPasswordResetScreen(true);
+      } else {
+        setShowOnboarding(localStorage.getItem('fh_onboarding_done') !== 'true');
       }
     } else {
       setLoginError(t('login.wrong_pass', language));
@@ -975,6 +1056,7 @@ const App: React.FC = () => {
 
       setCurrentUser(admin);
       localStorage.setItem('fh_session_user', admin.id);
+      setShowOnboarding(localStorage.getItem('fh_onboarding_done') !== 'true');
       setShowAdminLogin(false);
     } else setLoginError("Zugriff verweigert.");
   };
@@ -1158,17 +1240,32 @@ const App: React.FC = () => {
                 <div className="text-center mb-4">
                   <ShieldAlert size={36} className="text-yellow-300 mx-auto" />
                   <h2 className="text-lg font-black text-white mt-2 leading-tight">SYSTEMÜBERSCHREITUNG</h2>
-                  <p className="text-[11px] text-red-200 mt-1 leading-snug">Admin-Modus aktiviert. Bitte Admin-Passwort eingeben.</p>
+                  <p className="text-[11px] text-red-200 mt-1 leading-snug">Anmeldung beim Admin Konto. Bitte gib das Passwort ein.</p>
                 </div>
                 <form onSubmit={handleAdminLoginSubmit}>
                   <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 text-center text-white outline-none" />
-                  <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl mt-6 uppercase">Zutritt</button>
+                  <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl mt-6">Anmelden</button>
                 </form>
                 <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-red-100"><X size={20} /></button>
               </div>
             </div>
-          )}
-        </div>
+        )}
+        {showOnboarding && currentUser && (
+          <Onboarding
+            onComplete={() => { setShowOnboarding(false); localStorage.setItem('fh_onboarding_done', 'true'); }}
+            darkMode={darkMode}
+            language={language}
+            userName={currentUser.name}
+            userAvatar={currentUser.avatar}
+            mustChangePassword={currentUser.mustChangePassword}
+            onPasswordChange={async (pw) => {
+              await Backend.family.update(currentUser.id, { password: pw, mustChangePassword: false });
+              setFamily(p => p.map(m => m.id === currentUser.id ? { ...m, password: pw, mustChangePassword: false } : m));
+              setCurrentUser(prev => prev ? { ...prev, password: pw, mustChangePassword: false } : prev);
+            }}
+          />
+        )}
+      </div>
       );
     }
 
@@ -1323,12 +1420,13 @@ const App: React.FC = () => {
           onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? { ...i, checked: !i.checked } : i)); await Backend.shopping.update(id, { checked: !item.checked }); } }}
           onAddShopping={async (name) => { const i: ShoppingItem = { id: Date.now().toString(), name, checked: false, authorId: currentUser?.id }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }}
           onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }}
-          onAddHousehold={async (t, a, pr, n, d) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: pr || 'medium', note: n, dueDate: d, authorId: currentUser?.id }; setHouseholdTasks(prev => [...prev, task]); await Backend.householdTasks.add(task); }}
+          onAddHousehold={async (t, a, pr, n, d, s) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: pr || 'medium', note: n, dueDate: d, startDate: s, authorId: currentUser?.id }; setHouseholdTasks(prev => [...prev, task]); await Backend.householdTasks.add(task); }}
           onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.householdTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); } } else { const t = personalTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.personalTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); } } }}
-          onAddPersonal={async (t, pr, n, d) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: pr || 'medium', note: n, dueDate: d, authorId: currentUser?.id }; setPersonalTasks(prev => [...prev, task]); await Backend.personalTasks.add(task); }}
+          onAddPersonal={async (t, pr, n, d, s) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: pr || 'medium', note: n, dueDate: d, startDate: s, authorId: currentUser?.id }; setPersonalTasks(prev => [...prev, task]); await Backend.personalTasks.add(task); }}
           onDeleteTask={async (id, type) => { cancelTaskReminder(id); if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }}
           onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }}
           onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }}
+          onUpdateRecipe={async (id, updates) => { setRecipes(p => p.map(x => x.id === id ? { ...x, ...updates } : x)); await Backend.recipes.update(id, updates); }}
           onAddIngredientsToShopping={async (ings) => {
             const items: ShoppingItem[] = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false, authorId: currentUser?.id }));
             const newList = [...shoppingList, ...items];
@@ -1351,10 +1449,27 @@ const App: React.FC = () => {
         PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} summerMode={summerMode} onToggleSummerMode={() => setSummerMode(!summerMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} globalSummerEnabled={globalSummerEnabled} onToggleGlobalSummer={() => setGlobalSummerEnabled(!globalSummerEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
           const newVal = !maintenanceMode;
           setMaintenanceMode(newVal);
+          if (newVal) {
+            const timeframe = maintenanceStart && maintenanceEnd ? ` (${new Date(maintenanceStart).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} – ${new Date(maintenanceEnd).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })})` : '';
+            addNotification('🔧 Wartung geplant', `Der Wartungsmodus wurde aktiviert.${timeframe}`);
+            maintenanceEndNotifiedRef.current = false;
+          }
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
             setMaintenanceEnd('');
           }
-        }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onTriggerPushTest={triggerPushTest} onNavigate={setCurrentRoute} events={events} />;
+        }} maintenanceStart={maintenanceStart} maintenanceEnd={maintenanceEnd} onChangeMaintenanceStart={setMaintenanceStart} onChangeMaintenanceEnd={setMaintenanceEnd} lang={language} setLang={() => { }} family={family} onSendFeedback={addFeedback} allFeedbacks={feedbacks} onMarkFeedbackRead={markFeedbacksRead} onAddNews={addNews} onAddFamilyMember={addFamilyMember} onDeleteUser={deleteUser} news={news} onDeleteNews={deleteNews} onResetPassword={resetMemberPassword} onMarkNewsRead={markNewsRead} onSendAdminNotification={sendAdminBroadcast} onTriggerPushTest={triggerPushTest} onNavigate={setCurrentRoute} events={events} onClearTable={(table) => {
+          if (table === 'shopping') { setShoppingList([]); Backend.shopping.setAll([]); }
+          else if (table === 'household') { setHouseholdTasks([]); Backend.householdTasks.setAll([]); }
+          else if (table === 'personal') { setPersonalTasks([]); Backend.personalTasks.setAll([]); }
+          else if (table === 'recipes') { setRecipes([]); Backend.recipes.setAll([]); }
+          else if (table === 'meal_plan') { setMealPlan([]); Backend.mealPlan.setAll([]); addNotification('Essen', 'Essensplan geleert'); }
+          else if (table === 'events') { setEvents([]); Backend.events.setAll([]); }
+          else if (table === 'polls') { setPolls([]); Backend.polls.setAll([]); }
+          else if (table === 'feedback') { setFeedbacks([]); Backend.feedback.setAll([]); }
+        }} onRestartOnboarding={() => {
+          localStorage.removeItem('fh_onboarding_done');
+          setShowOnboarding(true);
+        }} />
         break;
       default:
         PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} summerMode={effectiveSummerMode} />;
@@ -1409,6 +1524,22 @@ const App: React.FC = () => {
         <div className={`w-full flex-shrink-0 z-30 transition-all duration-500 ${effectiveLiquidGlass ? 'bg-transparent dark:bg-transparent' : 'bg-white dark:bg-slate-900'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <Navigation currentRoute={currentRoute} onNavigate={setCurrentRoute} lang={language} liquidGlass={effectiveLiquidGlass} enableSwipe={enableSwipe} summerMode={effectiveSummerMode} />
         </div>
+
+        {showOnboarding && currentUser && (
+          <Onboarding
+            onComplete={() => { setShowOnboarding(false); localStorage.setItem('fh_onboarding_done', 'true'); }}
+            darkMode={darkMode}
+            language={language}
+            userName={currentUser.name}
+            userAvatar={currentUser.avatar}
+            mustChangePassword={currentUser.mustChangePassword}
+            onPasswordChange={async (pw) => {
+              await Backend.family.update(currentUser.id, { password: pw, mustChangePassword: false });
+              setFamily(p => p.map(m => m.id === currentUser.id ? { ...m, password: pw, mustChangePassword: false } : m));
+              setCurrentUser(prev => prev ? { ...prev, password: pw, mustChangePassword: false } : prev);
+            }}
+          />
+        )}
 
         {showSecurityScreen && currentUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">

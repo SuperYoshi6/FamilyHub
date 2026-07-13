@@ -22,7 +22,7 @@ export async function scheduleTaskReminder(task: Task) {
     if (due <= now) return;
 
     const id = hashCode(REMINDER_PREFIX + task.id);
-    const dueStr = due.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+    const dueStr = due.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
     try {
         const existing = await LocalNotifications.getPending();

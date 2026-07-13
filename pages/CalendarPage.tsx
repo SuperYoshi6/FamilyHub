@@ -669,7 +669,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                 <div className="flex items-center space-x-2">
                                                     {author ? (<><img src={author.avatar} className="w-6 h-6 rounded-full" /><span className="text-xs font-medium opacity-70">{author.name}</span></>) : (<span className="text-xs text-gray-400">Unbekannt</span>)}
                                                 </div>
-                                                <span className="text-[10px] opacity-60">{new Date(item.createdAt).toLocaleDateString()}</span>
+                                                <span className="text-[10px] opacity-60">{new Date(item.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                                             </div>
                                         </div>
                                     </div>

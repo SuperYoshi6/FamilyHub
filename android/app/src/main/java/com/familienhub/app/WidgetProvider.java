@@ -26,7 +26,7 @@ public abstract class WidgetProvider extends AppWidgetProvider {
         for (int widgetId : appWidgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), getWidgetLayout());
             bindData(context, views);
-            setOpenAppIntent(context, views, widgetId);
+            setClickHandlers(context, views, widgetId);
             appWidgetManager.updateAppWidget(widgetId, views);
         }
     }
@@ -39,15 +39,23 @@ public abstract class WidgetProvider extends AppWidgetProvider {
         views.setTextViewText(getCountId(), count);
     }
 
-    private void setOpenAppIntent(Context context, RemoteViews views, int widgetId) {
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        intent.setData(Uri.parse(getDeepLink()));
-
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                context, widgetId, intent,
+    private void setClickHandlers(Context context, RemoteViews views, int widgetId) {
+        // Tap on background → open app
+        Intent appIntent = new Intent(context, MainActivity.class);
+        appIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        appIntent.setData(Uri.parse(getDeepLink()));
+        PendingIntent appPendingIntent = PendingIntent.getActivity(
+                context, widgetId, appIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        views.setOnClickPendingIntent(android.R.id.background, pendingIntent);
+        views.setOnClickPendingIntent(android.R.id.background, appPendingIntent);
+
+        // Tap on "Aktualisieren" → trigger APPWIDGET_UPDATE for this provider
+        Intent refreshIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        refreshIntent.setComponent(new ComponentName(context, this.getClass()));
+        PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(
+                context, widgetId + 1000, refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        views.setOnClickPendingIntent(R.id.widget_refresh, refreshPendingIntent);
     }
 
     public static void saveWidgetData(Context context, String key, String value) {
@@ -62,6 +70,8 @@ public abstract class WidgetProvider extends AppWidgetProvider {
         updateSingleWidget(context, manager, prefs, ShoppingWidgetProvider.class, new ShoppingWidgetProvider());
         updateSingleWidget(context, manager, prefs, CalendarWidgetProvider.class, new CalendarWidgetProvider());
         updateSingleWidget(context, manager, prefs, TasksWidgetProvider.class, new TasksWidgetProvider());
+        updateSingleWidget(context, manager, prefs, MealPlanWidgetProvider.class, new MealPlanWidgetProvider());
+        updateSingleWidget(context, manager, prefs, MealRequestsWidgetProvider.class, new MealRequestsWidgetProvider());
     }
 
     private static void updateSingleWidget(Context context, AppWidgetManager manager,
@@ -76,13 +86,20 @@ public abstract class WidgetProvider extends AppWidgetProvider {
             views.setTextViewText(provider.getListId(), items);
             views.setTextViewText(provider.getCountId(), count);
             // Set open-app intent
-            Intent intent = new Intent(context, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            intent.setData(android.net.Uri.parse(provider.getDeepLink()));
-            android.app.PendingIntent pendingIntent = android.app.PendingIntent.getActivity(
-                    context, widgetId, intent,
+            Intent appIntent = new Intent(context, MainActivity.class);
+            appIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            appIntent.setData(android.net.Uri.parse(provider.getDeepLink()));
+            android.app.PendingIntent appPendingIntent = android.app.PendingIntent.getActivity(
+                    context, widgetId, appIntent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
-            views.setOnClickPendingIntent(android.R.id.background, pendingIntent);
+            views.setOnClickPendingIntent(android.R.id.background, appPendingIntent);
+            // Set refresh button intent
+            Intent refreshIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+            refreshIntent.setComponent(new ComponentName(context, providerClass));
+            android.app.PendingIntent refreshPendingIntent = android.app.PendingIntent.getBroadcast(
+                    context, widgetId + 1000, refreshIntent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
+            views.setOnClickPendingIntent(R.id.widget_refresh, refreshPendingIntent);
             // Update directly via manager (more reliable than sendBroadcast on newer Android)
             manager.updateAppWidget(widgetId, views);
         }

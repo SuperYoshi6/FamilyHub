@@ -166,6 +166,8 @@ export async function processMutationQueue(): Promise<number> {
     for (const mutation of queue) {
         try {
             const payload = { ...(mutation.item || mutation.updates || {}) };
+            // Strip client-only fields that don't exist in Supabase
+            delete payload.authorId;
             if (mutation.operation === 'add') {
                 const { error } = await supabase.from(mutation.table).insert(payload);
                 if (!error) { removeMutation(mutation.id); processed++; }
@@ -242,9 +244,12 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
         if (this.table === 'meal_plans') {
             if ('mealName' in payload) { payload.meal_name = payload.mealName; delete payload.mealName; }
             if ('recipeHint' in payload) { payload.recipe_hint = payload.recipeHint; delete payload.recipeHint; }
-            // breakfast and lunch are already snake_case or don't need mapping, but let's be explicit
             if ('breakfast' in payload) { payload.breakfast = payload.breakfast; }
             if ('lunch' in payload) { payload.lunch = payload.lunch; }
+        }
+
+        if (this.table === 'recipes') {
+            if ('authorId' in payload) delete payload.authorId;
         }
 
         if (this.table === 'notifications') {
@@ -282,6 +287,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if (this.table.includes('tasks') && 'assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
             if (this.table.includes('tasks') && 'dueDate' in payload) { payload.due_date = payload.dueDate; delete payload.dueDate; }
+            if (this.table.includes('tasks') && 'startDate' in payload) { payload.start_date = payload.startDate; delete payload.startDate; }
         }
 
         return payload;
@@ -354,6 +360,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
             if (this.table.includes('tasks') && 'assigned_to' in item) { item.assignedTo = item.assigned_to; delete item.assigned_to; }
             if (this.table.includes('tasks') && 'due_date' in item) { item.dueDate = item.due_date; delete item.due_date; }
+            if (this.table.includes('tasks') && 'start_date' in item) { item.startDate = item.start_date; delete item.start_date; }
         }
 
         return item as T;
