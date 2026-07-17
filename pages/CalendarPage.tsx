@@ -166,8 +166,14 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
         const d = selectedDate || new Date().toISOString().split('T')[0];
         setManualDate(d);
         setManualEndDate(d);
-        setManualStartTime('12:00');
-        setManualEndTime('13:00');
+        const now_ = new Date();
+        const sH = String(now_.getHours()).padStart(2, '0');
+        const sM = String(now_.getMinutes()).padStart(2, '0');
+        const eDate = new Date(now_.getTime() + 60 * 60 * 1000);
+        const eH = String(eDate.getHours()).padStart(2, '0');
+        const eM = String(eDate.getMinutes()).padStart(2, '0');
+        setManualStartTime(`${sH}:${sM}`);
+        setManualEndTime(`${eH}:${eM}`);
         setManualLocation('');
         setManualDescription('');
         setManualAssignedTo([currentUser.id]);
@@ -1083,7 +1089,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             </div>
                             <div className={`p-4 border-t rounded-b-2xl flex-shrink-0 ${liquidGlass ? 'border-white/20 bg-white/20' : 'border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80'}`}>
                                 {!isFormOpen ? (
-                                    <button onClick={openAddFormInModal} className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-[0.98] transition flex items-center justify-center hover:bg-blue-700"><Plus size={20} className="mr-2" /> termin hinzufügen</button>
+                                    <button onClick={openAddFormInModal} className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-[0.98] transition flex items-center justify-center hover:bg-blue-700"><Plus size={20} className="mr-2" /> Termin hinzufügen</button>
                                 ) : (
                                     <div className="flex space-x-3">
                                         {editingEventId && (<button type="button" onClick={handleDelete} className="bg-red-50 dark:bg-red-900/20 text-red-500 p-3.5 rounded-xl hover:bg-red-100 transition"><Trash2 size={22} /></button>)}

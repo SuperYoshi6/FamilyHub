@@ -136,7 +136,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
-                        Version 1.0.0 (Beta) • Jetz bereit für dem Alltag!
+                        Version 1.0.0 • Jetz bereit für dem Alltag!
                     </div>
                     <h1 className="text-7xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.85] animate-slide-up">
                         Das Herz eures<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Zuhauses.</span>
@@ -171,7 +171,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Android (APK)</div>
-                                        <div className="text-[10px] text-orange-500 font-bold tracking-widest mt-0.5">Vollversion v1.0.0 (Beta)</div>
+                                        <div className="text-[10px] text-orange-500 font-bold tracking-widest mt-0.5">Version 1.0.0</div>
                                     </div>
                                 </a>
                                 <div className="flex items-center gap-4 p-4 rounded-2xl text-left mt-1 opacity-50 cursor-default">

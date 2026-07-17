@@ -10,7 +10,7 @@ import { t, Language } from '../services/translations';
 // --- CONFIG & UPDATE ANLEITUNG ---
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
 const WEBSITE_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
-const APP_VERSION = "1.0.0 (Beta)";
+const APP_VERSION = "1.0.0 ";
 
 interface SettingsPageProps {
     currentUser: FamilyMember;

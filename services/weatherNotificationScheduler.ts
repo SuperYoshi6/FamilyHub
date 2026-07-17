@@ -33,11 +33,12 @@ export const scheduleHourlyWeatherNotification = async (lat: number, lng: number
         // 4. Schedule nächste Notification (in 1 Stunde)
         const nextTime = new Date();
         nextTime.setHours(nextTime.getHours() + 1);
+        nextTime.setMinutes(0, 0, 0);
 
         await LocalNotifications.schedule({
             notifications: [
                 {
-                    id: Math.floor(Math.random() * 10000),
+                    id: 987600 + nextTime.getHours(),
                     title: `${location} - ${currentTemp}°C`,
                     body: description,
                     schedule: {
@@ -72,12 +73,7 @@ export const startWeatherNotificationLoop = (lat: number, lng: number, location:
 
 // Stoppe die Benachrichtigungen
 export const stopWeatherNotificationLoop = () => {
-    // Alle geplanten Notifications löschen
-    LocalNotifications.getPending().then((result) => {
-        result.notifications.forEach(n => {
-            if (n.title && n.title.includes('°C')) {
-                LocalNotifications.cancel({ notifications: [{ id: n.id }] });
-            }
-        });
-    });
+    const ids = [];
+    for (let h = 0; h < 24; h++) ids.push(987600 + h);
+    LocalNotifications.cancel({ notifications: ids.map(id => ({ id })) }).catch(() => {});
 };

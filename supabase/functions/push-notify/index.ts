@@ -5,6 +5,27 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js?no-check";
 // @ts-ignore: Deno jose import - allow unresolved module in this TypeScript environment
 import * as jose from "https://esm.sh/jose@4.15.3?no-check";
 
+function formatDate(isoDate: string | undefined | null): string {
+  if (!isoDate) return "Datum";
+  const parts = isoDate.split("T")[0].split("-");
+  if (parts.length !== 3) return isoDate;
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+const TABLE_ROUTE_MAP: Record<string, string> = {
+  events: "calendar",
+  shopping: "lists",
+  household_tasks: "lists",
+  personal_tasks: "lists",
+  meal_requests: "meals",
+  meal_plan: "meals",
+  meal_plans: "meals",
+  news: "calendar",
+  polls: "calendar",
+  app_settings: "settings",
+  weather_cron: "weather",
+};
+
 /**
  * Gets an OAuth2 Access Token for the Firebase HTTP v1 API.
  */
@@ -354,8 +375,9 @@ serve(async (req: Request) => {
     const oldRecord = payload.old_record || {};
     const excludeUserId: string | undefined = payload.exclude_user_id;
 
-    // DELETE wird nur für Events unterstützt (andere Tables werden übersprungen)
-    if (type === "DELETE" && table !== "events") {
+    // Nur DELETE für Events, Shopping, Tasks, Meal-Requests, Meal-Plan
+    const deleteAllowed = ["events", "shopping", "household_tasks", "personal_tasks", "meal_requests", "meal_plan"];
+    if (type === "DELETE" && !deleteAllowed.includes(table)) {
       return new Response("Skipping DELETE for " + table, {
         status: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
@@ -400,6 +422,7 @@ serve(async (req: Request) => {
           location: recipient.location.name,
           temp: String(weather.temp),
           weather_code: String(weather.code),
+          route: "weather",
         };
 
         for (const token of recipient.tokens) {
@@ -453,33 +476,59 @@ serve(async (req: Request) => {
         case "events":
           if (type === "INSERT") {
             notificationTitle = "📅 Neuer Termin";
-            notificationBody = `${authorName} hat "${record?.title || "Termin"} am ${record?.date || "Datum"}" eingetragen.`;
+            notificationBody = `${authorName} hat "${record?.title || "Termin"}" am ${formatDate(record?.date)} eingetragen.`;
           } else if (type === "UPDATE") {
             notificationTitle = "📅🔁 Termin geändert";
-            notificationBody = `${authorName} hat "${record?.title || "Termin"} am ${record?.date || "Datum"}"  bearbeitet.`;
+            notificationBody = `${authorName} hat "${record?.title || "Termin"}" am ${formatDate(record?.date)} bearbeitet.`;
           } else if (type === "DELETE") {
             notificationTitle = "📅❌ Termin gelöscht";
-            notificationBody = `${authorName} hat "${oldRecord?.title || "Termin"} am ${oldRecord?.date || "Datum"}" gelöscht.`;
+            notificationBody = `${authorName} hat "${oldRecord?.title || "Termin"}" am ${formatDate(oldRecord?.date)} gelöscht.`;
           } else {
             return new Response("Skipped event " + type, { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
           }
           break;
-        case "shopping":
-          if (type !== "INSERT") return new Response("Skipped shopping update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
-          notificationTitle = "🛒 Einkaufsliste";
-          notificationBody = `${authorName} hat "${record?.name || "Artikel"}" zur Einkaufsliste hinzugefügt.`;
+        case "shopping": {
+          if (type === "DELETE") {
+            notificationTitle = "🛒❌ Einkauf entfernt";
+            notificationBody = `${authorName} hat "${oldRecord?.name || "Artikel"}" von der Einkaufsliste entfernt.`;
+          } else if (type !== "INSERT") {
+            return new Response("Skipped shopping update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+          } else {
+            notificationTitle = "🛒 Einkaufsliste";
+            notificationBody = `${authorName} hat "${record?.name || "Artikel"}" zur Einkaufsliste hinzugefügt.`;
+          }
           break;
+        }
         case "household_tasks":
-          if (type !== "INSERT") return new Response("Skipped task update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
-          notificationTitle = "🧹 Neue Hausarbeit";
-          notificationBody = assignedNames.length > 0
-            ? `${authorName} hat "${record?.title || "Aufgabe"}" für ${assignedNames.join(", ")} erstellt.`
-            : `${authorName} hat "${record?.title || "Aufgabe"}" erstellt.`;
+          if (type === "UPDATE") {
+            notificationTitle = "🧹 Hausarbeit geändert";
+            notificationBody = assignedNames.length > 0
+              ? `${authorName} hat "${record?.title || "Aufgabe"}" für ${assignedNames.join(", ")} bearbeitet.`
+              : `${authorName} hat "${record?.title || "Aufgabe"}" bearbeitet.`;
+          } else if (type === "DELETE") {
+            notificationTitle = "🧹❌ Hausarbeit gelöscht";
+            notificationBody = assignedNames.length > 0
+              ? `${authorName} hat "${oldRecord?.title || "Aufgabe"}" für ${assignedNames.join(", ")} gelöscht.`
+              : `${authorName} hat "${oldRecord?.title || "Aufgabe"}" gelöscht.`;
+          } else if (type !== "INSERT") {
+            return new Response("Skipped task update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+          } else {
+            notificationTitle = "🧹 Neue Hausarbeit";
+            notificationBody = assignedNames.length > 0
+              ? `${authorName} hat "${record?.title || "Aufgabe"}" für ${assignedNames.join(", ")} erstellt.`
+              : `${authorName} hat "${record?.title || "Aufgabe"}" erstellt.`;
+          }
           break;
         case "personal_tasks":
-          if (type !== "INSERT") return new Response("Skipped task update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
-          notificationTitle = "✅ Neue Aufgabe";
-          notificationBody = `${authorName} hat "${record?.title || "Aufgabe"}" erstellt.`;
+          if (type === "DELETE") {
+            notificationTitle = "✅❌ Aufgabe gelöscht";
+            notificationBody = `${authorName} hat "${oldRecord?.title || "Aufgabe"}" gelöscht.`;
+          } else if (type !== "INSERT") {
+            return new Response("Skipped task update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+          } else {
+            notificationTitle = "✅ Neue Aufgabe";
+            notificationBody = `${authorName} hat "${record?.title || "Aufgabe"}" erstellt.`;
+          }
           break;
         case "news":
           if (type !== "INSERT") return new Response("Skipped news update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
@@ -491,11 +540,45 @@ serve(async (req: Request) => {
           notificationTitle = "📊 Neue Umfrage";
           notificationBody = `${authorName} hat "${record?.question || record?.title || "Umfrage"}" erstellt.`;
           break;
-        case "meal_requests":
-          if (type !== "INSERT") return new Response("Skipped meal request update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
-          notificationTitle = "🍽️ Essenswunsch";
-          notificationBody = `${authorName} wünscht sich "${record?.dish_name || record?.dishName || "Gericht"}".`;
+        case "meal_requests": {
+          const dish = record?.dish_name || record?.dishName || oldRecord?.dish_name || oldRecord?.dishName || "Gericht";
+          if (type === "DELETE") {
+            notificationTitle = "🍽️❌ Essenswunsch entfernt";
+            notificationBody = `${authorName} hat den Wunsch "${dish}" entfernt.`;
+          } else if (type === "UPDATE") {
+            notificationTitle = "🍽️🔁 Essenswunsch geändert";
+            notificationBody = `${authorName} hat den Wunsch "${dish}" bearbeitet.`;
+          } else if (type !== "INSERT") {
+            return new Response("Skipped meal request update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+          } else {
+            notificationTitle = "🍽️ Essenswunsch";
+            notificationBody = `${authorName} wünscht sich "${dish}".`;
+          }
           break;
+        }
+        case "meal_plan": {
+          const mealSlot = record?.meal_name || record?.mealName || record?.breakfast || record?.lunch || "";
+          const day = formatDate(record?.day || oldRecord?.day);
+          if (type === "DELETE") {
+            notificationTitle = "🍽️❌ Mahlzeit entfernt";
+            notificationBody = mealSlot
+              ? `${authorName} hat "${mealSlot}" am ${day} aus dem Speiseplan entfernt.`
+              : `${authorName} hat eine Mahlzeit am ${day} aus dem Speiseplan entfernt.`;
+          } else if (type === "UPDATE") {
+            notificationTitle = "🍽️🔁 Speiseplan geändert";
+            notificationBody = mealSlot
+              ? `${authorName} hat "${mealSlot}" am ${day} geändert.`
+              : `${authorName} hat den Speiseplan am ${day} geändert.`;
+          } else if (type !== "INSERT") {
+            return new Response("Skipped meal plan update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
+          } else {
+            notificationTitle = "🍽️ Neue Mahlzeit";
+            notificationBody = mealSlot
+              ? `${authorName} hat "${mealSlot}" am ${day} zum Speiseplan hinzugefügt.`
+              : `${authorName} hat eine Mahlzeit am ${day} zum Speiseplan hinzugefügt.`;
+          }
+          break;
+        }
         case "app_settings":
           if (type !== "UPDATE") return new Response("Skipped settings update", { status: 200, headers: { "Access-Control-Allow-Origin": "*" } });
           if (record?.push_test_at && record?.push_test_at !== oldRecord?.push_test_at) {
@@ -518,7 +601,10 @@ serve(async (req: Request) => {
       }
     }
 
-    const tokens = await collectRecipientTokens(supabase, excludeUserId, table);
+    // Auto-exclude the author (who triggered the change) from push recipients, so they don't get double notifications
+    const authorExcludeId = record?.author_id || record?.authorId || record?.requested_by || record?.requestedBy || record?.user_id || record?.userId;
+    const effectiveExcludeUserId = excludeUserId || (authorExcludeId !== "" && authorExcludeId !== undefined ? authorExcludeId as string : undefined);
+    const tokens = await collectRecipientTokens(supabase, effectiveExcludeUserId, table);
     if (tokens.length === 0) {
       console.log("No target tokens found — users may need to (re)login to register their FCM token");
       return new Response(JSON.stringify({ success: true, message: "No tokens to notify" }), {
@@ -529,10 +615,14 @@ serve(async (req: Request) => {
 
     console.log(`Found ${tokens.length} recipient token(s):`, tokens.map((t: string) => t.substring(0, 20) + "..."));
 
+    const tableName = table || "broadcast";
+    const entityId = record?.id || record?.dish_name || "";
     const notificationData = {
       click_action: "FLUTTER_NOTIFICATION_CLICK",
-      table: table || "broadcast",
+      table: tableName,
       type: type || "manual",
+      route: TABLE_ROUTE_MAP[tableName] || "dashboard",
+      ...(entityId ? { entityId } : {}),
     };
 
     console.log(`Sending push to ${tokens.length} device(s): "${notificationTitle}" - "${notificationBody}"`);

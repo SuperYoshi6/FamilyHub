@@ -37,6 +37,7 @@ export async function scheduleTaskReminder(task: Task) {
                 schedule: { at: due, allowWhileIdle: true },
                 smallIcon: 'notification_icon',
                 channelId: 'familyhub_notifications',
+                data: { route: 'lists', entityId: task.id },
             }]
         });
     } catch (e) {
@@ -70,6 +71,7 @@ export async function scheduleEventReminder(event: CalendarEvent) {
     const time60 = new Date(eventStart.getTime() - 60 * 60 * 1000);
     const time15 = new Date(eventStart.getTime() - 15 * 60 * 1000);
     const eventTimeStr = eventStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const eventDateStr = eventStart.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const locationStr = event.location ? ` (${event.location})` : '';
 
     try {
@@ -82,10 +84,11 @@ export async function scheduleEventReminder(event: CalendarEvent) {
             notifications.push({
                 id: id60,
                 title: '📅 Termin in 60 Minuten',
-                body: `"${event.title}" um ${eventTimeStr}${locationStr}`,
+                body: `"${event.title}" am ${eventDateStr} um ${eventTimeStr}${locationStr}`,
                 schedule: { at: time60, allowWhileIdle: true },
                 smallIcon: 'notification_icon',
                 channelId: 'familyhub_notifications',
+                data: { route: 'calendar', entityId: event.id },
             });
         }
 
@@ -93,10 +96,11 @@ export async function scheduleEventReminder(event: CalendarEvent) {
             notifications.push({
                 id: id15,
                 title: '📅 Termin in 15 Minuten',
-                body: `"${event.title}" um ${eventTimeStr}${locationStr}`,
+                body: `"${event.title}" am ${eventDateStr} um ${eventTimeStr}${locationStr}`,
                 schedule: { at: time15, allowWhileIdle: true },
                 smallIcon: 'notification_icon',
                 channelId: 'familyhub_notifications',
+                data: { route: 'calendar', entityId: event.id },
             });
         }
 

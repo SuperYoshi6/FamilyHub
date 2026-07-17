@@ -5,12 +5,11 @@ import { CalendarEvent, FamilyMember } from '../types';
 const MAP_KEY = 'familyhub_native_calendar_map';
 const SYNC_INIT_KEY = 'familyhub_native_calendar_synced';
 
-/** Zwischengespeicherte Ziel-Kalender-IDs. */
-let familyCalendarId: string | null | undefined;
-const privateCalendarIds = new Map<string, string | null>(); // userId → calendarId
+/** Zwischengespeicherte Ziel-Kalender-ID (über listCalendars + Auswahl). */
+let targetCalendarId: string | null | undefined;
 
-/** Gespeicherte Zuordnung: FamilyHub-Event-ID → native-Event-ID + Kalender-Typ */
-interface NativeEventRef { id: string; type: 'family' | 'private'; }
+/** Gespeicherte Zuordnung: FamilyHub-Event-ID → native-Event-ID */
+interface NativeEventRef { id: string; }
 function getEventMap(): Record<string, NativeEventRef> {
     try {
         return JSON.parse(localStorage.getItem(MAP_KEY) || '{}');
@@ -22,91 +21,66 @@ function setEventMap(map: Record<string, NativeEventRef>) {
     localStorage.setItem(MAP_KEY, JSON.stringify(map));
 }
 
-function extractCalendarId(result: unknown): string | undefined {
-    if (!result) return undefined;
-    if (typeof result === 'string') return result;
-    if (typeof result === 'object' && result !== null && 'id' in result) {
-        const maybeId = (result as { id?: unknown }).id;
-        return typeof maybeId === 'string' ? maybeId : undefined;
-    }
-    return undefined;
-}
-
 /**
- * Erstellt oder findet den FamilyHub-Familienkalender.
- * Fallback: Gerät-Standardkalender wenn createCalendar nicht unterstützt.
+ * Listet alle Kalender auf Android und wählt den ersten beschreibbaren aus.
+ * Samsung hat oft das Samsung-Konto als "primary" (read-only!) — daher
+ * suchen wir stattdessen nach einem lokalen/beschreibbaren Kalender.
  */
-async function getFamilyCalendarId(): Promise<string | undefined> {
-    if (familyCalendarId !== undefined) return familyCalendarId || undefined;
+async function findWritableCalendar(): Promise<string | undefined> {
+    if (targetCalendarId !== undefined) return targetCalendarId || undefined;
     try {
-        // Versuche eigenen Kalender zu erstellen
-        const calName = 'FamilyHub - Familie';
-        try {
-            const { result } = await CapacitorCalendar.createCalendar({
-                title: calName,
-                color: '#3B82F6',
-            });
-            const createdId = extractCalendarId(result);
-            if (createdId) {
-                familyCalendarId = createdId;
-                console.log(`[Calendar] Familienkalender erstellt: ${calName} (ID: ${createdId})`);
-                return familyCalendarId;
-            }
-        } catch {
-            console.log('[Calendar] createCalendar nicht verfügbar, nutze Standard');
+        const { result: calendars } = await CapacitorCalendar.listCalendars();
+        const list = calendars as unknown as Array<{ id: string; title: string; color?: string }>;
+        if (!Array.isArray(list) || list.length === 0) {
+            console.warn('[Calendar] Keine Kalender gefunden');
+            targetCalendarId = null;
+            return undefined;
         }
-        // Fallback: Standardkalender
-        const { result } = await CapacitorCalendar.getDefaultCalendar();
-        familyCalendarId = extractCalendarId(result) ?? null;
-    } catch (e) {
-        console.warn('[Calendar] Familienkalender nicht ermittelbar:', e);
-        familyCalendarId = null;
-    }
-    return familyCalendarId || undefined;
-}
 
-/**
- * Erstellt oder findet den privaten Kalender für ein Familienmitglied.
- * Name: "FamilyHub - {Name}"
- */
-async function getPrivateCalendarId(userId: string, userName: string): Promise<string | undefined> {
-    const cached = privateCalendarIds.get(userId);
-    if (cached !== undefined) return cached || undefined;
-    try {
-        const calName = `FamilyHub - ${userName}`;
-        try {
-            const { result } = await CapacitorCalendar.createCalendar({
-                title: calName,
-                color: '#10B981',
-            });
-            const createdId = extractCalendarId(result);
-            if (createdId) {
-                privateCalendarIds.set(userId, createdId);
-                console.log(`[Calendar] Privater Kalender erstellt: ${calName} (ID: ${createdId})`);
-                return createdId;
-            }
-        } catch {
-            console.log('[Calendar] createCalendar nicht verfügbar, nutze Standard');
+        // Bevorzuge lokale Kalender (kein "samsung", "exchange", "google" im Namen)
+        const localFirst = list.find(c =>
+            !/samsung|exchange|google|outlook/i.test(c.title) &&
+            !c.title.startsWith('FamilyHub')
+        );
+        if (localFirst) {
+            targetCalendarId = localFirst.id;
+            console.log(`[Calendar] Nutze Kalender: ${localFirst.title} (${localFirst.id})`);
+            return targetCalendarId;
         }
-        const { result } = await CapacitorCalendar.getDefaultCalendar();
-        privateCalendarIds.set(userId, extractCalendarId(result) ?? null);
+
+        // Fallback: erster nicht-FamilyHub-Kalender
+        const other = list.find(c => !c.title.startsWith('FamilyHub'));
+        if (other) {
+            targetCalendarId = other.id;
+            console.log(`[Calendar] Fallback-Kalender: ${other.title} (${other.id})`);
+            return targetCalendarId;
+        }
+
+        // Letzter Fallback: überhaupt erster
+        targetCalendarId = list[0].id;
+        console.log(`[Calendar] Letzter Fallback-Kalender: ${list[0].title} (${list[0].id})`);
+        return targetCalendarId;
     } catch (e) {
-        console.warn(`[Calendar] Privater Kalender für ${userName} nicht ermittelbar:`, e);
-        privateCalendarIds.set(userId, null);
+        console.warn('[Calendar] listCalendars fehlgeschlagen:', e);
+        targetCalendarId = null;
+        return undefined;
     }
-    return privateCalendarIds.get(userId) || undefined;
 }
 
 /**
  * Baut eine formatierte Notiz mit allen Event-Details für den nativen Kalender.
  */
-function buildEventNotes(event: CalendarEvent, authorName?: string): string {
+function buildEventNotes(event: CalendarEvent, family: FamilyMember[], authorName?: string): string {
     const lines: string[] = ['📌 FamilyHub'];
     if (event.description) lines.push(`\n📝 ${event.description}`);
     if (event.location) lines.push(`📍 ${event.location}`);
     if (authorName) lines.push(`👤 Erstellt von: ${authorName}`);
     if (event.assignedTo && event.assignedTo.length > 0) {
-        lines.push(`🏷️ Zugewiesen an: ${event.assignedTo.length} Person(en)`);
+        const names = event.assignedTo
+            .map(id => family.find(m => m.id === id)?.name)
+            .filter(Boolean)
+            .join(', ');
+        lines.push(`🏷️ Zugewiesen an: ${names}`);
     }
     return lines.join('\n');
 }
@@ -120,37 +94,21 @@ export class NativeCalendarService {
             const status = await CapacitorCalendar.requestFullCalendarAccess();
             const ok = status.result === 'granted';
             if (ok) {
-                familyCalendarId = undefined;
-                privateCalendarIds.clear();
+                targetCalendarId = undefined;
             }
             return ok;
         } catch (e) {
-            console.error('Berechtigungsfehler Kalender:', e);
+            console.error('[Calendar] Berechtigungsfehler:', e);
             return false;
         }
     }
 
     /**
-     * Ermittelt den passenden Kalender für ein Event:
-     * - Privat (nur 1 Person zugewiesen) → privater Kalender "FamilyHub - {Name}"
-     * - Familie (mehrere oder alle) → Familienkalender "FamilyHub - Familie"
+     * Ermittelt den passenden Kalender für ein Event in einem Schritt.
+     * Samsung: kein createCalendar (nicht implementiert), stattdessen listCalendars + Auswahl.
      */
-    private static async resolveCalendarId(
-        event: CalendarEvent,
-        family: FamilyMember[],
-    ): Promise<string | undefined> {
-        const assigned = event.assignedTo?.filter(Boolean) || [];
-
-        // Privat: genau eine Person
-        if (assigned.length === 1) {
-            const member = family.find(m => m.id === assigned[0]);
-            if (member) {
-                return getPrivateCalendarId(member.id, member.name);
-            }
-        }
-
-        // Familie: mehrere Personen oder keiner zugewiesen
-        return getFamilyCalendarId();
+    private static async resolveCalendarId(): Promise<string | undefined> {
+        return findWritableCalendar();
     }
 
     // Synchronisiert einen neuen Termin zum Handy-Kalender
@@ -204,10 +162,9 @@ export class NativeCalendarService {
                 }
             }
 
-            const calendarId = await this.resolveCalendarId(event, family);
-            const isIos = Capacitor.getPlatform() === 'ios';
+            const calendarId = await this.resolveCalendarId();
             const authorName = event.authorId ? family.find(m => m.id === event.authorId)?.name : undefined;
-            const notes = buildEventNotes(event, authorName);
+            const notes = buildEventNotes(event, family, authorName);
 
             const { result } = await CapacitorCalendar.createEvent({
                 title: event.title,
@@ -217,17 +174,16 @@ export class NativeCalendarService {
                 endDate: endDate.getTime(),
                 isAllDay: isAllDay,
                 notes,
-                // 24h before (1440 min) + at event time (0 min) for both platforms
                 alertOffsetInMinutes: [1440, 0],
             });
 
             const map = getEventMap();
-            const assigned = event.assignedTo?.filter(Boolean) || [];
             if (result) {
-                map[event.id] = { id: result, type: assigned.length === 1 ? 'private' : 'family' };
-                console.log(`[Calendar] Synchronisiert (${assigned.length === 1 ? 'Privat' : 'Familie'}) mit ID: ${result}`);
+                const nativeId = typeof result === 'string' ? result : Array.isArray(result) ? result[0] : String(result);
+                map[event.id] = { id: nativeId };
+                console.log(`[Calendar] Synchronisiert (native ID: ${nativeId})`);
             } else {
-                map[event.id] = { id: 'skipped', type: assigned.length === 1 ? 'private' : 'family' };
+                map[event.id] = { id: 'skipped' };
                 console.log(`[Calendar] Event ${event.id} als synchronisiert markiert (keine native ID)`);
             }
             setEventMap(map);
@@ -269,10 +225,9 @@ export class NativeCalendarService {
     }
 
     /**
-     * Synchronisiert alle Events in einer Schleife (nur beim ersten Start).
+     * Synchronisiert alle Events (nur beim ersten Start oder nach 24h).
      * Spätere Änderungen werden einzeln über syncEventToNative/updateEventInNative/deleteEventFromNative
-     * synchronisiert, damit der Samsung-Kalender nicht bei jedem Daten-Load alle Events neu anlegt
-     * und dadurch mehrfache Benachrichtigungen auslöst.
+     * synchronisiert.
      */
     public static async syncAllToNative(
         events: CalendarEvent[],
@@ -280,7 +235,6 @@ export class NativeCalendarService {
     ): Promise<void> {
         if (!Capacitor.isNativePlatform()) return;
 
-        // Nur beim ersten Mal wirklich alles löschen und neu anlegen (max. 1× pro Tag)
         const lastSync = localStorage.getItem(SYNC_INIT_KEY);
         if (lastSync) {
             const lastSyncTime = parseInt(lastSync, 10);
@@ -296,27 +250,45 @@ export class NativeCalendarService {
             console.warn('[Calendar] Keine Kalender-Berechtigung — Batch-Sync abgebrochen.');
             return;
         }
-        familyCalendarId = undefined;
-        privateCalendarIds.clear();
+        targetCalendarId = undefined;
 
-        // Alte native Einträge löschen, bevor neu synchronisiert wird
+        // Alte native Einträge löschen
         const oldMap = getEventMap();
         const nativeIds = Object.values(oldMap).map(ref => ref.id).filter(Boolean) as string[];
         if (nativeIds.length > 0) {
             console.log(`[Calendar] Lösche ${nativeIds.length} alte native Einträge...`);
             try {
-                await CapacitorCalendar.deleteEventsById({ ids: nativeIds });
+                const { result } = await CapacitorCalendar.deleteEventsById({ ids: nativeIds });
+                const deleted = result?.deleted as string[] | undefined;
+                const failed = result?.failed as string[] | undefined;
+                if (failed && failed.length > 0) {
+                    console.warn(`[Calendar] ${failed.length} Einträge konnten nicht gelöscht werden:`, failed);
+                }
+                if (deleted) {
+                    console.log(`[Calendar] ${deleted.length} Einträge erfolgreich gelöscht`);
+                }
             } catch (e) {
                 console.warn('[Calendar] Löschen alter Einträge fehlgeschlagen:', e);
+                // Nicht abbrechen — Map bleibt erhalten und wird nicht gelöscht,
+                // damit keine Duplikate entstehen
+                return;
             }
         }
         localStorage.removeItem(MAP_KEY);
 
         console.log(`[Calendar] Starte Batch-Synchronisation von ${events.length} Terminen...`);
+        let synced = 0;
+        let failed = 0;
         for (const ev of events) {
-            await this.syncEventToNative(ev, family);
+            try {
+                await this.syncEventToNative(ev, family);
+                synced++;
+            } catch (e) {
+                failed++;
+                console.warn(`[Calendar] Fehler beim Sync von Event ${ev.id}:`, e);
+            }
         }
         localStorage.setItem(SYNC_INIT_KEY, String(Date.now()));
-        console.log('[Calendar] Batch-Synchronisation abgeschlossen.');
+        console.log(`[Calendar] Batch-Synchronisation abgeschlossen: ${synced} ok, ${failed} fehlgeschlagen`);
     }
 }

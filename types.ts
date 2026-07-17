@@ -116,7 +116,7 @@ export interface Task {
   id: string;
   title: string;
   done: boolean;
-  assignedTo?: string; // ID of family member (for household)
+  assignedTo?: string[]; // IDs of family members (for household)
   type: 'household' | 'personal';
   priority?: TaskPriority;
   note?: string;

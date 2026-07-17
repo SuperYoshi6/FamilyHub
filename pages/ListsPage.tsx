@@ -14,7 +14,7 @@ interface ListsPageProps {
     onToggleShopping: (id: string) => void;
     onAddShopping: (name: string, note?: string, category?: string) => void;
     onDeleteShopping: (id: string) => void;
-    onAddHousehold: (title: string, assignedTo: string, priority: TaskPriority, note?: string, dueDate?: string, startDate?: string) => void;
+    onAddHousehold: (title: string, assignedTo: string[], priority: TaskPriority, note?: string, dueDate?: string, startDate?: string) => void;
     onToggleTask: (id: string, type: 'household' | 'personal') => void;
     onAddPersonal: (title: string, priority: TaskPriority, note?: string, dueDate?: string, startDate?: string) => void;
     onDeleteTask: (id: string, type: 'household' | 'personal') => void;
@@ -53,7 +53,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
     const [newNote, setNewNote] = useState('');
     const [newCategory, setNewCategory] = useState('Sonstiges');
     const [newPriority, setNewPriority] = useState<TaskPriority>('medium');
-    const [selectedAssignee, setSelectedAssignee] = useState<string>(family.length > 0 ? family[0].id : (currentUser?.id || ''));
+    const [selectedAssignee, setSelectedAssignee] = useState<string[]>([]);
     const [showExtendedForm, setShowExtendedForm] = useState(true);
     const [newDueDate, setNewDueDate] = useState('');
     const [newStartDate, setNewStartDate] = useState('');
@@ -93,12 +93,10 @@ const ListsPage: React.FC<ListsPageProps> = ({
     ];
 
     useEffect(() => {
-        if (family.length > 0 && !family.find(f => f.id === selectedAssignee)) {
-            setSelectedAssignee(family[0].id);
-        } else if (family.length === 0 && selectedAssignee !== currentUser.id) {
-            setSelectedAssignee(currentUser.id);
+        if (family.length > 0 && selectedAssignee.length === 0) {
+            setSelectedAssignee([currentUser.id]);
         }
-    }, [family, currentUser.id, selectedAssignee]);
+    }, [family, currentUser.id, selectedAssignee.length]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -106,7 +104,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
         const due = newDueDate || undefined;
         const start = newStartDate || undefined;
         if (activeTab === 'shopping') onAddShopping(newItem.trim(), newNote.trim(), newCategory);
-        else if (activeTab === 'household') onAddHousehold(newItem.trim(), selectedAssignee, newPriority, newNote.trim(), due, start);
+        else if (activeTab === 'household') onAddHousehold(newItem.trim(), selectedAssignee.length > 0 ? selectedAssignee : [currentUser.id], newPriority, newNote.trim(), due, start);
         else if (activeTab === 'personal') onAddPersonal(newItem.trim(), newPriority, newNote.trim(), due, start);
         setNewItem(''); setNewNote('');
         setNewCategory('Sonstiges');
@@ -361,7 +359,7 @@ const ListsPage: React.FC<ListsPageProps> = ({
         return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {sorted.map(task => {
-                    const assignee = family.find(f => f.id === task.assignedTo);
+                    const assignees = (task.assignedTo || []).map(id => family.find(f => f.id === id)).filter(Boolean) as FamilyMember[];
                     const isReadOnly = false;
 
                     return (
@@ -398,10 +396,14 @@ const ListsPage: React.FC<ListsPageProps> = ({
                                         </span>
                                     </div>
                                 )}
-                                {type === 'household' && assignee && !task.done && (
-                                    <div className="flex items-center pt-1">
-                                        <img src={assignee.avatar} className="w-4 h-4 rounded-full border border-gray-200 dark:border-gray-700 mr-1.5" />
-                                        <span className={`text-[10px] font-bold ${assignee.color.replace('bg-', 'text-').split(' ')[1]}`}>{assignee.name}</span>
+                                {type === 'household' && assignees.length > 0 && !task.done && (
+                                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                        {assignees.map(a => (
+                                            <div key={a.id} className="flex items-center">
+                                                <img src={a.avatar} className="w-4 h-4 rounded-full border border-gray-200 dark:border-gray-700 mr-1" />
+                                                <span className={`text-[10px] font-bold ${a.color.replace('bg-', 'text-').split(' ')[1]}`}>{a.name}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
@@ -840,12 +842,20 @@ const ListsPage: React.FC<ListsPageProps> = ({
                     )}
 
                                     {activeTab === 'household' && (
-                                        <div className="flex space-x-2 pt-1 overflow-x-auto px-1">
-                                            {family.length > 0 ? family.map(member => (
-                                                <button key={member.id} type="button" onClick={() => setSelectedAssignee(member.id)} className={`flex items-center space-x-1 px-2 py-1 rounded-full text-[10px] font-bold border transition ${selectedAssignee === member.id ? `${member.color} border-transparent ring-1 ring-offset-1 ring-gray-300 dark:ring-gray-600` : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}>
-                                                    <img src={member.avatar} className="w-4 h-4 rounded-full" /><span>{member.name}</span>
-                                                </button>
-                                            )) : <span className="text-xs text-gray-400">Keine Mitglieder</span>}
+                                        <div className="flex flex-wrap gap-2 pt-1 px-1">
+                                            <span className="text-[10px] text-gray-400 w-full">Zuständig</span>
+                                            {family.length > 0 ? family.filter(m => m.role !== 'admin').map(member => {
+                                                const isSelected = selectedAssignee.includes(member.id);
+                                                return (
+                                                    <button key={member.id} type="button" onClick={() => {
+                                                        setSelectedAssignee(prev =>
+                                                            isSelected ? prev.filter(id => id !== member.id) : [...prev, member.id]
+                                                        );
+                                                    }} className={`flex items-center space-x-1 px-2 py-1 rounded-full text-[10px] font-bold border transition ${isSelected ? `${member.color} border-transparent ring-1 ring-offset-1 ring-gray-300 dark:ring-gray-600` : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'}`}>
+                                                        <img src={member.avatar} className="w-4 h-4 rounded-full" /><span>{member.name}</span>
+                                                    </button>
+                                                );
+                                            }) : <span className="text-xs text-gray-400">Keine Mitglieder</span>}
                                         </div>
                                     )}
                                 </div>

@@ -27,6 +27,7 @@ import { supabase } from './services/backend';
 import { ensureFamilyHubAndroidNotificationChannel, androidNotificationChannelFields } from './services/notificationsAndroid';
 import { updateShoppingWidget, updateCalendarWidget, updateTasksWidget, updateMealPlanWidget, updateMealRequestsWidget } from './services/widgetBridge';
 import { scheduleAllReminders, scheduleTaskReminder, cancelTaskReminder, cancelEventReminder } from './services/reminders';
+import { startWeatherNotificationLoop, stopWeatherNotificationLoop } from './services/weatherNotificationScheduler';
 
 // Unterdrückt bekannten Chromium SW-Kanal-Fehler (Firebase compat SDK)
 window.addEventListener('unhandledrejection', (e) => {
@@ -65,7 +66,7 @@ const hashCode = (str: string): number => {
 };
 
 // --- APP VERSION CONFIGURATION ---
-const CURRENT_APP_VERSION = "1.0.0 (Beta)";
+const CURRENT_APP_VERSION = "1.0.0";
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
 const EXE_DOWNLOAD_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
 const SWIFT_DOWNLOAD_LINK: string = "https://apps.apple.com/de/app/swift-playground/id908519492";
@@ -207,7 +208,7 @@ const App: React.FC = () => {
 
   // --- 4. Helper Logic (Non-Conditional) ---
   const regularFamily = family.filter(f => f.role !== 'admin');
-  const myOpenTaskCount = householdTasks.filter(t => t.assignedTo === currentUser?.id && !t.done).length + personalTasks.filter(t => !t.done).length;
+  const myOpenTaskCount = householdTasks.filter(t => t.assignedTo?.includes(currentUser?.id ?? '') && !t.done).length + personalTasks.filter(t => !t.done).length;
   const userWeatherFavorites = (currentUser && weatherFavorites) ? weatherFavorites.filter(f => f.userId === currentUser.id) : [];
   const allowLiquidGlassForUser = currentUser ? (currentUser.role === 'admin' || globalLiquidGlassEnabled) : globalLiquidGlassEnabled;
   const allowSummerForUser = currentUser ? (currentUser.role === 'admin' || globalSummerEnabled) : globalSummerEnabled;
@@ -258,7 +259,7 @@ const App: React.FC = () => {
     return true;
   };
 
-  const addNotification = async (title: string, message: string) => {
+  const addNotification = async (title: string, message: string, route?: AppRoute, entityId?: string) => {
     if (!shouldFireNotification(title, message)) return;
     const notif: AppNotification = { id: Date.now().toString() + Math.random(), title, message, type: 'info', timestamp: new Date().toISOString(), read: false, authorId: currentUser?.id };
     await Backend.notifications.add(notif);
@@ -272,6 +273,7 @@ const App: React.FC = () => {
           schedule: { at: new Date(Date.now() + 100) },
           sound: 'default',
           ...androidNotificationChannelFields(),
+          ...(route ? { data: { route, entityId } } : {}),
         }],
       });
     }
@@ -282,6 +284,14 @@ const App: React.FC = () => {
       try {
         const geoPerm = await Geolocation.checkPermissions();
         if (geoPerm.location !== 'granted') await Geolocation.requestPermissions();
+
+        // Notification Permission (Android 13+) — vor dem Channel-Erstellen
+        try {
+          const notifPerm = await LocalNotifications.checkPermissions();
+          if (notifPerm.display === 'prompt') {
+            await LocalNotifications.requestPermissions();
+          }
+        } catch (e) { }
 
         // Request Calendar Permissions
         try {
@@ -351,9 +361,14 @@ const App: React.FC = () => {
     }
   }, [loadingData, family, currentUser]);
 
-  // FCM-Push-Token Registrierung (sobald ein User angemeldet ist)
+  // FCM-Push-Token Registrierung (nur einmal pro User-Session)
+  const pushRegisteredFor = useRef<string | null>(null);
   useEffect(() => {
     if (!currentUser || !Capacitor.isNativePlatform()) return;
+    if (currentUser.role === 'admin') return;
+    if (pushRegisteredFor.current === currentUser.id) return;
+    pushRegisteredFor.current = currentUser.id;
+
     const registerPush = async () => {
       try {
         let permStatus = await PushNotifications.checkPermissions();
@@ -375,9 +390,10 @@ const App: React.FC = () => {
       console.log('[Push] FCM token erhalten:', token.value?.substring(0, 20) + '...');
       if (!token.value || !currentUser || !supabase) return;
       try {
-        const { error } = await supabase.from('fcm_tokens').upsert(
-          { token: token.value, user_id: currentUser.id },
-          { onConflict: 'token' }
+        // Alte Tokens dieses Users löschen, dann neuen speichern
+        await supabase.from('fcm_tokens').delete().eq('user_id', currentUser.id);
+        const { error } = await supabase.from('fcm_tokens').insert(
+          { token: token.value, user_id: currentUser.id }
         );
         if (error) console.warn('[Push] Token speichern fehlgeschlagen:', error);
       } catch (e) {
@@ -387,7 +403,6 @@ const App: React.FC = () => {
 
     const errorListener = PushNotifications.addListener('registrationError', (err) => {
       console.warn('[Push] FCM registration error:', err.error);
-      // Fehler ignorieren – viele Android-Geräte ohne Google Play Services bekommen legitime Fehler
     });
 
     return () => {
@@ -406,6 +421,19 @@ const App: React.FC = () => {
       name: currentUser.weatherLocationName || 'Standort',
     });
   }, [currentUser, currentWeatherLocation]);
+
+  // Stündliche Wetterbenachrichtigung (nur nativer Build)
+  const weatherLoopCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (weatherLoopCleanup.current) { weatherLoopCleanup.current(); weatherLoopCleanup.current = null; }
+    stopWeatherNotificationLoop();
+    if (!currentWeatherLocation) return;
+    weatherLoopCleanup.current = startWeatherNotificationLoop(
+      currentWeatherLocation.lat, currentWeatherLocation.lng, currentWeatherLocation.name
+    );
+    return () => { if (weatherLoopCleanup.current) weatherLoopCleanup.current(); };
+  }, [currentWeatherLocation]);
 
   // --- CENTRAL DATA LOADER (reusable for initial load + resume) ---
   const loadAllData = useCallback(async () => {
@@ -537,6 +565,27 @@ const App: React.FC = () => {
     });
     updateMealRequestsWidget(requestNames);
   }, [shoppingList, events, householdTasks, personalTasks, mealPlan, mealRequests, family]);
+
+  // Notification-Tap → zur richtigen Seite navigieren
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const tapListener = LocalNotifications.addListener('tap', (notification) => {
+      const data = notification?.data as Record<string, string> | undefined;
+      if (!data?.route) return;
+      const route = data.route as AppRoute;
+      if (Object.values(AppRoute).includes(route)) setCurrentRoute(route);
+    });
+    const pushTapListener = PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
+      const data = event?.notification?.data as Record<string, string> | undefined;
+      if (!data?.route) return;
+      const route = data.route as AppRoute;
+      if (Object.values(AppRoute).includes(route)) setCurrentRoute(route);
+    });
+    return () => {
+      tapListener.then(l => l.remove());
+      pushTapListener.then(l => l.remove());
+    };
+  }, []);
 
   // Reload data when app returns from background (mobile) or window gets focus (web)
   useEffect(() => {
@@ -693,6 +742,13 @@ const App: React.FC = () => {
     let cancelled = false;
     let unsubscribeFCM: (() => void) | undefined;
     const setupFCM = async () => {
+      // Notification-Permission vor Channel-Erstellung (Android 13+)
+      try {
+        const notifPerm = await LocalNotifications.checkPermissions();
+        if (notifPerm.display === 'prompt') {
+          await LocalNotifications.requestPermissions();
+        }
+      } catch (e) { }
       await ensureFamilyHubAndroidNotificationChannel();
       // Admin bekommt keine Push-Benachrichtigungen
       if (currentUser.role === 'admin') {
@@ -705,7 +761,9 @@ const App: React.FC = () => {
           if (payload.notification) {
             const title = payload.notification.title || 'Mitteilung';
             const message = payload.notification.body || '';
-            if (shouldFireNotification(title, message) && Capacitor.isNativePlatform()) {
+            if (!shouldFireNotification(title, message)) return;
+            // Auf Web (PWA) selbst anzeigen, da dort kein System-Notification kommt
+            if (!Capacitor.isNativePlatform()) {
               LocalNotifications.schedule({
                 notifications: [{
                   id: hashCode(title + message),
@@ -768,7 +826,7 @@ const App: React.FC = () => {
       setMaintenanceMode(false);
       if (!maintenanceEndNotifiedRef.current) {
         maintenanceEndNotifiedRef.current = true;
-        addNotification('✅ Wartung beendet', 'Die geplante Wartung ist abgeschlossen. FamilyHub ist wieder voll verfügbar.');
+        addNotification('✅ Wartung beendet', 'Die geplante Wartung ist abgeschlossen. FamilyHub ist wieder voll verfügbar.', AppRoute.DASHBOARD);
       }
     }
   }, [maintenanceMode, maintenanceEnd, nowTs]);
@@ -860,7 +918,7 @@ const App: React.FC = () => {
     }
   }, [currentRoute, darkMode]);
 
-  const updateMealPlan = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
+  const updateMealPlan = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); await addNotification('🍽️ Speiseplan', 'Speiseplan wurde aktualisiert', AppRoute.MEALS); };
   const addMealRequest = async (dishName: string, note?: string) => {
     if (!currentUser) return;
     const request: MealRequest = {
@@ -872,8 +930,14 @@ const App: React.FC = () => {
     };
     setMealRequests(p => [...p, request]);
     await Backend.mealRequests.add(request);
+    await addNotification('🍽️ Essenswunsch', `${dishName} wurde gewünscht`, AppRoute.MEALS);
   };
-  const deleteMealRequest = async (id: string) => { setMealRequests(p => p.filter(x => x.id !== id)); await Backend.mealRequests.delete(id); };
+  const deleteMealRequest = async (id: string) => {
+    const req = mealRequests.find(x => x.id === id);
+    setMealRequests(p => p.filter(x => x.id !== id));
+    await Backend.mealRequests.delete(id);
+    if (req?.dishName) await addNotification('🍽️ Essenswunsch entfernt', `${req.dishName} wurde entfernt`, AppRoute.MEALS);
+  };
   const addMealToPlan = async (day: string, mealName: string, ingredients: string[], slot: 'breakfast' | 'lunch' | 'main' = 'main') => {
     const existing = mealPlan.find(x => x.day === day);
     const updatedDay: MealPlan = existing
@@ -894,16 +958,16 @@ const App: React.FC = () => {
     const nextPlan = [...mealPlan.filter(x => x.day !== day), updatedDay];
     setMealPlan(nextPlan);
     await Backend.mealPlan.setAll(nextPlan);
-    await addNotification('Essen', `${mealName} zum Plan hinzugefügt`);
+    await addNotification('Essen', `${mealName} zum Plan hinzugefügt`, AppRoute.MEALS);
   };
   const addIngredientsToShopping = async (ings: string[]) => {
     const items = ings.map(n => ({ id: Math.random().toString(), name: n, checked: false }));
     setShoppingList(p => [...p, ...items]);
     await Promise.all(items.map(item => Backend.shopping.add(item)));
-    await addNotification('Einkauf', 'Zutaten hinzugefügt');
+    await addNotification('Einkauf', 'Zutaten hinzugefügt', AppRoute.LISTS);
   };
   const addRecipe = async (r: Recipe) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); };
-  const handlePlanGenerated = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); };
+  const handlePlanGenerated = async (newPlan: MealPlan[]) => { setMealPlan(newPlan); await Backend.mealPlan.setAll(newPlan); await addNotification('🤖 Speiseplan', 'Neuer KI-Speiseplan wurde erstellt', AppRoute.MEALS); };
   const updateFamilyMember = async (id: string, u: Partial<FamilyMember>) => { setFamily(p => p.map(m => m.id === id ? { ...m, ...u } : m)); await Backend.family.update(id, u); };
   const addFeedback = async (f: FeedbackItem) => { setFeedbacks(p => [...p, f]); await Backend.feedback.add(f); };
   const markFeedbacksRead = async (ids: string[]) => { setFeedbacks(p => p.map(f => ids.includes(f.id) ? { ...f, read: true } : f)); for (const id of ids) await Backend.feedback.update(id, { read: true }); };
@@ -1097,6 +1161,7 @@ const App: React.FC = () => {
   const handleDeleteEvent = async (id: string) => {
     setEvents(p => p.filter(x => x.id !== id));
     await Backend.events.delete(id);
+    cancelEventReminder(id);
     try {
       const { NativeCalendarService } = await import('./services/nativeCalendar');
       await NativeCalendarService.deleteEventFromNative(id);
@@ -1243,7 +1308,10 @@ const App: React.FC = () => {
                   <p className="text-[11px] text-red-200 mt-1 leading-snug">Anmeldung beim Admin Konto. Bitte gib das Passwort ein.</p>
                 </div>
                 <form onSubmit={handleAdminLoginSubmit}>
-                  <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 text-center text-white outline-none" />
+                  <div className="relative">
+                    <input type={showAdminPassword ? 'text' : 'password'} value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 pr-12 text-center text-white outline-none" />
+                  <button type="button" onClick={() => setShowAdminPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-300">{showAdminPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                  </div>
                   <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl mt-6">Anmelden</button>
                 </form>
                 <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-red-100"><X size={20} /></button>
@@ -1340,11 +1408,15 @@ const App: React.FC = () => {
               <div className="text-center mb-4">
                 <ShieldAlert size={36} className="text-yellow-300 mx-auto" />
                 <h2 className="text-lg font-black text-white mt-2 leading-tight">SYSTEMÜBERSCHREITUNG</h2>
-                <p className="text-[11px] text-red-200 mt-1 leading-snug">Admin-Modus aktiviert. Bitte Admin-Passwort eingeben.</p>
+                <p className="text-[11px] text-red-200 mt-1 leading-snug">Anmeldung beim Admin Konto. 
+                  Bitte Passwort eingeben.</p>
               </div>
               <form onSubmit={handleAdminLoginSubmit}>
-                <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 text-center text-white outline-none" />
-                <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl mt-6 uppercase">Zutritt</button>
+                <div className="relative">
+                  <input type={showAdminPassword ? 'text' : 'password'} value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} placeholder="Admin Passwort" className="w-full bg-black/60 border border-red-700 rounded-xl px-4 py-4 pr-12 text-center text-white outline-none" />
+                  <button type="button" onClick={() => setShowAdminPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-red-300">{showAdminPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                </div>
+                <button type="submit" className="w-full bg-yellow-500 text-black font-bold py-4 rounded-xl mt-6">Anmelden</button>
               </form>
               <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-red-100"><X size={20} /></button>
             </div>
@@ -1419,11 +1491,11 @@ const App: React.FC = () => {
           currentUser={currentUser}
           onToggleShopping={async (id) => { const item = shoppingList.find(i => i.id === id); if (item) { setShoppingList(p => p.map(i => i.id === id ? { ...i, checked: !i.checked } : i)); await Backend.shopping.update(id, { checked: !item.checked }); } }}
           onAddShopping={async (name) => { const i: ShoppingItem = { id: Date.now().toString(), name, checked: false, authorId: currentUser?.id }; setShoppingList(p => [...p, i]); await Backend.shopping.add(i); }}
-          onDeleteShopping={async (id) => { setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); }}
+          onDeleteShopping={async (id) => { const item = shoppingList.find(i => i.id === id); setShoppingList(p => p.filter(i => i.id !== id)); await Backend.shopping.delete(id); if (item?.name) await addNotification('🛒❌ Einkauf entfernt', `${item.name} wurde entfernt`, AppRoute.LISTS); }}
           onAddHousehold={async (t, a, pr, n, d, s) => { const task: Task = { id: Date.now().toString(), title: t, done: false, assignedTo: a, type: 'household', priority: pr || 'medium', note: n, dueDate: d, startDate: s, authorId: currentUser?.id }; setHouseholdTasks(prev => [...prev, task]); await Backend.householdTasks.add(task); }}
-          onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.householdTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); } } else { const t = personalTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.personalTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); } } }}
+          onToggleTask={async (id, type) => { if (type === 'household') { const t = householdTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setHouseholdTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.householdTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); await addNotification('🧹 Hausarbeit', `${t.title} wurde ${newDone ? 'erledigt' : 'wieder geöffnet'}`, AppRoute.LISTS); } } else { const t = personalTasks.find(x => x.id === id); if (t) { const newDone = !t.done; setPersonalTasks(p => p.map(x => x.id === id ? { ...x, done: newDone } : x)); await Backend.personalTasks.update(id, { done: newDone }); if (newDone) cancelTaskReminder(id); else if (t.dueDate) scheduleTaskReminder(t); await addNotification('✅ Aufgabe', `${t.title} wurde ${newDone ? 'erledigt' : 'wieder geöffnet'}`, AppRoute.LISTS); } } }}
           onAddPersonal={async (t, pr, n, d, s) => { const task: Task = { id: Date.now().toString(), title: t, done: false, type: 'personal', priority: pr || 'medium', note: n, dueDate: d, startDate: s, authorId: currentUser?.id }; setPersonalTasks(prev => [...prev, task]); await Backend.personalTasks.add(task); }}
-          onDeleteTask={async (id, type) => { cancelTaskReminder(id); if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } }}
+          onDeleteTask={async (id, type) => { const task = [...householdTasks, ...personalTasks].find(x => x.id === id); cancelTaskReminder(id); if (type === 'household') { setHouseholdTasks(p => p.filter(x => x.id !== id)); await Backend.householdTasks.delete(id); } else { setPersonalTasks(p => p.filter(x => x.id !== id)); await Backend.personalTasks.delete(id); } if (task?.title) await addNotification('❌ Aufgabe', `${task.title} wurde gelöscht`, AppRoute.LISTS); }}
           onAddRecipe={async (r) => { setRecipes(p => [...p, r]); await Backend.recipes.add(r); }}
           onDeleteRecipe={async (id) => { setRecipes(p => p.filter(x => x.id !== id)); await Backend.recipes.delete(id); }}
           onUpdateRecipe={async (id, updates) => { setRecipes(p => p.map(x => x.id === id ? { ...x, ...updates } : x)); await Backend.recipes.update(id, updates); }}
@@ -1432,7 +1504,7 @@ const App: React.FC = () => {
             const newList = [...shoppingList, ...items];
             setShoppingList(newList);
             await Promise.all(items.map(item => Backend.shopping.add(item)));
-            await addNotification('Einkauf', 'Zutaten hinzugefügt');
+            await addNotification('Einkauf', 'Zutaten hinzugefügt', AppRoute.LISTS);
           }}
           mealPlan={mealPlan}
           onAddMealToPlan={addMealToPlan}
@@ -1451,7 +1523,7 @@ const App: React.FC = () => {
           setMaintenanceMode(newVal);
           if (newVal) {
             const timeframe = maintenanceStart && maintenanceEnd ? ` (${new Date(maintenanceStart).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} – ${new Date(maintenanceEnd).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })})` : '';
-            addNotification('🔧 Wartung geplant', `Der Wartungsmodus wurde aktiviert.${timeframe}`);
+            addNotification('🔧 Wartung geplant', `Der Wartungsmodus wurde aktiviert.${timeframe}`, AppRoute.SETTINGS);
             maintenanceEndNotifiedRef.current = false;
           }
           if (newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() < Date.now()) {
@@ -1462,7 +1534,7 @@ const App: React.FC = () => {
           else if (table === 'household') { setHouseholdTasks([]); Backend.householdTasks.setAll([]); }
           else if (table === 'personal') { setPersonalTasks([]); Backend.personalTasks.setAll([]); }
           else if (table === 'recipes') { setRecipes([]); Backend.recipes.setAll([]); }
-          else if (table === 'meal_plan') { setMealPlan([]); Backend.mealPlan.setAll([]); addNotification('Essen', 'Essensplan geleert'); }
+          else if (table === 'meal_plan') { setMealPlan([]); Backend.mealPlan.setAll([]); addNotification('Essen', 'Essensplan geleert', AppRoute.MEALS); }
           else if (table === 'events') { setEvents([]); Backend.events.setAll([]); }
           else if (table === 'polls') { setPolls([]); Backend.polls.setAll([]); }
           else if (table === 'feedback') { setFeedbacks([]); Backend.feedback.setAll([]); }

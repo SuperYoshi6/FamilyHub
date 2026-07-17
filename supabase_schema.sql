@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS household_tasks (
     id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
     title TEXT NOT NULL,
     done BOOLEAN DEFAULT FALSE,
-    assigned_to TEXT REFERENCES family(id),
+    assigned_to TEXT[], -- Array of family member IDs
     type TEXT CHECK (type = 'household'),
     priority TEXT CHECK (priority IN ('high', 'medium', 'low')),
     note TEXT,
