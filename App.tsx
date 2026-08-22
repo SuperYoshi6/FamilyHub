@@ -1,7 +1,8 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AppRoute, FamilyMember, CalendarEvent, ShoppingItem, MealPlan, Task, MealRequest, SavedLocation, Recipe, NewsItem, TaskPriority, FeedbackItem, Poll, AppNotification, VoiceAction } from './types';
 import Navigation from './components/Navigation';
+import DesktopLayout from './components/DesktopLayout';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
 import ListsPage from './pages/ListsPage';
@@ -68,8 +69,8 @@ const hashCode = (str: string): number => {
 // --- APP VERSION CONFIGURATION ---
 const CURRENT_APP_VERSION = "1.0.0";
 const APK_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.apk";
-const EXE_DOWNLOAD_LINK: string = "https://superyoshi6.github.io/FamilyHub/install";
-const SWIFT_DOWNLOAD_LINK: string = "https://apps.apple.com/de/app/swift-playground/id908519492";
+const EXE_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.exe";
+const SWIFT_DOWNLOAD_LINK: string = "https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift.zip";
 const POLLING_INTERVAL = 30000;
 const DEFAULT_APP_SETTINGS = {
   id: 'global',
@@ -142,6 +143,14 @@ const App: React.FC = () => {
       return AppRoute.APP;
     }
 
+    // Check for new redirect format
+    if (search.startsWith('?/') || (search.startsWith('?') && search.includes('/'))) {
+       const parts = search.startsWith('?/') ? search.slice(2) : search.slice(1);
+       const routePath = parts.split('&')[0].toLowerCase();
+       if (routePath === 'install' || routePath.startsWith('install')) return AppRoute.LANDING;
+       if (routePath === 'app' || routePath.startsWith('app')) return AppRoute.APP;
+    }
+
     // 2) Direct path check
     const path = window.location.pathname.toLowerCase();
     if (path.includes('/install')) return AppRoute.LANDING;
@@ -158,25 +167,51 @@ const App: React.FC = () => {
 
   // Sync route state to browser URL (so reloads & deep links work on GitHub Pages)
   useEffect(() => {
+    // SKIP URL REPLACEMENTS IN TAURI/NATIVE (prevents 404s on asset loading)
+    if (typeof (window as any).__TAURI__ !== 'undefined' || !!(window as any).__TAURI_INTERNALS__ || Capacitor.isNativePlatform()) return;
+
     const routeSuffix = currentRoute === AppRoute.LANDING ? 'install' : 'app';
 
     // Determine the base path from the current URL (e.g. /FamilyHub/)
     const pathParts = window.location.pathname.split('/').filter(Boolean);
-    const basePath = pathParts.length > 0 ? '/' + pathParts[0] + '/' : '/';
+    const isSubfolder = window.location.pathname.includes('/FamilyHub/');
+    const basePath = isSubfolder ? '/FamilyHub/' : '/';
 
     const targetPath = basePath + routeSuffix;
     const currentPath = window.location.pathname.toLowerCase();
 
-    // Clean up 404.html redirect format (/?/app) or fix wrong suffix
-    const has404Redirect = window.location.search.startsWith('?/');
-    if (has404Redirect || !currentPath.endsWith(routeSuffix)) {
+    // Only update if the suffix is missing to prevent infinite loops
+    if (!currentPath.endsWith(routeSuffix)) {
       window.history.replaceState({ route: currentRoute }, '', targetPath);
     }
+
     localStorage.setItem('fh_last_route', currentRoute);
     localStorage.setItem('fh_has_booted', 'true');
   }, [currentRoute]);
 
   const [currentWeatherLocation, setCurrentWeatherLocation] = useState<{ lat: number, lng: number, name: string } | null>(null);
+
+  // Desktop Detection — true when running inside Tauri or screen width >= 768px (laptops/tablets)
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    // Robuste Erkennung für Tauri 1 & 2 sowie große Bildschirme
+    const isTauri = !!(window as any).__TAURI__ ||
+                    !!(window as any).__TAURI_INTERNALS__ ||
+                    !!(window as any).__TAURI_METADATA__ ||
+                    (window as any).rpc !== undefined; // Additional marker for some Tauri versions
+
+    const isWideScreen = window.innerWidth >= 768;
+    return isTauri || isWideScreen;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isTauri = !!(window as any).__TAURI__ || !!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI_METADATA__;
+      setIsDesktop(isTauri || window.innerWidth >= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Login State
   const [loginStep, setLoginStep] = useState<'select' | 'enter-pass' | 'set-pass'>('select');
@@ -325,6 +360,9 @@ const App: React.FC = () => {
   }, [currentRoute]);
 
   useEffect(() => {
+    // SKIP URL REPLACEMENTS IN TAURI/NATIVE
+    if (typeof (window as any).__TAURI__ !== 'undefined' || !!(window as any).__TAURI_INTERNALS__ || Capacitor.isNativePlatform()) return;
+
     const path = window.location.pathname.toLowerCase();
     if (currentRoute === AppRoute.LANDING) {
       if (!path.includes('/install')) {
@@ -390,12 +428,12 @@ const App: React.FC = () => {
       console.log('[Push] FCM token erhalten:', token.value?.substring(0, 20) + '...');
       if (!token.value || !currentUser || !supabase) return;
       try {
-        // Alte Tokens dieses Users löschen, dann neuen speichern
-        await supabase.from('fcm_tokens').delete().eq('user_id', currentUser.id);
-        const { error } = await supabase.from('fcm_tokens').insert(
-          { token: token.value, user_id: currentUser.id }
+        // Use upsert to allow multi-device support
+        const { error } = await supabase.from('fcm_tokens').upsert(
+          { token: token.value, user_id: currentUser.id, created_at: new Date().toISOString() },
+          { onConflict: 'token,user_id' }
         );
-        if (error) console.warn('[Push] Token speichern fehlgeschlagen:', error);
+        if (error) console.warn('[Push] Token upsert fehlgeschlagen:', error);
       } catch (e) {
         console.warn('[Push] Token save error:', e);
       }
@@ -787,19 +825,9 @@ const App: React.FC = () => {
     };
   }, [currentUser]);
 
-  useEffect(() => {
-    if (!currentUser || !currentWeatherLocation) return;
-    const weatherProfile = {
-      weatherLat: currentWeatherLocation.lat,
-      weatherLng: currentWeatherLocation.lng,
-      weatherLocationName: currentWeatherLocation.name,
-    };
-
-    setFamily(prev => prev.map(member => member.id === currentUser.id ? { ...member, ...weatherProfile } : member));
-    Backend.family.update(currentUser.id, weatherProfile).catch((err) => {
-      console.warn('[Weather] Standort konnte nicht gespeichert werden:', err);
-    });
-  }, [currentUser, currentWeatherLocation]);
+  // We removed the generic useEffect for saving weather location to prevent
+  // overwriting the profile during manual searches.
+  // The update is now handled specifically in onUpdateCurrentWeatherLocation in WeatherPage.
 
   useEffect(() => {
     if (currentUser?.mustShowSecurityScreen) {
@@ -1262,17 +1290,6 @@ const App: React.FC = () => {
     if (maintenanceActive() && currentUser?.role !== 'admin' && !showAdminLogin) {
       const countdown = formatCountdown(maintenanceEnd);
 
-      const getUpdateInfo = () => {
-        const ua = navigator.userAgent.toLowerCase();
-        const isIOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-        if (ua.includes('android')) return { link: APK_DOWNLOAD_LINK, label: 'Android Update (.apk)' };
-        if (ua.includes('win')) return { link: EXE_DOWNLOAD_LINK, label: 'Windows Desktop App' };
-        if (isIOS) return { link: SWIFT_DOWNLOAD_LINK, label: 'Apple Swift Playgrounds' };
-        return { link: APK_DOWNLOAD_LINK, label: t('maintenance.download_update', language) };
-      };
-      const updateInfo = getUpdateInfo();
-
       return (
         <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center p-6 text-center relative">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-[30px] shadow-xl mb-6 active:scale-95 transition-transform cursor-pointer" onClick={handleLogoClick}><Logo size={80} /></div>
@@ -1282,19 +1299,28 @@ const App: React.FC = () => {
           <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">{t('maintenance.headline', language)}</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-2">{t('maintenance.description', language)}</p>
           {countdown && (
-            <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-4">Endet in {countdown}</div>
+            <div className="text-xs font-bold text-yellow-700 dark:text-yellow-300 mb-6">Endet in {countdown}</div>
           )}
-          <div className="flex flex-col gap-3 w-full max-w-xs">
-            <a
-              href={updateInfo.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-2xl shadow-lg transition text-center no-underline"
-            >
-              {updateInfo.label}
-            </a>
+
+          <div className="flex flex-col gap-3 w-full max-w-sm">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Downloads verfügbar</h4>
+            <div className="grid grid-cols-1 gap-3">
+              <a href={APK_DOWNLOAD_LINK} target="_blank" rel="noopener noreferrer"
+                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-4 rounded-2xl shadow-lg transition flex items-center justify-center gap-3 no-underline">
+                <span className="text-lg">🤖</span> Android App (.apk)
+              </a>
+              <a href={EXE_DOWNLOAD_LINK} target="_blank" rel="noopener noreferrer"
+                 className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-4 rounded-2xl shadow-lg transition flex items-center justify-center gap-3 no-underline border border-slate-700">
+                <span className="text-lg">💻</span> Windows Desktop (.exe)
+              </a>
+              <a href={SWIFT_DOWNLOAD_LINK} target="_blank" rel="noopener noreferrer"
+                 className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-4 rounded-2xl shadow-lg transition flex items-center justify-center gap-3 no-underline">
+                <span className="text-lg">🍎</span> Apple Swift Playgrounds
+              </a>
+            </div>
+
             {currentUser && (
-              <button onClick={handleLogout} className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold px-6 py-3 rounded-2xl shadow-sm transition">
+              <button onClick={handleLogout} className="mt-4 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-bold px-6 py-3 rounded-2xl shadow-sm transition">
                 {t('settings.logout', language)}
               </button>
             )}
@@ -1448,7 +1474,19 @@ const App: React.FC = () => {
           favorites={userWeatherFavorites}
           onToggleFavorite={toggleWeatherFavorite}
           initialLocation={currentWeatherLocation}
-          onUpdateCurrentWeatherLocation={setCurrentWeatherLocation}
+          onUpdateCurrentWeatherLocation={(loc, isManual) => {
+            setCurrentWeatherLocation(loc);
+            // Only update DB profile if it's NOT a manual search in the weather page
+            // and we have a valid currentUser.
+            if (!isManual && currentUser) {
+              const weatherProfile = {
+                weatherLat: loc.lat,
+                weatherLng: loc.lng,
+                weatherLocationName: loc.name,
+              };
+              Backend.family.update(currentUser.id, weatherProfile).catch(() => {});
+            }
+          }}
           liquidGlass={effectiveLiquidGlass}
           userId={currentUser?.id}
           weatherLayout={currentUser?.weatherLayout}
@@ -1545,6 +1583,26 @@ const App: React.FC = () => {
         break;
       default:
         PageComponent = <Dashboard family={family} currentUser={currentUser} events={events} shoppingCount={shoppingList.length} openTaskCount={myOpenTaskCount} todayMeal={mealPlan.find(m => m.day === new Date().toLocaleDateString('de-DE', { weekday: 'long' }))} onNavigate={setCurrentRoute} onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)} lang={language} weatherFavorites={weatherFavorites} currentWeatherLocation={currentWeatherLocation} onUpdateWeatherLocation={setCurrentWeatherLocation} news={news} onMarkNewsRead={markNewsRead} liquidGlass={effectiveLiquidGlass} summerMode={effectiveSummerMode} />;
+    }
+
+    if (isDesktop && currentUser && currentRoute !== AppRoute.LANDING) {
+      return (
+        <DesktopLayout
+          currentRoute={currentRoute}
+          onNavigate={setCurrentRoute}
+          lang={language}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onProfileClick={() => setCurrentRoute(AppRoute.SETTINGS)}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          summerMode={effectiveSummerMode}
+          liquidGlass={effectiveLiquidGlass}
+          enableSwipe={enableSwipe}
+        >
+          {PageComponent}
+        </DesktopLayout>
+      );
     }
 
     return (

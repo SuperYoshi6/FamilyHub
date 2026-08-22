@@ -41,28 +41,23 @@ const saveTokenToSupabase = async (userId: string, token: string) => {
     return;
   }
 
-  // Delete ALL old tokens for this user first to prevent accumulation across re-registrations
-  const { error: deleteError } = await supabase
+  // Use upsert to allow multiple devices for one user
+  // This prevents deleting tokens from other devices (e.g. phone vs tablet)
+  const { error: upsertError } = await supabase
     .from('fcm_tokens')
-    .delete()
-    .eq('user_id', userId);
+    .upsert({
+      user_id: userId,
+      token: token,
+      created_at: new Date().toISOString()
+    }, {
+      onConflict: 'token,user_id'
+    });
 
-  if (deleteError) {
-    console.warn('[FCM] Delete before insert failed:', deleteError.message);
-  }
-
-  const { error: insertError } = await supabase
-    .from('fcm_tokens')
-    .insert({ user_id: userId, token: token });
-
-  if (insertError) {
-    console.warn('[FCM] Token insert failed:', insertError.message);
+  if (upsertError) {
+    console.warn('[FCM] Token upsert failed:', upsertError.message);
   } else {
-    console.log('[FCM] Token registriert (fcm_tokens).');
+    console.log('[FCM] Token registriert/aktualisiert (fcm_tokens).');
   }
-
-  // Note: family.fcm_token is no longer updated — only fcm_tokens table is authoritative
-  // to prevent duplicate pushes from the fallback in collectRecipientTokens.
 };
 
 /**

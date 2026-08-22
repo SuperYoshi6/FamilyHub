@@ -86,9 +86,9 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
     };
 
     const getNavClass = () => {
-        if (liquidGlass) return 'liquid-shimmer-card rounded-t-[32px] border-t border-white/40';
-        if (summerMode) return 'bg-amber-50/60 dark:bg-amber-950/30 backdrop-blur-md border-t border-amber-200/30 dark:border-amber-800/30 rounded-t-[32px]';
-        return 'bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-gray-800 rounded-t-[32px]';
+        if (liquidGlass) return 'liquid-shimmer-card rounded-2xl lg:rounded-[2.5rem] border-t border-white/40';
+        if (summerMode) return 'bg-amber-50/60 dark:bg-amber-950/30 backdrop-blur-md border-t border-amber-200/30 dark:border-amber-800/30 rounded-2xl lg:rounded-[2.5rem]';
+        return 'bg-white dark:bg-slate-900 border border-gray-100 dark:border-gray-800 rounded-2xl lg:rounded-[2.5rem]';
     };
 
     // Calculate dynamic styles for the bubble
@@ -104,7 +104,7 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className={`relative w-full px-2 py-4 flex justify-around items-center transition-all duration-500 overflow-hidden select-none ${isSwipeActive ? 'touch-none' : 'touch-auto'} ${getNavClass()}`}
+            className={`relative w-full max-w-5xl mx-auto px-6 py-4 flex justify-around items-center transition-all duration-500 overflow-hidden select-none mb-4 ${isSwipeActive ? 'touch-none' : 'touch-auto'} ${getNavClass()}`}
         >
             {/* Wobble Bubble Background (Liquid Glass only) */}
             {liquidGlass && (
@@ -147,11 +147,10 @@ const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavi
                         key={item.route}
                         type="button"
                         onClick={() => onNavigate(item.route)}
-                        className={`relative flex flex-col items-center justify-center w-full space-y-1 transition-all duration-300 z-10 pointer-events-auto ${textColor} ${activeBg}`}
-                        style={{ width: `${itemWidthPercent}%` }}
+                        className={`relative flex flex-col items-center justify-center w-full py-2 space-y-1 transition-all duration-300 z-10 pointer-events-auto ${textColor} ${activeBg} hover:scale-105 active:scale-95`}
                     >
-                        <item.icon size={isActive ? 28 : 24} className={`transition-all duration-300 ${isActive && liquidGlass ? 'animate-[liquidWobble_0.25s_ease-in-out]' : ''}`} />
-                        <span className="text-[10px] font-black truncate w-full text-center tracking-tighter">
+                        <item.icon size={isActive ? 32 : 26} className={`transition-all duration-300 ${isActive && liquidGlass ? 'animate-[liquidWobble_0.25s_ease-in-out]' : ''}`} />
+                        <span className="text-[11px] font-black truncate w-full text-center tracking-tight">
                             {item.label}
                         </span>
                     </button>

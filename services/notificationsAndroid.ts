@@ -11,7 +11,7 @@ export async function ensureFamilyHubAndroidNotificationChannel(): Promise<void>
             id: FAMILYHUB_NOTIF_CHANNEL_ID,
             name: 'FamilyHub',
             description: 'Mitteilungen von FamilyHub (Push & lokal)',
-            importance: 4,
+            importance: 5, // Maximum importance for pop-ups (heads-up)
             visibility: 1,
             vibration: true,
         });

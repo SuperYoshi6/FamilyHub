@@ -91,9 +91,11 @@ function weatherCodeToText(code: number, isDay: number): string {
   if (code === 0) return isDay ? "Sonnig" : "Klar";
   if (code >= 1 && code <= 3) return "Bewölkt";
   if (code >= 45 && code <= 48) return "Nebel";
-  if (code >= 51 && code <= 67) return "Regen";
+  if (code >= 51 && code <= 55) return "Nieselregen";
+  if (code >= 61 && code <= 65) return "Regen";
   if (code >= 71 && code <= 77) return "Schnee";
-  if (code >= 80 && code <= 82) return "Starker Regen";
+  if (code >= 80 && code <= 82) return "Regenschauer";
+  if (code >= 85 && code <= 86) return "Schneeschauer";
   if (code >= 95) return "Gewitter";
   return "Wetter-Update";
 }
@@ -143,6 +145,9 @@ async function sendFcmMessage(
             channel_id: "familyhub_notifications",
             sound: "default",
             icon: "notification_icon",
+            sticky: false,
+            visibility: "public",
+            notification_priority: "priority_max",
           },
         },
       },
@@ -213,7 +218,7 @@ const TABLE_TO_PREFS_KEY: Record<string, string> = {
   meal_requests: "meal_requests",
 };
 
-async function collectRecipientTokens(supabase: ReturnType<typeof createClient>, excludeUserId?: string, table?: string) {
+async function collectRecipientTokens(supabase: ReturnType<typeof createClient>, excludeUserId?: string, table?: string, excludeToken?: string) {
   const tokenSet = new Map<string, string>(); // token → source
 
   // Always exclude admin users (they should never receive pushes)
@@ -224,7 +229,6 @@ async function collectRecipientTokens(supabase: ReturnType<typeof createClient>,
   const prefsKey = table ? TABLE_TO_PREFS_KEY[table] : undefined;
   let disabledUserIds = new Set<string>(adminUserIds);
   if (prefsKey) {
-    // Must select the category column explicitly, not just user_id
     const { data: prefsData } = await supabase
       .from("notification_preferences")
       .select(`user_id, ${prefsKey}`);
@@ -236,26 +240,30 @@ async function collectRecipientTokens(supabase: ReturnType<typeof createClient>,
         }
       }
     }
-    console.log(`[push-notify] Table "${table}" → prefs key "${prefsKey}", ${disabledUserIds.size} user(s) disabled push for this category`);
   }
 
-  // Only use fcm_tokens table (authoritative) — no fallback to family.fcm_token to avoid duplicates
+  // Authoritative tokens from fcm_tokens table
   const { data: tokensData, error: tokensError } = await supabase.from("fcm_tokens").select("token, user_id");
   if (tokensError) {
     console.warn("[push-notify] fcm_tokens table read failed:", tokensError.message);
   } else {
     (tokensData || []).forEach((t: TokenRow) => {
-      if (t?.token && t.user_id && t.user_id !== excludeUserId && !disabledUserIds.has(t.user_id)) {
+      if (t?.token && t.user_id && !disabledUserIds.has(t.user_id)) {
+        // Multi-device support:
+        // 1. If we have a specific token to exclude (from the sender), exclude only that token.
+        // 2. If we only have a user_id to exclude, we STILL send to their OTHER devices.
+        //    To avoid self-notification on the same device, the app should handle filtering if possible,
+        //    but sending is better than not sending to the tablet.
+
+        if (excludeToken && t.token === excludeToken) return;
+
+        // If it's the excluded user, we might still want to skip their device if we don't have a specific token.
+        // For now, let's allow all devices of that user UNLESS it's the exact sender token.
+        // If excludeToken is not provided (DB trigger), we send to all devices of the user.
+
         tokenSet.set(t.token, "fcm_tokens");
       }
     });
-  }
-
-  // Log sources for debugging
-  if (tokenSet.size > 0) {
-    for (const [token, source] of tokenSet) {
-      console.log(`[push-notify] Token ${token.substring(0, 20)}... from ${source}`);
-    }
   }
 
   return [...tokenSet.keys()];
@@ -374,6 +382,7 @@ serve(async (req: Request) => {
     const record = payload.record || {};
     const oldRecord = payload.old_record || {};
     const excludeUserId: string | undefined = payload.exclude_user_id;
+    const excludeToken: string | undefined = payload.exclude_token;
 
     // Nur DELETE für Events, Shopping, Tasks, Meal-Requests, Meal-Plan
     const deleteAllowed = ["events", "shopping", "household_tasks", "personal_tasks", "meal_requests", "meal_plan"];
@@ -604,7 +613,7 @@ serve(async (req: Request) => {
     // Auto-exclude the author (who triggered the change) from push recipients, so they don't get double notifications
     const authorExcludeId = record?.author_id || record?.authorId || record?.requested_by || record?.requestedBy || record?.user_id || record?.userId;
     const effectiveExcludeUserId = excludeUserId || (authorExcludeId !== "" && authorExcludeId !== undefined ? authorExcludeId as string : undefined);
-    const tokens = await collectRecipientTokens(supabase, effectiveExcludeUserId, table);
+    const tokens = await collectRecipientTokens(supabase, effectiveExcludeUserId, table, excludeToken);
     if (tokens.length === 0) {
       console.log("No target tokens found — users may need to (re)login to register their FCM token");
       return new Response(JSON.stringify({ success: true, message: "No tokens to notify" }), {

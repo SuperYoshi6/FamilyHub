@@ -10,7 +10,7 @@ interface WeatherPageProps {
     favorites: SavedLocation[];
     onToggleFavorite: (location: SavedLocation) => void;
     initialLocation: { lat: number, lng: number, name: string } | null;
-    onUpdateCurrentWeatherLocation: (location: { lat: number, lng: number, name: string }) => void;
+    onUpdateCurrentWeatherLocation: (location: { lat: number, lng: number, name: string }, isManualSearch?: boolean) => void;
     liquidGlass?: boolean;
     userId?: string;
     weatherLayout?: { sectionOrder: string[]; metricsOrder: string[] };
@@ -72,7 +72,9 @@ const getBigWeatherIcon = (code: number, isDay: number = 1, liquidGlass: boolean
     if (code >= 1 && code <= 3) return <Cloud size={80} className={liquidGlass ? 'text-slate-400 animate-float drop-shadow-lg' : 'text-gray-200 animate-float'} />;
     if (code >= 45 && code <= 48) return <CloudFog size={80} className={liquidGlass ? 'text-slate-400 animate-float drop-shadow-lg' : 'text-gray-300 animate-float'} />;
     if (code >= 51 && code <= 67) return <CloudRain size={80} className={liquidGlass ? 'text-blue-300 drop-shadow' : 'text-blue-300'} />;
+    if (code >= 80 && code <= 82) return <CloudRain size={80} className={liquidGlass ? 'text-blue-300 drop-shadow' : 'text-blue-300'} />;
     if (code >= 71 && code <= 77) return <CloudSnow size={80} className={liquidGlass ? 'text-slate-300 drop-shadow' : 'text-white'} />;
+    if (code >= 85 && code <= 86) return <CloudSnow size={80} className={liquidGlass ? 'text-slate-300 drop-shadow' : 'text-white'} />;
     if (code >= 95) return <CloudLightning size={80} className={liquidGlass ? 'text-purple-300 drop-shadow' : 'text-purple-300'} />;
     return <Sun size={80} className="text-yellow-400" />;
 };
@@ -85,7 +87,9 @@ const getSmallWeatherIcon = (code: number, isDay: number = 1) => {
     if (code >= 1 && code <= 3) return <Cloud size={20} className="text-gray-400" />;
     if (code >= 45 && code <= 48) return <CloudFog size={20} className="text-gray-400" />;
     if (code >= 51 && code <= 67) return <CloudRain size={20} className="text-blue-400" />;
+    if (code >= 80 && code <= 82) return <CloudRain size={20} className="text-blue-400" />;
     if (code >= 71 && code <= 77) return <CloudSnow size={20} className="text-white" />;
+    if (code >= 85 && code <= 86) return <CloudSnow size={20} className="text-white" />;
     if (code >= 95) return <CloudLightning size={20} className="text-purple-400" />;
     return <Sun size={20} className="text-yellow-400" />;
 }
@@ -274,7 +278,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
     const [sectionOrder, setSectionOrder] = useState<string[]>(weatherLayout?.sectionOrder ?? ['hourly', 'daily', 'details']);
     const [selectedSwapSectionIndex, setSelectedSwapSectionIndex] = useState<number | null>(null);
 
-    const loadWeather = async (lat: number, lng: number, name?: string) => {
+    const loadWeather = async (lat: number, lng: number, name?: string, isManualSearch: boolean = false) => {
         setLoading(true);
         setError(null);
         setCurrentCoords({ lat, lng });
@@ -282,7 +286,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
         if (result) {
             setData(result);
             if (name) setLocationName(name);
-            onUpdateCurrentWeatherLocation({ lat, lng, name: name || 'Unbekannt' });
+            onUpdateCurrentWeatherLocation({ lat, lng, name: name || 'Unbekannt' }, isManualSearch);
 
             const sunrise = result.daily.sunrise && result.daily.sunrise[0] ? new Date(result.daily.sunrise[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
             const sunset = result.daily.sunset && result.daily.sunset[0] ? new Date(result.daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
@@ -748,7 +752,7 @@ const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onU
                                     navigator.geolocation.clearWatch(watchPositionRef.current);
                                     watchPositionRef.current = null;
                                 }
-                                loadWeather(s.lat, s.lng, s.name);
+                                loadWeather(s.lat, s.lng, s.name, true);
                                 setIsSearching(false);
                                 setSuggestions([]);
                                 setSearchQuery('');

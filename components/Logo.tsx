@@ -3,52 +3,50 @@ import React from 'react';
 interface LogoProps {
   className?: string;
   size?: number;
-  src?: string;
+  glow?: boolean;
 }
 
-const Logo: React.FC<LogoProps> = ({ className = "", size = 40, src }) => {
-  if (src) {
-    return <img src={src} width={size} height={size} className={`${className} object-contain`} alt="Logo" />;
-  }
+/**
+ * Modern SVG Logo for FamilyHub.
+ * Scalable, sharp, and natively transparent.
+ */
+const Logo: React.FC<LogoProps> = ({ className = "", size = 40, glow = true }) => {
   return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 512 512" 
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <defs>
-        <linearGradient id="logo_grad_sunset" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#f59e0b" />
-          <stop offset="50%" stopColor="#ec4899" />
-          <stop offset="100%" stopColor="#8b5cf6" />
-        </linearGradient>
-      </defs>
-      <path 
-        fill="url(#logo_grad_sunset)"
-        fillRule="evenodd"
-        d="
-          M256 80
-          L80 240
-          V432
-          C80 449.6 94.4 464 112 464
-          H400
-          C417.6 464 432 449.6 432 432
-          V240
-          L256 80
-          Z
-          M256 380
-          C256 380 346 325 346 270
-          C346 240 321 220 291 220
-          C274 220 263 230 256 240
-          C249 230 238 220 221 220
-          C191 220 166 240 166 270
-          C166 325 256 380 256 380
-          Z
-        "
-      />
-    </svg>
+    <div className={`relative flex items-center justify-center ${className}`} style={{ width: size, height: size }}>
+      {glow && (
+         <div
+           className="absolute inset-0 bg-orange-500/20 blur-2xl rounded-full animate-pulse-slow"
+           style={{ transform: 'scale(1.4)' }}
+         ></div>
+      )}
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 512 512"
+        xmlns="http://www.w3.org/2000/svg"
+        className="relative z-10"
+      >
+        <defs>
+          <linearGradient id="logo_grad_vibrant" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#f97316" />   {/* Orange */}
+            <stop offset="50%" stopColor="#ec4899" />  {/* Pink */}
+            <stop offset="100%" stopColor="#a855f7" /> {/* Purple */}
+          </linearGradient>
+        </defs>
+
+        {/* Modern Rounded House Shape */}
+        <path
+          fill="url(#logo_grad_vibrant)"
+          d="M256,40c-15.4,0-30.2,6.1-41.1,17L57.5,214.3c-13,13-13,34.1,0,47.1c13,13,34.1,13,47.1,0L128,238.1V416 c0,30.9,25.1,56,56,56h144c30.9,0,56-25.1,56-56V238.1l23.4,23.4c13,13,34.1,13,47.1,0c13-13,13-34.1,0-47.1L308.1,57 C297.2,46.1,282.4,40,256,40z"
+        />
+
+        {/* White Heart Center */}
+        <path
+          fill="white"
+          d="M256,360c-2.4,0-4.8-0.9-6.7-2.7c-21.7-21.1-53.3-43.3-53.3-73.3c0-22.1,17.9-40,40-40c8.8,0,16.8,2.8,20,7.3 c3.2-4.5,11.2-7.3,20-7.3c22.1,0,40,17.9,40,40c0,30-31.6,52.2-53.3,73.3C260.8,359.1,258.4,360,256,360z"
+        />
+      </svg>
+    </div>
   );
 };
 

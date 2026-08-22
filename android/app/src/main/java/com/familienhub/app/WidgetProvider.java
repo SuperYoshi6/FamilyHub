@@ -47,8 +47,8 @@ public abstract class WidgetProvider extends AppWidgetProvider {
         PendingIntent appPendingIntent = PendingIntent.getActivity(
                 context, widgetId, appIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        views.setOnClickPendingIntent(android.R.id.background, appPendingIntent);
-
+        views.setOnClickPendingIntent(R.id.widget_root, appPendingIntent);
+        
         // Tap on "Aktualisieren" → trigger APPWIDGET_UPDATE for this provider
         Intent refreshIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
         refreshIntent.setComponent(new ComponentName(context, this.getClass()));
@@ -92,7 +92,7 @@ public abstract class WidgetProvider extends AppWidgetProvider {
             android.app.PendingIntent appPendingIntent = android.app.PendingIntent.getActivity(
                     context, widgetId, appIntent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE);
-            views.setOnClickPendingIntent(android.R.id.background, appPendingIntent);
+            views.setOnClickPendingIntent(R.id.widget_root, appPendingIntent);
             // Set refresh button intent
             Intent refreshIntent = new Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
             refreshIntent.setComponent(new ComponentName(context, providerClass));

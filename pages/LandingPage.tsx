@@ -120,10 +120,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                         <Logo size={40} />
                         <span className="text-2xl font-black tracking-tight">FamilyHub</span>
                     </div>
-                    <nav className="hidden md:flex space-x-8 text-sm font-bold tracking-widest text-gray-500 dark:text-gray-400">
+                    <nav className="flex space-x-4 sm:space-x-8 items-center text-xs sm:text-sm font-bold tracking-widest text-gray-500 dark:text-gray-400">
                         <a href="#funktionen" className="hover:text-blue-500 transition-colors">Funktionen</a>
                         <a href="#installieren" className="hover:text-blue-500 transition-colors">Installieren</a>
-                        <button onClick={() => onNavigate(AppRoute.DASHBOARD)} className="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95">Im Web starten</button>
+                        <button onClick={() => onNavigate(AppRoute.DASHBOARD)} className="bg-blue-600 text-white px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/20 active:scale-95 text-[10px] sm:text-xs whitespace-nowrap">Im Web starten</button>
                     </nav>
                 </div>
             </header>
@@ -131,12 +131,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
             {/* Hero Section */}
             <main className="pt-40 pb-24 px-6 relative overflow-hidden">
                 <div className="max-w-6xl mx-auto text-center relative z-10">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-black tracking-widest mb-10 animate-fade-in border border-blue-500/20">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-black tracking-widest mb-10 animate-fade-in border border-blue-500/20 shadow-sm">
                         <span className="relative flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
-                        Version 1.0.0 • Jetz bereit für dem Alltag!
+                        Version 1.0.0 • Jetzt bereit für den Alltag!
                     </div>
                     <h1 className="text-7xl md:text-9xl font-black mb-8 tracking-tighter leading-[0.85] animate-slide-up">
                         Das Herz eures<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">Zuhauses.</span>
@@ -174,22 +174,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <div className="text-[10px] text-orange-500 font-bold tracking-widest mt-0.5">Version 1.0.0</div>
                                     </div>
                                 </a>
-                                <div className="flex items-center gap-4 p-4 rounded-2xl text-left mt-1 opacity-50 cursor-default">
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.exe" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
                                     <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center text-green-600">
                                         <Monitor size={24} />
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Windows</div>
-                                        <div className="text-[10px] text-green-600 font-bold tracking-widest mt-0.5">Bald verfügbar</div>
+                                        <div className="text-[10px] text-green-600 font-bold tracking-widest mt-0.5">Desktop App (.exe)</div>
                                     </div>
-                                </div>
-                                <a href="https://apps.apple.com/de/app/swift-playground/id908519492" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
+                                </a>
+                                <a href="https://hjkmfodzhradtkeiyele.supabase.co/storage/v1/object/public/apps/FamilyHub.swift.zip" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-2xl transition-all text-left mt-1">
                                     <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900/40 rounded-xl flex items-center justify-center text-pink-500">
                                         <Smartphone size={24} />
                                     </div>
                                     <div>
                                         <div className="font-black text-sm">Apple</div>
-                                        <div className="text-[10px] text-pink-500 font-bold tracking-widest mt-0.5">Swift Playgrounds</div>
+                                        <div className="text-[10px] text-pink-500 font-bold tracking-widest mt-0.5">Swift Playground</div>
                                     </div>
                                 </a>
                             </div>
@@ -198,8 +198,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                 </div>
 
                 <div className="max-w-4xl mx-auto mt-24 relative animate-fade-in z-0" style={{animationDelay: '700ms'}}>
-                    <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 rounded-[2.5rem] overflow-hidden flex items-center justify-center">
-                        <Logo size={120} className="opacity-90" />
+                    <div className="aspect-video bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-[2.5rem] overflow-hidden flex items-center justify-center shadow-2xl relative group">
+                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                        <Logo size={180} className="drop-shadow-[0_20px_50px_rgba(0,0,0,0.3)] transition-transform duration-700 group-hover:scale-110" />
                     </div>
                 </div>
             </main>
@@ -209,7 +210,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-16">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-black tracking-widest mb-6 border border-blue-500/20">
-                            <Sparkles size={14} /> Alle Funktionen im Überblickentfer
+                            <Sparkles size={14} /> Alle Funktionen im Überblick
                         </div>
                         <h2 className="text-5xl md:text-6xl font-black tracking-tight">Was FamilyHub kann</h2>
                         <p className="text-slate-500 dark:text-slate-400 text-lg mt-4 max-w-2xl mx-auto">16 Funktionen, die den Familienalltag erleichtern.</p>
@@ -284,46 +285,51 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, lang }) => {
                                         <div className="bg-green-500 p-1.5 rounded-lg shadow-sm"><Monitor size={16} /></div>
                                         <h4 className="font-black tracking-widest text-xs">Windows (Desktop)</h4>
                                     </div>
-                                    <div className="flex items-center justify-center py-6 text-white/60 text-xs font-medium italic">
-                                        Bald verfügbar
+                                    <div className="space-y-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
+                                            <p className="flex-1 text-xs font-medium italic">Lade die <span className="underline decoration-green-400">.exe</span> Datei.</p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
+                                            <p className="flex-1 text-xs font-medium italic">Führe das Setup aus.</p>
+                                        </div>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
+                                            <p className="flex-1 text-xs font-medium italic">App starten & einloggen.</p>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className="bg-pink-500 p-1.5 rounded-lg shadow-sm"><Smartphone size={16} /></div>
-                                        <h4 className="font-black tracking-widest text-xs">Apple (Swift Playgrounds)</h4>
+                                        <h4 className="font-black tracking-widest text-xs">Apple (Swift)</h4>
                                     </div>
                                     <div className="space-y-3">
                                         <div className="flex items-start gap-3">
                                             <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
                                             <p className="flex-1 text-xs font-medium italic">
-                                                Lade
-                                                <a
-                                                    href="https://apps.apple.com/de/app/swift-playground/id908519492"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="underline decoration-pink-400 ml-1 hover:text-blue-200 transition-colors"
-                                                >
-                                                    Swift Playground
-                                                </a>.
+                                                Installiere <a href="https://apps.apple.com/de/app/swift-playground/id908519492" target="_blank" rel="noopener noreferrer" className="underline">Swift Playground</a>.
                                             </p>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
-                                            <p className="flex-1 text-xs font-medium italic">Lade die .swift Datei.</p>
+                                            <p className="flex-1 text-xs font-medium italic">Lade <span className="underline decoration-pink-400">.swift.zip</span>.</p>
                                         </div>
                                         <div className="flex items-start gap-3">
                                             <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
-                                            <p className="flex-1 text-xs font-medium italic">Öffne sie in Playgrounds.</p>
+                                            <p className="flex-1 text-xs font-medium italic">In Playground öffnen.</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="w-64 h-96 bg-gray-900 rounded-[3rem] border-[8px] border-gray-800 shadow-2xl flex items-center justify-center relative">
-                                <Logo size={80} />
-                                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-5 bg-gray-800 rounded-b-xl"></div>
+                            <div className="w-64 h-[450px] bg-gray-900 rounded-[3rem] border-[12px] border-gray-800 shadow-2xl flex items-center justify-center relative overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-b from-blue-500/10 to-transparent"></div>
+                                <Logo size={100} className="drop-shadow-2xl z-10" />
+                                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-6 bg-gray-800 rounded-2xl"></div>
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-gray-800/50 rounded-full"></div>
                             </div>
                         </div>
                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>

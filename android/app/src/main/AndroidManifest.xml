@@ -42,8 +42,8 @@
             android:name="io.ionic.links.NOTIFICATION_ICON"
             android:resource="@drawable/notification_icon" />
 
-        <!-- Home Screen Widgets (temporarily disabled) -->
-        <!--<receiver
+        <!-- Home Screen Widgets -->
+        <receiver
             android:name=".ShoppingWidgetProvider"
             android:exported="true">
             <intent-filter>
@@ -96,7 +96,7 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_mealrequests_info" />
-        </receiver>-->
+        </receiver>
     </application>
 
     <!-- Permissions -->
