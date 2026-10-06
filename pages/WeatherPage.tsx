@@ -1,0 +1,827 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { WeatherMetric, WeatherData, SavedLocation } from '../types';
+import { fetchWeather, getWeatherDescription, searchCity, searchCitySuggestions } from '../services/weather';
+import { Sun, CloudRain, Wind, Droplets, Thermometer, MapPinOff, ArrowLeft, Cloud, CloudSnow, CloudLightning, CloudFog, Moon, Umbrella, Calendar, Eye, Gauge, Sunrise, Sunset, Search, MapPin, Loader2, Star, ArrowRightLeft, ArrowUp, ArrowDown, Navigation, GripHorizontal, Clock, X } from 'lucide-react';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
+
+interface WeatherPageProps {
+    onBack: () => void;
+    favorites: SavedLocation[];
+    onToggleFavorite: (location: SavedLocation) => void;
+    initialLocation: { lat: number, lng: number, name: string } | null;
+    onUpdateCurrentWeatherLocation: (location: { lat: number, lng: number, name: string }, isManualSearch?: boolean) => void;
+    liquidGlass?: boolean;
+    userId?: string;
+    weatherLayout?: { sectionOrder: string[]; metricsOrder: string[] };
+    onUpdateWeatherLayout?: (layout: { sectionOrder: string[]; metricsOrder: string[] }) => void;
+}
+
+const getMoonPhase = (date: Date) => {
+    const lp = 2551443;
+    const now = new Date(date.getTime());
+    const new_moon = new Date(1970, 0, 7, 20, 35, 0);
+    const phase = ((now.getTime() - new_moon.getTime()) / 1000) % lp;
+    const phaseIndex = Math.floor((phase / lp) * 8);
+    
+    const phases = [
+        { name: 'Neumond', icon: '🌑' },
+        { name: 'Zunehmender Sichelmond', icon: '🌒' },
+        { name: 'Erstes Viertel', icon: '🌓' },
+        { name: 'Zunehmender Mond', icon: '🌔' },
+        { name: 'Vollmond', icon: '🌕' },
+        { name: 'Abnehmender Mond', icon: '🌖' },
+        { name: 'Letztes Viertel', icon: '🌗' },
+        { name: 'Abnehmender Sichelmond', icon: '🌘' }
+    ];
+    return phases[phaseIndex % 8];
+};
+
+// --- Helper Functions ---
+
+const renderMetricIcon = (iconName: string, className: string) => {
+    switch (iconName) {
+        case 'wind': return <Wind className={className} />;
+        case 'droplets': return <Umbrella className={className} />;
+        case 'humidity': return <Droplets className={className} />;
+        case 'sun': return <Sun className={className} />;
+        case 'thermometer': return <Thermometer className={className} />;
+        case 'eye': return <Eye className={className} />;
+        case 'gauge': return <Gauge className={className} />;
+        case 'sunrise': return <Sunrise className={className} />;
+        case 'sunset': return <Sunset className={className} />;
+        default: return <Sun className={className} />;
+    }
+};
+
+const getBigWeatherIcon = (code: number, isDay: number = 1, liquidGlass: boolean = false) => {
+    if (code === 0) {
+        if (isDay) {
+            return <Sun size={80} className="text-yellow-400 animate-pulse-slow" />;
+        } else {
+            // Nacht mit Sternen-Animation: Moon + Stern-Funkel
+            return (
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                    <Moon size={80} className={`text-blue-100 ${liquidGlass ? '' : 'drop-shadow-lg'}`} />
+                    <div className="absolute top-2 right-8 text-yellow-200 animate-pulse" style={{fontSize: '8px', opacity: 0.8}}>✦</div>
+                    <div className="absolute top-8 left-4 text-yellow-100 animate-pulse" style={{fontSize: '6px', opacity: 0.6, animationDelay: '0.5s'}}>✧</div>
+                </div>
+            );
+        }
+    }
+    if (code >= 1 && code <= 3) return <Cloud size={80} className={liquidGlass ? 'text-slate-400 animate-float drop-shadow-lg' : 'text-gray-200 animate-float'} />;
+    if (code >= 45 && code <= 48) return <CloudFog size={80} className={liquidGlass ? 'text-slate-400 animate-float drop-shadow-lg' : 'text-gray-300 animate-float'} />;
+    if (code >= 51 && code <= 67) return <CloudRain size={80} className={liquidGlass ? 'text-blue-300 drop-shadow' : 'text-blue-300'} />;
+    if (code >= 80 && code <= 82) return <CloudRain size={80} className={liquidGlass ? 'text-blue-300 drop-shadow' : 'text-blue-300'} />;
+    if (code >= 71 && code <= 77) return <CloudSnow size={80} className={liquidGlass ? 'text-slate-300 drop-shadow' : 'text-white'} />;
+    if (code >= 85 && code <= 86) return <CloudSnow size={80} className={liquidGlass ? 'text-slate-300 drop-shadow' : 'text-white'} />;
+    if (code >= 95) return <CloudLightning size={80} className={liquidGlass ? 'text-purple-300 drop-shadow' : 'text-purple-300'} />;
+    return <Sun size={80} className="text-yellow-400" />;
+};
+
+const getSmallWeatherIcon = (code: number, isDay: number = 1) => {
+    if (code === 0) {
+        if (!isDay) return <Moon size={20} className="text-blue-200" />;
+        return <Sun size={20} className="text-yellow-400" />;
+    }
+    if (code >= 1 && code <= 3) return <Cloud size={20} className="text-gray-400" />;
+    if (code >= 45 && code <= 48) return <CloudFog size={20} className="text-gray-400" />;
+    if (code >= 51 && code <= 67) return <CloudRain size={20} className="text-blue-400" />;
+    if (code >= 80 && code <= 82) return <CloudRain size={20} className="text-blue-400" />;
+    if (code >= 71 && code <= 77) return <CloudSnow size={20} className="text-white" />;
+    if (code >= 85 && code <= 86) return <CloudSnow size={20} className="text-white" />;
+    if (code >= 95) return <CloudLightning size={20} className="text-purple-400" />;
+    return <Sun size={20} className="text-yellow-400" />;
+}
+
+const getBackgroundClass = (code: number, isDay: number = 1, liquid: boolean = false) => {
+    // If liquid glass is on, we use extremely transparent colors to let the body gradient show
+    if (liquid) {
+        if (!isDay) return 'from-indigo-900/30 to-slate-900/40'; // Night: darker tint for visibility
+        // Day: soft but visible tint for dynamic weather background
+        if (code === 0) return 'from-blue-400/20 to-blue-600/30';
+        if (code >= 1 && code <= 3) return 'from-slate-400/15 to-slate-600/25';
+        if (code >= 45) return 'from-gray-500/20 to-slate-700/30';
+        if (code >= 51 && code <= 86) return 'from-slate-600/20 to-gray-800/35';
+        if (code >= 95) return 'from-indigo-900/30 to-purple-900/40';
+        return 'from-blue-500/20 to-cyan-600/30';
+    }
+
+    if (!isDay) return 'from-slate-900 to-indigo-950';
+    if (code === 0) return 'from-blue-400 to-blue-600';
+    if (code >= 1 && code <= 3) return 'from-blue-400 to-slate-500';
+    if (code >= 45) return 'from-gray-500 to-slate-600';
+    if (code >= 51 && code <= 86) return 'from-slate-600 to-gray-800';
+    if (code >= 95) return 'from-indigo-900 to-purple-900';
+    return 'from-blue-500 to-cyan-600';
+};
+
+const getDayName = (dateStr: string, index: number) => {
+    if (index === 0) return 'Heute';
+    if (index === 1) return 'Morgen';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { weekday: 'long' });
+};
+
+// --- Weather Effects Component ---
+const WeatherEffects: React.FC<{ code: number; isDay: number }> = ({ code, isDay }) => {
+    const isClear = code === 0;
+    const isPartlyCloudy = code === 1 || code === 2;
+    const isOvercast = code === 3;
+    const isFog = code === 45 || code === 48;
+    const isDrizzle = code >= 51 && code <= 57;
+    const isRain = (code >= 61 && code <= 63) || code === 66 || code === 80 || code === 81;
+    const isHeavyRain = code === 65 || code === 67 || code === 82 || (code >= 95 && code <= 99);
+    const isSnow = (code >= 71 && code <= 77) || (code >= 85 && code <= 86);
+    const isThunder = code >= 95;
+
+    const isClearNight = isClear && isDay === 0;
+
+    const precipConfig = useMemo(() => {
+        if (isHeavyRain) return { count: 120, speedBase: 0.3, speedVar: 0.2, angle: 15, opacity: 0.7, type: 'rain' };
+        if (isRain) return { count: 60, speedBase: 0.7, speedVar: 0.3, angle: 5, opacity: 0.5, type: 'rain' };
+        if (isDrizzle) return { count: 40, speedBase: 1.5, speedVar: 0.5, angle: 0, opacity: 0.3, type: 'rain' };
+        if (isSnow) return { count: 50, speedBase: 4, speedVar: 2, angle: 0, opacity: 0.8, type: 'snow' };
+        return { count: 0, speedBase: 0, speedVar: 0, angle: 0, opacity: 0, type: 'none' };
+    }, [isHeavyRain, isRain, isDrizzle, isSnow]);
+
+    const particles = useMemo(() => {
+        return Array.from({ length: precipConfig.count }).map((_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            delay: Math.random() * 2,
+            duration: precipConfig.speedBase + Math.random() * precipConfig.speedVar,
+            size: precipConfig.type === 'snow' ? Math.random() * 3 + 2 : (precipConfig.type === 'rain' && isDrizzle ? Math.random() * 5 + 5 : Math.random() * 15 + 10)
+        }));
+    }, [precipConfig, isDrizzle]);
+
+    const clouds = useMemo(() => {
+        return [
+            { top: 10, left: -20, duration: 25, size: 'w-64 h-64' },
+            { top: 30, left: -10, duration: 35, size: 'w-80 h-80' },
+            { top: 60, left: 10, duration: 45, size: 'w-40 h-40' },
+            { top: 20, left: -30, duration: 20, size: 'w-72 h-72' },
+            { top: 50, left: -15, duration: 30, size: 'w-56 h-56' },
+            { top: 5, left: 50, duration: 40, size: 'w-96 h-96' },
+        ];
+    }, []);
+
+    const stars = useMemo(() => {
+        return Array.from({ length: 50 }).map((_, i) => ({
+            id: i,
+            top: Math.random() * 60,
+            left: Math.random() * 100,
+            delay: Math.random() * 3,
+            size: Math.random() * 2 + 1
+        }));
+    }, []);
+
+    const activeClouds = isOvercast ? clouds : (isPartlyCloudy || isDrizzle || isRain || isHeavyRain || isSnow ? clouds.slice(0, 3) : []);
+
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            {isClearNight && stars.map(s => (
+                <div
+                    key={`star-${s.id}`}
+                    className="absolute bg-white rounded-full animate-pulse-slow"
+                    style={{
+                        top: `${s.top}%`,
+                        left: `${s.left}%`,
+                        width: `${s.size}px`,
+                        height: `${s.size}px`,
+                        opacity: 0.8,
+                        animationDelay: `${s.delay}s`
+                    }}
+                />
+            ))}
+            {activeClouds.map((c, i) => (
+                <div
+                    key={i}
+                    className={`absolute bg-white/${isOvercast ? '10' : '20'} rounded-full blur-3xl animate-cloud ${c.size}`}
+                    style={{
+                        top: `${c.top}%`,
+                        animationDuration: `${c.duration}s`,
+                        left: `${c.left}%`
+                    }}
+                />
+            ))}
+            {isOvercast && <div className="absolute inset-0 bg-slate-900/30 z-0"></div>}
+            {isFog && <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-white/20 to-transparent blur-3xl z-10"></div>}
+            {precipConfig.type !== 'none' && (
+                <div className="absolute inset-0" style={{ transform: `skewX(-${precipConfig.angle}deg)` }}>
+                    {particles.map(p => (
+                        <div
+                            key={p.id}
+                            className={`absolute rounded-full ${precipConfig.type === 'snow' ? 'bg-white' : 'bg-blue-100/60'}`}
+                            style={{
+                                left: `${p.left}%`,
+                                top: '-50px',
+                                width: precipConfig.type === 'snow' ? `${p.size}px` : (isHeavyRain ? '2px' : '1px'),
+                                height: precipConfig.type === 'snow' ? `${p.size}px` : `${p.size}px`,
+                                opacity: precipConfig.opacity,
+                                animation: `fall ${p.duration}s linear infinite`,
+                                animationDelay: `-${p.delay}s`
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+            {isThunder && <div className="absolute inset-0 bg-white/30 animate-thunder mix-blend-overlay z-10"></div>}
+            {isClear && isDay === 1 && <div className="absolute -top-20 right-0 w-[500px] h-[500px] bg-yellow-400/20 rounded-full blur-3xl animate-pulse-slow"></div>}
+        </div>
+    );
+};
+
+const LocationClock = ({ utcOffsetSeconds, isSnowyBg, liquidGlass }: { utcOffsetSeconds: number, isSnowyBg: boolean, liquidGlass: boolean }) => {
+    const [timeStr, setTimeStr] = useState('');
+
+    useEffect(() => {
+        const updateTime = () => {
+            const localDate = new Date(Date.now() + utcOffsetSeconds * 1000);
+            const h = localDate.getUTCHours().toString().padStart(2, '0');
+            const m = localDate.getUTCMinutes().toString().padStart(2, '0');
+            setTimeStr(`${h}:${m}`);
+        };
+        updateTime();
+        const interval = setInterval(updateTime, 10000);
+        return () => clearInterval(interval);
+    }, [utcOffsetSeconds]);
+
+    return (
+        <div className={`text-xs font-medium opacity-90 flex items-center justify-center mt-0.5 ${liquidGlass ? 'text-slate-900 dark:text-white' : (isSnowyBg ? 'text-slate-700' : 'text-white')}`}>
+            {timeStr} Ortszeit
+        </div>
+    );
+};
+
+const WeatherPage = ({ onBack, favorites, onToggleFavorite, initialLocation, onUpdateCurrentWeatherLocation, liquidGlass = false, userId, weatherLayout, onUpdateWeatherLayout }: WeatherPageProps) => {
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [data, setData] = useState<WeatherData | null>(null);
+
+    // Search State
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [suggestions, setSuggestions] = useState<{lat: number, lng: number, name: string}[]>([]);
+    const [locationName, setLocationName] = useState<string>('Standort');
+    const [currentCoords, setCurrentCoords] = useState<{ lat: number, lng: number } | null>(null);
+    const watchPositionRef = useRef<number | null>(null);
+
+    // Radar State
+    const [radarType, setRadarType] = useState<'rain' | 'temp'>('rain');
+
+    // Reordering State (Tap to move) — per Nutzer initialisiert
+    const metricIdOrder = weatherLayout?.metricsOrder ?? ['1','2','3','4','5','6','7','8'];
+    const [metrics, setMetrics] = useState<WeatherMetric[]>([]);
+    const [selectedSwapMetricIndex, setSelectedSwapMetricIndex] = useState<number | null>(null);
+
+    const [sectionOrder, setSectionOrder] = useState<string[]>(weatherLayout?.sectionOrder ?? ['hourly', 'daily', 'details']);
+    const [selectedSwapSectionIndex, setSelectedSwapSectionIndex] = useState<number | null>(null);
+
+    const loadWeather = async (lat: number, lng: number, name?: string, isManualSearch: boolean = false) => {
+        setLoading(true);
+        setError(null);
+        setCurrentCoords({ lat, lng });
+        const result = await fetchWeather(lat, lng);
+        if (result) {
+            setData(result);
+            if (name) setLocationName(name);
+            onUpdateCurrentWeatherLocation({ lat, lng, name: name || 'Unbekannt' }, isManualSearch);
+
+            const sunrise = result.daily.sunrise && result.daily.sunrise[0] ? new Date(result.daily.sunrise[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+            const sunset = result.daily.sunset && result.daily.sunset[0] ? new Date(result.daily.sunset[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+            const visibilityKm = result.current.visibility ? (result.current.visibility / 1000).toFixed(1) : '--';
+
+            const allMetrics: Record<string, WeatherMetric> = {
+                '1': { id: '1', label: 'Gefühlt', value: `${Math.round(result.current.apparent_temperature)}°`, icon: 'thermometer', colorClass: 'bg-orange-500/20 text-orange-200' },
+                '2': { id: '2', label: 'Feuchtigkeit', value: `${result.current.relative_humidity_2m}%`, icon: 'humidity', colorClass: 'bg-blue-500/20 text-blue-200' },
+                '3': { id: '3', label: 'Wind', value: `${Math.round(result.current.wind_speed_10m)} km/h`, icon: 'wind', colorClass: 'bg-teal-500/20 text-teal-200' },
+                '4': { id: '4', label: 'UV Index', value: result.daily.uv_index_max && result.daily.uv_index_max[0] != null ? result.daily.uv_index_max[0].toFixed(1) : '--', icon: 'sun', colorClass: 'bg-yellow-500/20 text-yellow-200' },
+                '5': { id: '5', label: 'Luftdruck', value: `${Math.round(result.current.surface_pressure)} hPa`, icon: 'gauge', colorClass: 'bg-purple-500/20 text-purple-200' },
+                '6': { id: '6', label: 'Sichtweite', value: `${visibilityKm} km`, icon: 'eye', colorClass: 'bg-indigo-500/20 text-indigo-200' },
+                '7': { id: '7', label: 'Sonnenaufgang', value: sunrise, icon: 'sunrise', colorClass: 'bg-amber-500/20 text-amber-200' },
+                '8': { id: '8', label: 'Sonnenuntergang', value: sunset, icon: 'sunset', colorClass: 'bg-red-500/20 text-red-200' },
+            };
+            const sorted = metricIdOrder.map(id => allMetrics[id]).filter(Boolean);
+            setMetrics(sorted);
+        } else {
+            setError("Daten konnten nicht geladen werden");
+        }
+        setLoading(false);
+    };
+
+    const attemptCurrentLocation = async (forceRequest: boolean = false) => {
+        setLoading(true);
+        setError(null);
+
+        // Native App Logic
+        if (Capacitor.isNativePlatform()) {
+            try {
+                if (forceRequest) {
+                    try { await Geolocation.requestPermissions(); } catch (e) { }
+                }
+                const coordinates = await Geolocation.getCurrentPosition({
+                    enableHighAccuracy: false,
+                    timeout: 10000,
+                    maximumAge: Infinity
+                });
+                const { resolveLocationName } = await import('../services/weather');
+                const name = await resolveLocationName(coordinates.coords.latitude, coordinates.coords.longitude);
+                loadWeather(coordinates.coords.latitude, coordinates.coords.longitude, name);
+                return;
+            } catch (err: any) {
+                console.error("Capacitor Geo Error:", err);
+            }
+        }
+
+        // Web Fallback
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const { resolveLocationName } = await import('../services/weather');
+                    const name = await resolveLocationName(pos.coords.latitude, pos.coords.longitude);
+                    loadWeather(pos.coords.latitude, pos.coords.longitude, name);
+                },
+                (err2) => {
+                    setError("Standort nicht verfügbar. Bitte suche manuell.");
+                    setIsSearching(true);
+                    setLoading(false);
+                },
+                { timeout: 8000, enableHighAccuracy: false }
+            );
+        } else {
+            setError("Standortzugriff fehlgeschlagen.");
+            setIsSearching(true);
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        if (initialLocation) {
+            loadWeather(initialLocation.lat, initialLocation.lng, initialLocation.name);
+        } else {
+            attemptCurrentLocation();
+        }
+
+        // Automatische Standort-Aktualisierung per watchPosition (nur ohne initialLocation)
+        if (navigator.geolocation && !initialLocation) {
+            watchPositionRef.current = navigator.geolocation.watchPosition(
+                async (pos) => {
+                    const { resolveLocationName } = await import('../services/weather');
+                    const name = await resolveLocationName(pos.coords.latitude, pos.coords.longitude);
+                    loadWeather(pos.coords.latitude, pos.coords.longitude, name);
+                },
+                () => {},
+                { enableHighAccuracy: false, timeout: 30000, maximumAge: 300000 }
+            );
+        }
+        return () => {
+            if (watchPositionRef.current !== null) navigator.geolocation.clearWatch(watchPositionRef.current);
+        };
+    }, []);
+
+    useEffect(() => {
+        const fetchSuggestions = async () => {
+            if (searchQuery.trim().length > 2) {
+                const results = await searchCitySuggestions(searchQuery);
+                setSuggestions(results);
+            } else {
+                setSuggestions([]);
+            }
+        };
+        const timeoutId = setTimeout(fetchSuggestions, 300);
+        return () => clearTimeout(timeoutId);
+    }, [searchQuery]);
+
+    const handleSearchSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmedQuery = searchQuery.trim();
+        if (!trimmedQuery) return;
+        // Stop GPS watch so manual location persists
+        if (watchPositionRef.current !== null) {
+            navigator.geolocation.clearWatch(watchPositionRef.current);
+            watchPositionRef.current = null;
+        }
+        setLoading(true);
+        setIsSearching(false);
+        setSuggestions([]);
+
+        const coords = await searchCity(trimmedQuery);
+
+        if (coords) {
+            loadWeather(coords.lat, coords.lng, coords.name);
+        } else {
+            setError(`Konnte Ort "${trimmedQuery}" nicht finden.`);
+            setLoading(false);
+        }
+        setSearchQuery('');
+    };
+
+    const handleFavoriteClick = () => {
+        if (!currentCoords) return;
+        onToggleFavorite({ id: locationName, name: locationName, lat: currentCoords.lat, lng: currentCoords.lng });
+    };
+
+    const isFavorite = (favorites || []).some(f => f.name === locationName);
+
+    const saveLayout = (sections: string[], orderedMetrics: WeatherMetric[]) => {
+        if (!onUpdateWeatherLayout) return;
+        onUpdateWeatherLayout({ sectionOrder: sections, metricsOrder: orderedMetrics.map(m => m.id) });
+    };
+
+    // --- Swapping Logic (Tap to move) ---
+    const handleSectionClick = (index: number) => {
+        if (selectedSwapSectionIndex === null) {
+            setSelectedSwapSectionIndex(index);
+        } else if (selectedSwapSectionIndex === index) {
+            setSelectedSwapSectionIndex(null);
+        } else {
+            const newOrder = [...sectionOrder];
+            const temp = newOrder[index];
+            newOrder[index] = newOrder[selectedSwapSectionIndex];
+            newOrder[selectedSwapSectionIndex] = temp;
+            setSectionOrder(newOrder);
+            setSelectedSwapSectionIndex(null);
+            saveLayout(newOrder, metrics);
+        }
+    };
+
+    const handleMetricClick = (index: number) => {
+        if (selectedSwapMetricIndex === null) {
+            setSelectedSwapMetricIndex(index);
+        } else if (selectedSwapMetricIndex === index) {
+            setSelectedSwapMetricIndex(null);
+        } else {
+            const newMetrics = [...metrics];
+            const temp = newMetrics[index];
+            newMetrics[index] = newMetrics[selectedSwapMetricIndex];
+            newMetrics[selectedSwapMetricIndex] = temp;
+            setMetrics(newMetrics);
+            setSelectedSwapMetricIndex(null);
+            saveLayout(sectionOrder, newMetrics);
+        }
+    };
+
+    const currentCode = data?.current?.weather_code || 0;
+    const isDay = data?.current?.is_day ?? 1;
+    const isSnowyBg = (currentCode >= 71 && currentCode <= 77);
+
+    // --- THEME LOGIC FOR LIQUID GLASS ---
+    const textColorClass = liquidGlass
+        ? 'text-slate-900 dark:text-white'
+        : (isSnowyBg && isDay ? 'text-slate-800' : 'text-white');
+
+    const sectionTitleClass = liquidGlass
+        ? 'text-slate-800 dark:text-white font-black'
+        : 'text-yellow-100 opacity-90';
+
+    const glassClass = liquidGlass
+        ? 'liquid-shimmer-card rounded-[2.5rem] shadow-none'
+        : (isSnowyBg ? 'bg-white/40 border-slate-500/20 shadow-sm' : 'bg-black/20 border-white/5 shadow-sm');
+
+    // --- Helper Components ---
+
+    const SectionHeader = ({ title, note, index, onClick }: { title: string, note?: string, index: number, onClick: () => void }) => {
+        const isSelected = selectedSwapSectionIndex === index;
+        return (
+            <div
+                onClick={onClick}
+                className={`flex justify-between items-center mb-3 px-3 py-1.5 cursor-pointer transition-all rounded-lg select-none ${isSelected ? 'bg-white/20 ring-1 ring-white/50' : 'hover:bg-white/10 group'}`}
+            >
+                <div className="flex items-center gap-2">
+                    <h3 className={`text-left text-xs font-bold tracking-wider flex items-center ${liquidGlass ? '' : 'drop-shadow-sm'} ${sectionTitleClass}`}>
+                        {title}
+                    </h3>
+                    {note && (
+                        <span className="text-[9px] font-bold tracking-widest text-blue-200/80">
+                            {note}
+                        </span>
+                    )}
+                </div>
+                {isSelected ? (
+                    <div className="flex items-center space-x-1 animate-pulse">
+                        <span className="text-[10px] font-bold text-yellow-300">Verschieben...</span>
+                        <ArrowRightLeft size={14} className="text-current" />
+                    </div>
+                ) : (
+                    <GripHorizontal size={18} className="opacity-60 group-hover:opacity-100 transition" />
+                )}
+            </div>
+        );
+    }
+
+    // --- Render Sections ---
+
+    const renderHourly = (index: number) => {
+        if (!data) return null;
+        
+        const localDate = new Date(Date.now() + data.utc_offset_seconds * 1000);
+        const isoString = localDate.toISOString();
+        const currentHourStr = isoString.slice(0, 13) + ":00";
+        let currentHourIndex = data.hourly.time.findIndex(t => t === currentHourStr);
+        if (currentHourIndex === -1) currentHourIndex = 0;
+
+        const hourlySlice = data.hourly.time.slice(currentHourIndex, currentHourIndex + 25);
+        const tempSlice = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 25);
+        const codeSlice = data.hourly.weather_code.slice(currentHourIndex, currentHourIndex + 25);
+
+        const sunrise0 = data.daily.sunrise?.[0] ? new Date(data.daily.sunrise[0]).getTime() : 0;
+        const sunset0 = data.daily.sunset?.[0] ? new Date(data.daily.sunset[0]).getTime() : 0;
+        const sunrise1 = data.daily.sunrise?.[1] ? new Date(data.daily.sunrise[1]).getTime() : 0;
+        const sunset1 = data.daily.sunset?.[1] ? new Date(data.daily.sunset[1]).getTime() : 0;
+
+        const getHourIsDay = (timeStr: string): number => {
+            const ts = new Date(timeStr).getTime();
+            if (sunrise0 && sunset0 && ts >= sunrise0 && ts <= sunset0) return 1;
+            if (sunrise1 && sunset1 && ts >= sunrise1 && ts <= sunset1) return 1;
+            return 0;
+        };
+
+        return (
+            <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
+                <SectionHeader title="Stündlich" index={index} onClick={() => handleSectionClick(index)} />
+                <div
+                    className={`rounded-3xl p-5 ${liquidGlass ? 'bg-white/10 backdrop-blur-xl border border-white/30 dark:border-white/10 shadow-none' : glassClass}`}
+                >
+                    <div className="flex overflow-x-auto gap-6 pb-2 pt-0.5 scrollbar-hide overscroll-x-contain -mx-1 px-1">
+                        {hourlySlice.map((t: string, i: number) => {
+                            const date = new Date(t);
+                            const hour = date.getHours();
+                            const isNow = i === 0;
+                            const hourIsDay = getHourIsDay(t);
+                            return (
+                                <div key={i} className="flex flex-col items-center space-y-3 min-w-[3rem]">
+                                    <span className="text-xs font-medium opacity-80 whitespace-nowrap">{isNow ? 'Jetzt' : `${hour}:00`}</span>
+                                    {getSmallWeatherIcon(codeSlice[i] || 0, hourIsDay)}
+                                    <span className="font-bold text-lg">{Math.round(tempSlice[i] || 0)}°</span>
+                                    <span className={`text-[9px] font-black flex items-center gap-0.5 leading-none mt-1 ${liquidGlass ? 'text-blue-600 dark:text-blue-400' : 'text-blue-200/80'}`}>
+                                        <Umbrella size={8} /> {data.hourly.precipitation_probability?.[currentHourIndex + i] ?? 0}%
+                                    </span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderDaily = (index: number) => (
+        <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
+            <SectionHeader title="7-Tage Trend" index={index} onClick={() => handleSectionClick(index)} />
+            <div className={`${glassClass} rounded-3xl p-5 space-y-4 ${liquidGlass ? 'shadow-none' : 'shadow-sm'}`}>
+                    {data?.daily.time.map((dayStr, i) => {
+                        const min = Math.round(data.daily.temperature_2m_min[i]);
+                        const max = Math.round(data.daily.temperature_2m_max[i]);
+                    const rangeMin = -5;
+                    const rangeMax = 35;
+                    const totalRange = rangeMax - rangeMin;
+                    const leftPct = Math.max(0, ((min - rangeMin) / totalRange) * 100);
+                    const widthPct = Math.max(5, ((max - min) / totalRange) * 100);
+
+                    return (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="w-20 font-medium text-left">{getDayName(dayStr, i)}</span>
+                            <div className="flex flex-col items-center justify-center w-12">
+                                {getSmallWeatherIcon(data.daily.weather_code[i])}
+                                <span className={`text-[9px] font-black flex items-center gap-0.5 leading-none mt-1 ${liquidGlass ? 'text-blue-600 dark:text-blue-400' : 'text-blue-200/80'}`}>
+                                    <Umbrella size={8} /> {data.daily.precipitation_probability_max?.[i] ?? 0}%
+                                </span>
+                            </div>
+                            <div className="flex-1 flex items-center gap-2 px-2">
+                                <span className="w-6 text-right opacity-80 text-xs">{min}°</span>
+                                <div className={`flex-1 h-1.5 ${liquidGlass ? 'bg-slate-400/30' : (isSnowyBg ? 'bg-slate-600/10' : 'bg-white/10')} rounded-full relative overflow-hidden`}>
+                                    <div
+                                        className="absolute h-full rounded-full opacity-80"
+                                        style={{
+                                            left: `${leftPct}%`,
+                                            width: `${widthPct}%`,
+                                            background: 'linear-gradient(90deg, #93c5fd 0%, #fbbf24 100%)'
+                                        }}
+                                    />
+                                </div>
+                                <span className="w-6 text-left font-bold text-xs">{max}°</span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+
+    const renderRadar = () => {
+        if (!currentCoords) return null;
+        const overlay = radarType;
+        const embedUrl = `https://embed.windy.com/embed2.html?lat=${currentCoords.lat}&lon=${currentCoords.lng}&detailLat=${currentCoords.lat}&detailLon=${currentCoords.lng}&width=650&height=450&zoom=8&level=surface&overlay=${overlay}&product=ecmwf&menu=&message=&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
+
+        return (
+            <div className="w-full transition-all duration-300">
+                <div className="flex justify-between items-center mb-3 px-3 py-1.5 rounded-lg select-none">
+                    <h3 className={`text-left text-xs font-bold tracking-wider flex items-center drop-shadow-md ${sectionTitleClass}`}>
+                        Wetterradar
+                    </h3>
+                </div>
+                <div className={`${glassClass} rounded-3xl p-2 ${liquidGlass ? 'shadow-none' : 'shadow-sm'}`}>
+                    <div className="flex gap-2 mb-2 px-1">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setRadarType('rain'); }}
+                            className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center transition-all ${radarType === 'rain' ? 'bg-blue-500 text-white shadow-md' : 'bg-white/20 hover:bg-white/30 text-current'}`}
+                        >
+                            <CloudRain size={14} className="mr-1.5" /> Regen
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setRadarType('temp'); }}
+                            className={`flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center transition-all ${radarType === 'temp' ? 'bg-orange-500 text-white shadow-md' : 'bg-white/20 hover:bg-white/30 text-current'}`}
+                        >
+                            <Thermometer size={14} className="mr-1.5" /> Temperatur
+                        </button>
+                    </div>
+                    <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-black/20 relative shadow-inner">
+                        <iframe
+                            src={embedUrl}
+                            className="w-full h-full border-none"
+                            title="Radar"
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderDetails = (index: number) => (
+        <div className={`w-full transition-all duration-300 ${selectedSwapSectionIndex === index ? 'scale-[0.98] opacity-90' : ''}`}>
+            <SectionHeader title="Details" index={index} onClick={() => handleSectionClick(index)} />
+            <div className="grid grid-cols-2 gap-3 w-full">
+                {metrics.map((metric, idx) => {
+                    const isSelected = selectedSwapMetricIndex === idx;
+
+                    let dynamicIconColor = metric.colorClass || 'bg-white/20';
+                    if (liquidGlass) {
+                        if (metric.icon === 'sun') dynamicIconColor = 'bg-yellow-100 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-200';
+                        else if (metric.icon === 'wind') dynamicIconColor = 'bg-teal-100 text-teal-600 dark:bg-teal-500/20 dark:text-teal-200';
+                        else if (metric.icon === 'thermometer') dynamicIconColor = 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-200';
+                        else if (metric.icon === 'humidity') dynamicIconColor = 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-200';
+                        else dynamicIconColor = 'bg-slate-100 text-slate-600 dark:bg-white/20 dark:text-white';
+                    }
+
+                    return (
+                        <div
+                            key={metric.id}
+                            onClick={() => handleMetricClick(idx)}
+                            className={`
+                              ${glassClass} 
+                              p-4 rounded-3xl flex flex-col items-start 
+                              relative overflow-hidden cursor-pointer transition-all active:scale-95 select-none
+                              ${isSelected ? (liquidGlass ? 'ring-2 ring-yellow-400 scale-[0.98] shadow-none' : 'ring-2 ring-yellow-400 shadow-lg scale-[0.98]') : 'hover:bg-white/5'}
+                          `}
+                        >
+                            <div className="flex justify-between w-full mb-3">
+                                <div className={`p-2 rounded-full ${dynamicIconColor}`}>
+                                    {renderMetricIcon(metric.icon, "w-4 h-4")}
+                                </div>
+                                {isSelected ? <ArrowRightLeft size={16} className="text-yellow-400 animate-pulse" /> : <div className="w-4" />}
+                            </div>
+                            <span className="text-[10px] font-bold tracking-normal mb-0.5 opacity-70 w-full truncate">{metric.label}</span>
+                            <span className="text-xl font-bold tracking-tight">{metric.value}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+
+    if (loading) return (
+        <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 flex-col">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <span className="text-gray-500">Lade Wetter...</span>
+        </div>
+    );
+
+    const bgGradient = getBackgroundClass(currentCode, isDay, liquidGlass);
+
+    return (
+        <main className={`min-h-screen pb-24 bg-gradient-to-b ${bgGradient} ${textColorClass} transition-all duration-1000 relative`}>
+            <WeatherEffects code={currentCode} isDay={isDay} />
+
+            {/* Header mit integrierter Suche (keine Icons sichtbar im Normalmodus) */}
+            <div className={`z-40 transition-all duration-500 ${liquidGlass ? 'backdrop-blur-xl bg-white/10' : ''}`}>
+                <div className="pt-4 pb-4 px-4 flex items-center">
+                    <button onClick={onBack} className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition flex-shrink-0 mr-2 active:scale-95 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}>
+                        <ArrowLeft size={24} />
+                    </button>
+                    <div className="flex-1 min-w-0 mx-2">
+                        <div className={`relative bg-white/10 rounded-2xl py-2 px-4 backdrop-blur-md border border-white/10 ${isSearching ? '' : 'cursor-pointer'}`}>
+                            {isSearching ? (
+                                <form onSubmit={handleSearchSubmit}>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Stadt eingeben..."
+                                        className="w-full bg-white/40 dark:bg-gray-900/40 text-gray-900 dark:text-white text-sm font-bold rounded-xl px-3 py-2 outline-none border border-white/30 focus:border-blue-400 transition-all placeholder-gray-500 dark:placeholder-gray-400"
+                                        onBlur={() => { setTimeout(() => { setIsSearching(false); setSearchQuery(''); setSuggestions([]); }, 200); }}
+                                    />
+                                </form>
+                            ) : (
+                                <button onClick={() => setIsSearching(true)} className="w-full text-center">
+                                    <span className="font-bold text-sm tracking-tight block whitespace-nowrap overflow-x-auto no-scrollbar">{locationName}</span>
+                                    {data && <LocationClock utcOffsetSeconds={data.utc_offset_seconds} isSnowyBg={isSnowyBg} liquidGlass={liquidGlass} />}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleFavoriteClick}
+                        className={`bg-white/20 hover:bg-white/30 p-2 rounded-full backdrop-blur-md transition active:scale-95 flex-shrink-0 ml-1 ${isSnowyBg && !liquidGlass ? 'text-slate-800' : 'text-current'}`}
+                    >
+                        <Star size={20} fill={isFavorite ? 'currentColor' : 'none'} className={isFavorite ? 'text-yellow-400' : ''} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Suchergebnisse als Overlay unter dem Header */}
+            {isSearching && suggestions.length > 0 && (
+                <div className="mx-4 mb-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden z-30 relative max-h-60 overflow-y-auto">
+                    {suggestions.map((s, i) => (
+                        <button
+                            key={i}
+                            type="button"
+                            onMouseDown={() => {
+                                if (watchPositionRef.current !== null) {
+                                    navigator.geolocation.clearWatch(watchPositionRef.current);
+                                    watchPositionRef.current = null;
+                                }
+                                loadWeather(s.lat, s.lng, s.name, true);
+                                setIsSearching(false);
+                                setSuggestions([]);
+                                setSearchQuery('');
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors truncate"
+                        >
+                            {s.name}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            <div className="flex flex-col items-center pt-8 px-6 text-center z-10 relative animate-fade-in-up">
+                {error ? (
+                    <div className="bg-white/10 p-6 rounded-2xl backdrop-blur-md mt-10">
+                        <MapPinOff size={48} className="mx-auto mb-2 opacity-70" />
+                        <p className="mb-4 font-medium">{error}</p>
+                        <div className="flex flex-col gap-2">
+                            <button
+                                onClick={() => attemptCurrentLocation(true)}
+                                className="bg-blue-500 text-white px-6 py-2 rounded-full text-sm font-bold transition flex items-center justify-center hover:bg-blue-600 shadow-lg"
+                            >
+                                <Navigation size={16} className="mr-2" /> Standort freigeben
+                            </button>
+                            <button
+                                onClick={() => setIsSearching(true)}
+                                className="bg-white/20 hover:bg-white/30 px-6 py-2 rounded-full text-sm font-bold transition flex items-center justify-center"
+                            >
+                                <Search size={16} className="mr-2" /> Manuell suchen
+                            </button>
+                        </div>
+                    </div>
+                ) : data && (
+                    <>
+                        {/* Hero Section (Always Top) */}
+                        <div className={`mb-2 filter transform hover:scale-105 transition duration-700 ease-in-out ${liquidGlass ? 'animate-float' : 'drop-shadow-2xl'}`}>
+                            {getBigWeatherIcon(currentCode, isDay, liquidGlass)}
+                        </div>
+                        <div className={`text-7xl sm:text-8xl font-bold tracking-tight leading-none mb-1 ${liquidGlass ? '' : 'drop-shadow-2xl'} ${textColorClass.includes('text-slate-900') ? 'glass-text-glow' : ''}`}>
+                            {Math.round(data.current.temperature_2m || 0)}°
+                        </div>
+                        <p className={`text-xl font-medium mt-2 opacity-90 ${liquidGlass ? '' : 'drop-shadow-sm'}`}>
+                            {getWeatherDescription(currentCode)}
+                        </p>
+                        <div className={`flex space-x-4 mt-2 text-sm opacity-90 font-medium ${liquidGlass ? 'bg-white/10 backdrop-blur-md text-current' : (isSnowyBg ? 'bg-slate-800/10' : 'bg-black/20')} px-4 py-1 rounded-full backdrop-blur-sm`}>
+                            <span className="flex items-center"><span className="text-xs mr-1 opacity-70">H:</span> {Math.round(data.daily.temperature_2m_max[0])}°</span>
+                            <span className={`w-px ${isSnowyBg && !liquidGlass ? 'bg-slate-800/30' : 'bg-white/30'} h-4`}></span>
+                            <span className="flex items-center"><span className="text-xs mr-1 opacity-70">T:</span> {Math.round(data.daily.temperature_2m_min[0])}°</span>
+                        </div>
+
+                        {/* Reorderable Sections */}
+                        <div className="w-full mt-10 space-y-6">
+                            {sectionOrder.map((sectionId, index) => {
+                                if (sectionId === 'hourly') return <div key="hourly" className="animate-fade-in">{renderHourly(index)}</div>;
+                                if (sectionId === 'daily') return <div key="daily" className="animate-fade-in">{renderDaily(index)}</div>;
+                                if (sectionId === 'details') return <div key="details" className="animate-fade-in">{renderDetails(index)}</div>;
+                                return null;
+                            })}
+
+                            {/* Fixed Radar Section (Bottom) */}
+                            <div className="animate-fade-in">
+                                {renderRadar()}
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        </main>
+    );
+};
+
+export default React.memo(WeatherPage);

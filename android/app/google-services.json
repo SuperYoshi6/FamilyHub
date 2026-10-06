@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1034259995414",
+    "project_id": "familyhub-notification",
+    "storage_bucket": "familyhub-notification.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1034259995414:android:d2b684a40240482a9a8e37",
+        "android_client_info": {
+          "package_name": "com.familienhub.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbfFwbszHY1GOr6nhEXiAgo4MuHMofvQs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

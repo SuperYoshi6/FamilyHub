@@ -1,0 +1,83 @@
+index-C9fbQ1az.js:1719  POST https://hjkmfodzhradtkeiyele.supabase.co/rest/v1/family 400 (Bad Request)
+(anonymous) @ index-C9fbQ1az.js:1719
+(anonymous) @ index-C9fbQ1az.js:1719
+await in (anonymous)
+then @ index-C9fbQ1az.js:1694
+setTimeout
+(anonymous) @ index-C9fbQ1az.js:1736
+delay @ index-C9fbQ1az.js:1736
+add @ index-C9fbQ1az.js:1736
+add @ index-C9fbQ1az.js:1736
+Te @ index-C9fbQ1az.js:1736
+I @ index-C9fbQ1az.js:806
+un @ index-C9fbQ1az.js:37
+$r @ index-C9fbQ1az.js:37
+Fr @ index-C9fbQ1az.js:37
+Dh @ index-C9fbQ1az.js:37
+jh @ index-C9fbQ1az.js:37
+(anonymous) @ index-C9fbQ1az.js:37
+Fc @ index-C9fbQ1az.js:40
+wn @ index-C9fbQ1az.js:37
+Fu @ index-C9fbQ1az.js:37
+_u @ index-C9fbQ1az.js:37
+Lw @ index-C9fbQ1az.js:37
+index-C9fbQ1az.js:1736 [Supabase] Add sync error (family): Could not find the '0' column of 'family' in the schema cache
+add @ index-C9fbQ1az.js:1736
+await in add
+Te @ index-C9fbQ1az.js:1736
+I @ index-C9fbQ1az.js:806
+un @ index-C9fbQ1az.js:37
+$r @ index-C9fbQ1az.js:37
+Fr @ index-C9fbQ1az.js:37
+Dh @ index-C9fbQ1az.js:37
+jh @ index-C9fbQ1az.js:37
+(anonymous) @ index-C9fbQ1az.js:37
+Fc @ index-C9fbQ1az.js:40
+wn @ index-C9fbQ1az.js:37
+Fu @ index-C9fbQ1az.js:37
+_u @ index-C9fbQ1az.js:37
+Lw @ index-C9fbQ1az.js:37
+index-C9fbQ1az.js:40 TypeError: Cannot read properties of undefined (reading 'trim')
+    at JA (index-C9fbQ1az.js:806:50348)
+    at fc (index-C9fbQ1az.js:38:17359)
+    at _c (index-C9fbQ1az.js:40:3158)
+    at fg (index-C9fbQ1az.js:40:45355)
+    at lg (index-C9fbQ1az.js:40:40198)
+    at Yb (index-C9fbQ1az.js:40:40126)
+    at sl (index-C9fbQ1az.js:40:39979)
+    at Oc (index-C9fbQ1az.js:40:36282)
+    at ig (index-C9fbQ1az.js:40:37094)
+    at ms (index-C9fbQ1az.js:38:3271)
+bc @ index-C9fbQ1az.js:40
+Np.u.callback @ index-C9fbQ1az.js:40
+np @ index-C9fbQ1az.js:38
+tg @ index-C9fbQ1az.js:40
+eg @ index-C9fbQ1az.js:40
+Wb @ index-C9fbQ1az.js:40
+Qb @ index-C9fbQ1az.js:40
+Ws @ index-C9fbQ1az.js:40
+ig @ index-C9fbQ1az.js:40
+ms @ index-C9fbQ1az.js:38
+(anonymous) @ index-C9fbQ1az.js:40
+index-C9fbQ1az.js:806 Uncaught TypeError: Cannot read properties of undefined (reading 'trim')
+    at JA (index-C9fbQ1az.js:806:50348)
+    at fc (index-C9fbQ1az.js:38:17359)
+    at _c (index-C9fbQ1az.js:40:3158)
+    at fg (index-C9fbQ1az.js:40:45355)
+    at lg (index-C9fbQ1az.js:40:40198)
+    at Yb (index-C9fbQ1az.js:40:40126)
+    at sl (index-C9fbQ1az.js:40:39979)
+    at Oc (index-C9fbQ1az.js:40:36282)
+    at ig (index-C9fbQ1az.js:40:37094)
+    at ms (index-C9fbQ1az.js:38:3271)
+JA @ index-C9fbQ1az.js:806
+fc @ index-C9fbQ1az.js:38
+_c @ index-C9fbQ1az.js:40
+fg @ index-C9fbQ1az.js:40
+lg @ index-C9fbQ1az.js:40
+Yb @ index-C9fbQ1az.js:40
+sl @ index-C9fbQ1az.js:40
+Oc @ index-C9fbQ1az.js:40
+ig @ index-C9fbQ1az.js:40
+ms @ index-C9fbQ1az.js:38
+(anonymous) @ index-C9fbQ1az.js:40

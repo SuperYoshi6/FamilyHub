@@ -1,0 +1,652 @@
+import { FamilyMember, CalendarEvent, ShoppingItem, Task, MealPlan, MealRequest, SavedLocation, Recipe, NewsItem, FeedbackItem, Poll, AppNotification, AppSettings, NotificationPreferences } from "../types";
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+// --- INITIAL DATA MOCKS (Fallback) ---
+const INITIAL_FAMILY: FamilyMember[] = [
+    {
+        id: 'admin_user',
+        name: 'Administrator',
+        avatar: 'https://ui-avatars.com/api/?name=Admin&background=000&color=fff',
+        color: 'bg-gray-800 text-white',
+        role: 'admin',
+        password: 'admin006'
+    }
+];
+const INITIAL_EVENTS: CalendarEvent[] = [];
+const INITIAL_SHOPPING: ShoppingItem[] = [];
+const INITIAL_TASKS: Task[] = [];
+const INITIAL_SETTINGS: AppSettings[] = [
+    {
+        id: 'global',
+        maintenance_mode: false,
+        maintenance_start: null,
+        maintenance_end: null,
+        disabled_tabs: {},
+        global_liquid_glass_enabled: true,
+    }
+];
+
+// --- INITIAL NEWS (Empty) ---
+export const INITIAL_NEWS: NewsItem[] = [];
+
+// --- SUPABASE CONFIGURATION ---
+const SUPABASE_URL = 'https://hjkmfodzhradtkeiyele.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhqa21mb2R6aHJhZHRrZWl5ZWxlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODIwNjEsImV4cCI6MjA2ODA1ODA2MX0.2cfezsLcT6x3KI9VqzrHntP80O-cy0JQUb7UK3Mnai8';
+
+export let supabase: SupabaseClient | null = null;
+
+if (SUPABASE_URL && SUPABASE_KEY) {
+    try {
+        supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+            auth: { persistSession: false },
+        });
+        console.log("🔌 Connected to Supabase");
+    } catch (e) {
+        console.error("Supabase init failed:", e);
+    }
+} else {
+    console.log("💾 Running in LocalStorage Mode (Keys not configured)");
+}
+
+// --- INTERFACE ---
+interface ICollection<T> {
+    getAll(): Promise<T[]>;
+    add(item: T): Promise<T[]>;
+    update(id: string, updates: Partial<T>): Promise<T[]>;
+    delete(id: string): Promise<T[]>;
+    setAll(items: T[]): Promise<T[]>;
+}
+
+// --- LOCAL STORAGE IMPLEMENTATION ---
+class LocalStorageCollection<T extends { id: string }> implements ICollection<T> {
+    constructor(private key: string, private defaultVal: T[]) { }
+
+    private async delay(ms: number = 50) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    private getStored(): T[] {
+        try {
+            const item = localStorage.getItem(this.key);
+            const data = item ? JSON.parse(item) : this.defaultVal;
+            return data;
+        } catch {
+            return this.defaultVal;
+        }
+    }
+
+    private setStored(data: T[]) {
+        try {
+            localStorage.setItem(this.key, JSON.stringify(data));
+        } catch (e) {
+            console.error("Storage full or error", e);
+        }
+    }
+
+    async getAll(): Promise<T[]> {
+        await this.delay();
+        return this.getStored();
+    }
+
+    async add(item: T): Promise<T[]> {
+        await this.delay();
+        const data = this.getStored();
+        // Check for duplicates
+        if (!data.find(d => d.id === item.id)) {
+            const newData = [...data, item];
+            this.setStored(newData);
+            return newData;
+        }
+        return data;
+    }
+
+    async update(id: string, updates: Partial<T>): Promise<T[]> {
+        await this.delay();
+        const data = this.getStored();
+        const newData = data.map(d => d.id === id ? { ...d, ...updates } : d);
+        this.setStored(newData);
+        return newData;
+    }
+
+    async delete(id: string): Promise<T[]> {
+        await this.delay();
+        const data = this.getStored();
+        const newData = data.filter(d => d.id !== id);
+        this.setStored(newData);
+        return newData;
+    }
+
+    async setAll(items: T[]): Promise<T[]> {
+        await this.delay();
+        this.setStored(items);
+        return items;
+    }
+}
+
+// --- OFFLINE MUTATION QUEUE ---
+const MUTATION_QUEUE_KEY = 'fh_mutation_queue';
+
+interface QueuedMutation {
+    id: string;
+    table: string;
+    operation: 'add' | 'update' | 'delete';
+    item?: any;
+    updates?: any;
+    itemId?: string;
+    timestamp: number;
+}
+
+function getMutationQueue(): QueuedMutation[] {
+    try {
+        const stored = localStorage.getItem(MUTATION_QUEUE_KEY);
+        return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+}
+
+function saveMutationQueue(queue: QueuedMutation[]): void {
+    try { localStorage.setItem(MUTATION_QUEUE_KEY, JSON.stringify(queue)); } catch { }
+}
+
+function addMutation(mutation: Omit<QueuedMutation, 'id' | 'timestamp'>): void {
+    const queue = getMutationQueue();
+    queue.push({ ...mutation, id: crypto.randomUUID?.() || Math.random().toString(36).slice(2), timestamp: Date.now() });
+    saveMutationQueue(queue);
+}
+
+function removeMutation(id: string): void {
+    saveMutationQueue(getMutationQueue().filter(m => m.id !== id));
+}
+
+export async function processMutationQueue(): Promise<number> {
+    if (!supabase) return 0;
+    const queue = getMutationQueue();
+    if (queue.length === 0) return 0;
+
+    let processed = 0;
+    for (const mutation of queue) {
+        try {
+            const payload = { ...(mutation.item || mutation.updates || {}) };
+            // Strip client-only fields that don't exist in Supabase
+            delete payload.authorId;
+            if (mutation.operation === 'add') {
+                const { error } = await supabase.from(mutation.table).insert(payload);
+                if (!error) { removeMutation(mutation.id); processed++; }
+            } else if (mutation.operation === 'update') {
+                if (Object.keys(payload).length > 0) {
+                    const { error } = await supabase.from(mutation.table).update(payload).eq('id', mutation.itemId);
+                    if (!error) { removeMutation(mutation.id); processed++; }
+                } else { removeMutation(mutation.id); processed++; }
+            } else if (mutation.operation === 'delete') {
+                const { error } = await supabase.from(mutation.table).delete().eq('id', mutation.itemId);
+                if (!error) { removeMutation(mutation.id); processed++; }
+            }
+        } catch {
+            // Keep in queue for next attempt
+        }
+    }
+    return processed;
+}
+
+export function hasPendingMutations(): boolean {
+    return getMutationQueue().length > 0;
+}
+
+export function getPendingMutationCount(): number {
+    return getMutationQueue().length;
+}
+
+// --- SUPABASE IMPLEMENTATION WITH ROBUST FALLBACK ---
+class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
+    private localFallback: LocalStorageCollection<T>;
+
+    constructor(private table: string, private key: string, private defaultVal: T[]) {
+        this.localFallback = new LocalStorageCollection<T>(key, defaultVal);
+    }
+
+    private sanitize(item: Partial<T> | T): any {
+        const payload: any = { ...item };
+
+        // Map camelCase to snake_case for specific tables
+        if (this.table === 'news') {
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+            if ('readBy' in payload) { payload.read_by = payload.readBy; delete payload.readBy; }
+            if ('pinned' in payload) { payload.pinned = payload.pinned; } // Standard
+        }
+
+        if (this.table === 'polls') {
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+            if ('startsAt' in payload) { payload.starts_at = payload.startsAt; delete payload.startsAt; }
+            if ('expiresAt' in payload) { payload.expires_at = payload.expiresAt; delete payload.expiresAt; }
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if ('allowMultipleSelection' in payload) { payload.allow_multiple_selection = payload.allowMultipleSelection; delete payload.allowMultipleSelection; }
+            if ('anonymous' in payload) { payload.anonymous = payload.anonymous; }
+            if ('description' in payload) { payload.description = payload.description; }
+
+            // Handle NOT NULL constraints for dates
+            if (!payload.starts_at) { payload.starts_at = new Date().toISOString(); }
+            if (!payload.expires_at) { payload.expires_at = '2099-12-31T23:59:59Z'; }
+        }
+
+        if (this.table === 'events') {
+            if ('endDate' in payload) { payload.end_date = payload.endDate; delete payload.endDate; }
+            if ('endTime' in payload) { payload.end_time = payload.endTime; delete payload.endTime; }
+            if ('assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+        }
+
+        if (this.table === 'feedback') {
+            if ('userId' in payload) { payload.user_id = payload.userId; delete payload.userId; }
+            if ('userName' in payload) { payload.user_name = payload.userName; delete payload.userName; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+            if ('category' in payload) { payload.category = payload.category; }
+        }
+
+        if (this.table === 'meal_plans') {
+            if ('mealName' in payload) { payload.meal_name = payload.mealName; delete payload.mealName; }
+            if ('recipeHint' in payload) { payload.recipe_hint = payload.recipeHint; delete payload.recipeHint; }
+            if ('breakfast' in payload) { payload.breakfast = payload.breakfast; }
+            if ('lunch' in payload) { payload.lunch = payload.lunch; }
+        }
+
+        if (this.table === 'recipes') {
+            if ('authorId' in payload) delete payload.authorId;
+        }
+
+        if (this.table === 'notifications') {
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+        }
+
+        if (this.table === 'weather_favs') {
+            if ('userId' in payload) { payload.user_id = payload.userId; delete payload.userId; }
+        }
+
+        if (this.table === 'meal_requests') {
+            if ('dishName' in payload) { payload.dish_name = payload.dishName; delete payload.dishName; }
+            if ('requestedBy' in payload) { payload.requested_by = payload.requestedBy; delete payload.requestedBy; }
+            if ('createdAt' in payload) { payload.created_at = payload.createdAt; delete payload.createdAt; }
+        }
+
+        if (this.table === 'meal_plan') {
+            if ('mealName' in payload) { payload.meal_name = payload.mealName; delete payload.mealName; }
+            if ('recipeHint' in payload) { payload.recipe_hint = payload.recipeHint; delete payload.recipeHint; }
+        }
+
+        if (this.table === 'family') {
+            if ('darkMode' in payload) { payload.dark_mode = payload.darkMode; delete payload.darkMode; }
+            if ('mustChangePassword' in payload) { payload.must_change_password = payload.mustChangePassword; delete payload.mustChangePassword; }
+            if ('mustShowSecurityScreen' in payload) { payload.must_show_security_screen = payload.mustShowSecurityScreen; delete payload.mustShowSecurityScreen; }
+            if ('fcmToken' in payload) { payload.fcm_token = payload.fcmToken; delete payload.fcmToken; }
+            if ('weatherLat' in payload) { payload.weather_lat = payload.weatherLat; delete payload.weatherLat; }
+            if ('weatherLng' in payload) { payload.weather_lng = payload.weatherLng; delete payload.weatherLng; }
+            if ('weatherLocationName' in payload) { payload.weather_location_name = payload.weatherLocationName; delete payload.weatherLocationName; }
+            if ('weatherLayout' in payload) { payload.weather_layout = payload.weatherLayout; delete payload.weatherLayout; }
+        }
+
+        if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
+            if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
+            if (this.table.includes('tasks') && 'assignedTo' in payload) { payload.assigned_to = payload.assignedTo; delete payload.assignedTo; }
+            if (this.table.includes('tasks') && 'dueDate' in payload) { payload.due_date = payload.dueDate; delete payload.dueDate; }
+            if (this.table.includes('tasks') && 'startDate' in payload) { payload.start_date = payload.startDate; delete payload.startDate; }
+        }
+
+        return payload;
+    }
+
+    private desanitize(dbItem: any): T {
+        const item: any = { ...dbItem };
+
+        if (this.table === 'news') {
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+            if ('read_by' in item) { item.readBy = item.read_by; delete item.read_by; }
+            if ('pinned' in item) { item.pinned = item.pinned; }
+        }
+        if (this.table === 'polls') {
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+            if ('starts_at' in item) { item.startsAt = item.starts_at; delete item.starts_at; }
+            if ('expires_at' in item) { item.expiresAt = item.expires_at; delete item.expires_at; }
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if ('allow_multiple_selection' in item) { item.allowMultipleSelection = item.allow_multiple_selection; delete item.allow_multiple_selection; }
+            if ('anonymous' in item) { item.anonymous = item.anonymous; }
+            if ('description' in item) { item.description = item.description; }
+        }
+        if (this.table === 'events') {
+            if ('end_date' in item) { item.endDate = item.end_date; delete item.end_date; }
+            if ('end_time' in item) { item.endTime = item.end_time; delete item.end_time; }
+            if ('assigned_to' in item) { item.assignedTo = item.assigned_to; delete item.assigned_to; }
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+        }
+        if (this.table === 'feedback') {
+            if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }
+            if ('user_name' in item) { item.userName = item.user_name; delete item.user_name; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+            if ('category' in item) { item.category = item.category; }
+        }
+        if (this.table === 'meal_plans') {
+            if ('meal_name' in item) { item.mealName = item.meal_name; delete item.meal_name; }
+            if ('recipe_hint' in item) { item.recipeHint = item.recipe_hint; delete item.recipe_hint; }
+            if ('breakfast' in item) { item.breakfast = item.breakfast; }
+            if ('lunch' in item) { item.lunch = item.lunch; }
+        }
+        if (this.table === 'weather_favs') {
+            if ('user_id' in item) { item.userId = item.user_id; delete item.user_id; }
+        }
+        if (this.table === 'family') {
+            if ('dark_mode' in item) { item.darkMode = item.dark_mode; delete item.dark_mode; }
+            if ('must_change_password' in item) { item.mustChangePassword = item.must_change_password; delete item.must_change_password; }
+            if ('must_show_security_screen' in item) { item.mustShowSecurityScreen = item.must_show_security_screen; delete item.must_show_security_screen; }
+            if ('fcm_token' in item) { item.fcmToken = item.fcm_token; delete item.fcm_token; }
+            if ('weather_lat' in item) { item.weatherLat = item.weather_lat; delete item.weather_lat; }
+            if ('weather_lng' in item) { item.weatherLng = item.weather_lng; delete item.weather_lng; }
+            if ('weather_location_name' in item) { item.weatherLocationName = item.weather_location_name; delete item.weather_location_name; }
+            if ('weather_layout' in item) { item.weatherLayout = item.weather_layout; delete item.weather_layout; }
+        }
+        if (this.table === 'notifications') {
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+        }
+
+        if (this.table === 'meal_requests') {
+            if ('dish_name' in item) { item.dishName = item.dish_name; delete item.dish_name; }
+            if ('requested_by' in item) { item.requestedBy = item.requested_by; delete item.requested_by; }
+            if ('created_at' in item) { item.createdAt = item.created_at; delete item.created_at; }
+        }
+
+        if (this.table === 'meal_plan') {
+            if ('meal_name' in item) { item.mealName = item.meal_name; delete item.meal_name; }
+            if ('recipe_hint' in item) { item.recipe_hint = item.recipe_hint; delete item.recipe_hint; }
+        }
+
+        if (this.table === 'shopping' || this.table === 'household_tasks' || this.table === 'personal_tasks') {
+            if ('author_id' in item) { item.authorId = item.author_id; delete item.author_id; }
+            if (this.table.includes('tasks') && 'assigned_to' in item) { item.assignedTo = item.assigned_to; delete item.assigned_to; }
+            if (this.table.includes('tasks') && 'due_date' in item) { item.dueDate = item.due_date; delete item.due_date; }
+            if (this.table.includes('tasks') && 'start_date' in item) { item.startDate = item.start_date; delete item.start_date; }
+        }
+
+        return item as T;
+    }
+
+    private async pushLocalToSupabase(localData: T[]): Promise<void> {
+        if (!supabase || localData.length === 0) return;
+
+        let payloadItems: any[] = localData.map(item => this.sanitize(item));
+
+        if (this.table === 'feedback') {
+            // For feedback, enforce foreign key integrity on user_id, but do not warn in production-like mode.
+            const userIds = Array.from(new Set(payloadItems.map(f => f.user_id).filter((id: any) => !!id)));
+            if (userIds.length > 0) {
+                const { data: familyRows } = await supabase.from('family').select('id').in('id', userIds);
+                const validIds = familyRows ? familyRows.map((r: any) => r.id) : [];
+                payloadItems = payloadItems.filter((f: any) => validIds.includes(f.user_id));
+                if (payloadItems.length === 0) {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
+        try {
+            const { error } = await supabase.from(this.table).upsert(payloadItems);
+            if (error) {
+                // Ignore conflicts that can happen from FK constraints or duplicate IDs.
+                return;
+            }
+            return;
+        } catch (err) {
+            console.error(`[Supabase] Fallback sync exception (${this.table}):`, err);
+        }
+    }
+
+    async getAll(): Promise<T[]> {
+        // Try Supabase first
+        if (supabase) {
+            try {
+                const { data, error } = await supabase.from(this.table).select('*');
+
+                if (!error && data) {
+                    let mapped: T[] = data.map(d => this.desanitize(d));
+
+                    // Apply queued offline mutations on top of fresh Supabase data
+                    const queue = getMutationQueue().filter(m => m.table === this.table);
+                    for (const mutation of queue) {
+                        if (mutation.operation === 'add' && mutation.item) {
+                            const desanitized = this.desanitize ? this.desanitize(mutation.item) : mutation.item;
+                            if (!mapped.find((i: any) => i.id === desanitized.id)) {
+                                mapped.push(desanitized);
+                            }
+                        } else if (mutation.operation === 'update' && mutation.updates && mutation.itemId) {
+                            const desanitized = this.desanitize ? this.desanitize(mutation.updates) : mutation.updates;
+                            mapped = mapped.map((i: any) => i.id === mutation.itemId ? { ...i, ...desanitized } : i) as T[];
+                        } else if (mutation.operation === 'delete' && mutation.itemId) {
+                            mapped = mapped.filter((i: any) => i.id !== mutation.itemId) as T[];
+                        }
+                    }
+
+                    await this.localFallback.setAll(mapped);
+                    return mapped;
+                } else if (error) {
+                    console.warn(`[Supabase] Load error (${this.table}): ${error.message}. Using fallback.`);
+                }
+            } catch (err) {
+                console.warn(`[Supabase] Network error (${this.table}). Using fallback.`, err);
+            }
+        }
+
+        // Fallback: only when Supabase is unavailable or errored
+        return this.localFallback.getAll();
+    }
+
+    async add(item: T): Promise<T[]> {
+        // Optimistic: Update local immediately
+        await this.localFallback.add(item);
+
+        if (supabase) {
+            try {
+                const payload = this.sanitize(item);
+                const { error } = await supabase.from(this.table).insert(payload);
+                if (error) {
+                    console.error(`[Supabase] Add sync error (${this.table}):`, error.message);
+                    addMutation({ table: this.table, operation: 'add', item: payload });
+                }
+            } catch (err) {
+                console.error(`[Supabase] Add network error (${this.table}):`, err);
+                const payload = this.sanitize(item);
+                addMutation({ table: this.table, operation: 'add', item: payload });
+            }
+        }
+        return this.localFallback.getAll();
+    }
+
+    async update(id: string, updates: Partial<T>): Promise<T[]> {
+        await this.localFallback.update(id, updates);
+
+        if (supabase) {
+            try {
+                const payload = this.sanitize(updates);
+                if (Object.keys(payload).length > 0) {
+                    if (this.table === 'app_settings') {
+                        const { error: updateError } = await supabase.from(this.table).update(payload).eq('id', id);
+                        if (updateError) {
+                            const { error: insertError } = await supabase.from(this.table).insert({ id, ...payload });
+                            if (insertError) {
+                                console.error(`[Supabase] Upsert error (${this.table}):`, insertError.message);
+                                addMutation({ table: this.table, operation: 'update', updates: payload, itemId: id });
+                            }
+                        }
+                    } else {
+                        const { error } = await supabase.from(this.table).update(payload).eq('id', id);
+                        if (error) {
+                            const isNetworkError = error.message === 'Failed to fetch' || error.message?.includes('network');
+                            console.error(`[Supabase] ${isNetworkError ? 'Network' : 'Sync'} error (${this.table}):`, error.message);
+                            addMutation({ table: this.table, operation: 'update', updates: payload, itemId: id });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error(`[Supabase] Update network error (${this.table}):`, err);
+                const payload = this.sanitize(updates);
+                addMutation({ table: this.table, operation: 'update', updates: payload, itemId: id });
+            }
+        }
+        return this.localFallback.getAll();
+    }
+
+    async delete(id: string): Promise<T[]> {
+        await this.localFallback.delete(id);
+
+        if (supabase) {
+            try {
+                console.log(`[Supabase] Deleting ${this.table}:${id}...`);
+                const { error, data: deleteData } = await supabase.from(this.table).delete().eq('id', id);
+                if (error) {
+                    console.error(`[Supabase] Delete sync error (${this.table}):`, error.message, error.code);
+                    addMutation({ table: this.table, operation: 'delete', itemId: id });
+                } else {
+                    console.log(`[Supabase] Deleted ${this.table}:${id} successfully`);
+                }
+            } catch (err) {
+                console.error(`[Supabase] Delete network error (${this.table}):`, err);
+                addMutation({ table: this.table, operation: 'delete', itemId: id });
+            }
+        }
+        return this.localFallback.getAll();
+    }
+
+    async setAll(items: T[]): Promise<T[]> {
+        // 1. Update Local Fallback immediately (Optimistic)
+        await this.localFallback.setAll(items);
+
+        if (supabase) {
+            try {
+                if (items.length === 0) {
+                    // Case 1: Empty list -> Delete ALL items in the table
+                    // We use neq '0' to match all string IDs (assuming no ID is exactly "0")
+                    if (this.table === 'app_settings') {
+                        console.log('[Supabase] Skip clearing singleton app_settings table');
+                    } else {
+                        const { error: deleteError } = await supabase.from(this.table).delete().neq('id', '0');
+                        if (deleteError) console.error(`[Supabase] Clear error (${this.table}):`, deleteError.message);
+                        else console.log(`[Supabase] Cleared table ${this.table}`);
+                    }
+                } else {
+                    // Case 2: Items exist -> Sync
+                    const ids = items.map(i => i.id).filter(id => id); // Ensure no undefined IDs
+
+                    if (ids.length > 0 && this.table !== 'app_settings') {
+                        // 1. Delete items that are NOT in the new list
+                        const { error: deleteError } = await supabase.from(this.table).delete().not('id', 'in', `(${ids.join(',')})`);
+                        if (deleteError) {
+                            console.warn(`[Supabase] Bulk delete failed (${this.table}):`, deleteError.message);
+                        }
+                    }
+
+                    // 2. Upsert (Insert or Update) the items
+                    const sanitizedItems = items.map(i => this.sanitize(i));
+                    if (this.table === 'app_settings') {
+                        const row = sanitizedItems[0];
+                        const { error: updateError } = await supabase.from(this.table).update(row).eq('id', row.id);
+                        if (updateError) {
+                            const { error: insertError } = await supabase.from(this.table).insert(row);
+                            if (insertError) console.error(`[Supabase] Sync/Upsert error (${this.table}):`, insertError.message);
+                        }
+                    } else {
+                        const { error: upsertError } = await supabase.from(this.table).upsert(sanitizedItems);
+                        if (upsertError) console.error(`[Supabase] Sync/Upsert error (${this.table}):`, upsertError.message);
+                    }
+                }
+            } catch (err) {
+                console.error(`[Supabase] setAll exception`, err);
+            }
+        }
+
+        return this.localFallback.getAll();
+    }
+}
+
+// --- FACTORY ---
+const TABLE_MAPPING: Record<string, string> = {
+    'fh_family': 'family',
+    'fh_events': 'events',
+    'fh_news': 'news',
+    'fh_polls': 'polls',
+    'fh_shopping': 'shopping',
+    'fh_household': 'household_tasks',
+    'fh_personal': 'personal_tasks',
+    'fh_mealPlan': 'meal_plans',
+    'fh_mealRequests': 'meal_requests',
+    'fh_recipes': 'recipes',
+    'fh_weather_favs': 'weather_favs',
+    'fh_feedback': 'feedback',
+    'fh_notifications': 'notifications',
+    'fh_app_settings': 'app_settings'
+};
+
+const createCollection = <T extends { id: string }>(key: string, defaultVal: T[]) => {
+    if (supabase) {
+        const tableName = TABLE_MAPPING[key];
+        if (tableName) {
+            return new SupabaseCollection<T>(tableName, key, defaultVal);
+        }
+    }
+    return new LocalStorageCollection<T>(key, defaultVal);
+}
+
+// --- NOTIFICATION PREFERENCES HELPER ---
+const DEFAULT_PREFS: Omit<NotificationPreferences, 'user_id'> = {
+  events: true,
+  shopping: true,
+  household_tasks: true,
+  personal_tasks: true,
+  news: true,
+  polls: true,
+  meal_requests: true,
+  weather: true,
+};
+
+export async function getNotificationPrefs(userId: string): Promise<NotificationPreferences> {
+  if (!supabase) {
+    const stored = localStorage.getItem('fh_notification_prefs');
+    if (stored) {
+      try { return JSON.parse(stored); } catch { }
+    }
+    return { user_id: userId, ...DEFAULT_PREFS };
+  }
+  const { data, error } = await supabase.from('notification_preferences').select('*').eq('user_id', userId).single();
+  if (error || !data) {
+    return { user_id: userId, ...DEFAULT_PREFS };
+  }
+  return data as NotificationPreferences;
+}
+
+export async function saveNotificationPrefs(prefs: NotificationPreferences): Promise<void> {
+  localStorage.setItem('fh_notification_prefs', JSON.stringify(prefs));
+  if (!supabase) return;
+  try {
+    const { error } = await supabase.from('notification_preferences').upsert(prefs, { onConflict: 'user_id' });
+    if (error) console.error('[Supabase] saveNotificationPrefs error:', error.message);
+  } catch (err) {
+    console.error('[Supabase] saveNotificationPrefs network error:', err);
+  }
+}
+
+// --- EXPORT ---
+export const Backend = {
+    family: createCollection<FamilyMember>('fh_family', INITIAL_FAMILY),
+    events: createCollection<CalendarEvent>('fh_events', INITIAL_EVENTS),
+    news: createCollection<NewsItem>('fh_news', INITIAL_NEWS),
+    polls: createCollection<Poll>('fh_polls', []),
+    shopping: createCollection<ShoppingItem>('fh_shopping', INITIAL_SHOPPING),
+    householdTasks: createCollection<Task>('fh_household', INITIAL_TASKS),
+    personalTasks: createCollection<Task>('fh_personal', []),
+    mealPlan: createCollection<MealPlan>('fh_mealPlan', []),
+    mealRequests: createCollection<MealRequest>('fh_mealRequests', []),
+    recipes: createCollection<Recipe>('fh_recipes', []),
+    weatherFavorites: createCollection<SavedLocation>('fh_weather_favs', []),
+    feedback: createCollection<FeedbackItem>('fh_feedback', []),
+    notifications: createCollection<AppNotification>('fh_notifications', []),
+    appSettings: createCollection<AppSettings>('fh_app_settings', INITIAL_SETTINGS),
+};

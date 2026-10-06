@@ -1,0 +1,164 @@
+import React, { useRef, useState } from 'react';
+import { Home, Calendar, ClipboardList, Utensils, CloudSun, TreePine, Snowflake, Gift, Cookie, CalendarHeart, ShoppingBasket, Sun, Umbrella, IceCream, Palmtree, Leaf, Wind, Coffee, Apple } from 'lucide-react';
+import { AppRoute } from '../types';
+import { t, Language } from '../services/translations';
+
+interface NavigationProps {
+    currentRoute: AppRoute;
+    onNavigate: (route: AppRoute) => void;
+    lang: Language;
+    christmasMode?: boolean;
+    autumnMode?: boolean;
+    liquidGlass?: boolean;
+    enableSwipe?: boolean;
+}
+
+const Navigation: React.FC<NavigationProps> = React.memo(({ currentRoute, onNavigate, lang, christmasMode, autumnMode, liquidGlass, enableSwipe }) => {
+    const isWeather = currentRoute === AppRoute.WEATHER;
+    const navRef = useRef<HTMLElement>(null);
+
+    // --- Interaction State ---
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragX, setDragX] = useState<number | null>(null);
+    const [velocity, setVelocity] = useState(0);
+    const lastX = useRef<number>(0);
+    const lastTime = useRef<number>(0);
+
+    const navItems = [
+        { route: AppRoute.DASHBOARD, icon: autumnMode ? Leaf : (christmasMode ? TreePine : Home), label: t('nav.dashboard', lang) },
+        { route: AppRoute.WEATHER, icon: autumnMode ? Wind : (christmasMode ? Snowflake : CloudSun), label: t('nav.weather', lang) },
+        { route: AppRoute.CALENDAR, icon: autumnMode ? CalendarHeart : (christmasMode ? CalendarHeart : Calendar), label: t('nav.calendar', lang) },
+        { route: AppRoute.MEALS, icon: autumnMode ? Coffee : (christmasMode ? Cookie : Utensils), label: t('nav.meals', lang) },
+        { route: AppRoute.LISTS, icon: autumnMode ? Apple : (christmasMode ? Gift : ClipboardList), label: t('nav.lists', lang) },
+    ];
+
+    const activeIndex = navItems.findIndex(item => item.route === currentRoute);
+    const itemWidthPercent = 100 / navItems.length;
+
+    const isSwipeActive = liquidGlass || enableSwipe;
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        if (!isSwipeActive) return;
+        setIsDragging(true);
+        const rect = navRef.current?.getBoundingClientRect();
+        if (rect) {
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const clamped = Math.max(0, Math.min(100 - itemWidthPercent, x - itemWidthPercent / 2));
+            setDragX(clamped);
+            lastX.current = e.clientX;
+            lastTime.current = Date.now();
+        }
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    };
+
+    const handlePointerMove = (e: React.PointerEvent) => {
+        if (!isDragging || !isSwipeActive) return;
+        const rect = navRef.current?.getBoundingClientRect();
+        if (rect) {
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const clamped = Math.max(0, Math.min(100 - itemWidthPercent, x - itemWidthPercent / 2));
+            setDragX(clamped);
+
+            // Calculate velocity for "stretch" effect (liquid glass only)
+            const now = Date.now();
+            const dt = now - lastTime.current;
+            if (dt > 0) {
+                const dx = e.clientX - lastX.current;
+                setVelocity(dx / dt);
+            }
+            lastX.current = e.clientX;
+            lastTime.current = now;
+        }
+    };
+
+    const handlePointerUp = (e: React.PointerEvent) => {
+        if (!isDragging || !isSwipeActive) return;
+        setIsDragging(false);
+        const rect = navRef.current?.getBoundingClientRect();
+        if (rect && dragX !== null) {
+            const finalX = dragX + itemWidthPercent / 2;
+            const index = Math.max(0, Math.min(navItems.length - 1, Math.round((finalX / 100) * navItems.length - 0.5)));
+            onNavigate(navItems[index].route);
+        }
+        setDragX(null);
+        setVelocity(0);
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    };
+
+    const getNavClass = () => {
+        if (liquidGlass) return 'liquid-shimmer-card rounded-2xl lg:rounded-[2.5rem] border-t border-white/40';
+        if (autumnMode) return 'bg-orange-50/60 dark:bg-orange-950/30 backdrop-blur-md border-t border-orange-200/30 dark:border-orange-800/30 rounded-2xl lg:rounded-[2.5rem]';
+        return 'bg-white dark:bg-slate-900 border border-gray-100 dark:border-gray-800 rounded-2xl lg:rounded-[2.5rem]';
+    };
+
+    // Calculate dynamic styles for the bubble
+    const bubbleWidth = `calc(${itemWidthPercent}% * 0.85)`;
+    const bubbleLeftBase = activeIndex >= 0 ? activeIndex * itemWidthPercent : 0;
+    const bubbleLeft = dragX !== null ? dragX : (bubbleLeftBase + (itemWidthPercent * 0.075));
+    const stretch = liquidGlass ? Math.min(1.08, 1 + Math.abs(velocity) * 0.06) : 1;
+    const skew = liquidGlass ? Math.max(-15, Math.min(15, velocity * 10)) : 0;
+
+    return (
+        <nav
+            ref={navRef}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className={`relative w-full max-w-5xl mx-auto px-2 py-2 grid grid-cols-5 items-center transition-all duration-500 overflow-hidden select-none mb-4 ${isSwipeActive ? 'touch-none' : 'touch-auto'} ${getNavClass()}`}
+        >
+            {/* Wobble Bubble Background (Liquid Glass only) */}
+            {liquidGlass && (
+                <div
+                    className="nav-wobble-bubble"
+                    style={{
+                        width: bubbleWidth,
+                        left: `${bubbleLeft}%`,
+                        top: '50%',
+                        transition: isDragging ? 'none' : 'all 0.6s cubic-bezier(0.68, -0.6, 0.32, 1.6)',
+                        transform: `translateY(-50%) skewX(${skew}deg) scaleX(${stretch})`,
+                        transformOrigin: '50% 50%',
+                        opacity: activeIndex === -1 && !isDragging ? 0 : 1,
+                        borderRadius: '20px',
+                        height: 'calc(100% - 8px)',
+                        boxShadow: 'none'
+                    }}
+                />
+            )}
+
+            {navItems.map((item) => {
+                const isActive = currentRoute === item.route;
+                const activeBg = !liquidGlass && autumnMode && isActive ? 'bg-orange-100/70 dark:bg-orange-900/30' : '';
+                let textColor = '';
+
+                if (autumnMode) {
+                    textColor = isActive ? 'text-orange-600 dark:text-orange-400 font-black scale-110' : 'text-slate-500/60 dark:text-slate-400/50';
+                } else if (isWeather && !liquidGlass) {
+                    textColor = isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500';
+                } else if (christmasMode) {
+                    textColor = isActive ? 'text-red-600 dark:text-red-500' : 'text-green-800/70 dark:text-green-400/60';
+                } else if (liquidGlass) {
+                    textColor = isActive ? 'text-blue-600 dark:text-blue-400 font-black' : 'text-slate-500 dark:text-slate-300';
+                } else {
+                    textColor = isActive ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-gray-400 dark:text-gray-500';
+                }
+
+                return (
+                    <button
+                        key={item.route}
+                        type="button"
+                        onClick={() => onNavigate(item.route)}
+                        className={`relative flex flex-col items-center justify-center w-full py-2 space-y-1 transition-all duration-300 z-10 pointer-events-auto ${textColor} ${activeBg} hover:scale-105 active:scale-95`}
+                    >
+                        <item.icon size={isActive ? 32 : 26} className={`transition-all duration-300 ${isActive && liquidGlass ? 'animate-[liquidWobble_0.25s_ease-in-out]' : ''}`} />
+                        <span className="text-[11px] font-black truncate w-full text-center tracking-tight">
+                            {item.label}
+                        </span>
+                    </button>
+                );
+            })}
+        </nav>
+    );
+});
+
+
+export default Navigation;
