@@ -51,7 +51,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
     const [boardFilter, setBoardFilter] = useState<'news' | 'polls'>(() => {
         const saved = localStorage.getItem('fh_board_filter');
-        return (saved === 'news' || saved === 'polls') ? saved : 'news';
+        return (saved === 'news' || saved === 'polls') ? saved : 'polls';
     });
 
     useEffect(() => {
@@ -769,12 +769,12 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
                                     <div className="flex items-center space-x-3 p-1">
                                         <input type="checkbox" id="multiVote" checked={pollAllowMulti} onChange={(e) => setPollAllowMulti(e.target.checked)} className="w-4 h-4 rounded text-indigo-600" />
-                                        <label htmlFor="multiVote" className="text-xs font-medium cursor-pointer">Mehrfachauswahl erlauben</label>
+                                        <label htmlFor="multiVote" className="text-xs font-medium cursor-pointer text-gray-800 dark:text-gray-200">Mehrfachauswahl erlauben</label>
                                     </div>
 
                                     <div className="flex items-center space-x-3 p-1">
                                         <input type="checkbox" id="anonVote" checked={pollAnonymous} onChange={(e) => setPollAnonymous(e.target.checked)} className="w-4 h-4 rounded text-indigo-600" />
-                                        <label htmlFor="anonVote" className="text-xs font-medium cursor-pointer">Anonyme Abstimmung</label>
+                                        <label htmlFor="anonVote" className="text-xs font-medium cursor-pointer text-gray-800 dark:text-gray-200">Anonyme Abstimmung</label>
                                     </div>
 
                                     <button type="submit" disabled={!pollQuestion.trim() || pollOptions.some(o => !o.text.trim())} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl active:scale-95 transition disabled:opacity-50">Umfrage starten</button>
@@ -787,10 +787,11 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                             {(polls || []).map(poll => {
                                 const totalVotes = poll.options.reduce((acc, opt) => acc + opt.votes.length, 0);
                                 const author = family.find(f => f.id === poll.authorId);
-                                const isTimed = poll.startsAt || poll.expiresAt;
+                                const hasRealExpiry = poll.expiresAt && !poll.expiresAt.startsWith('2099-12-31');
+                                const isTimed = (poll.startsAt && poll.startsAt.trim() !== '') || hasRealExpiry;
                                 const now = new Date();
                                 const hasStarted = poll.startsAt ? now >= new Date(poll.startsAt) : true;
-                                const hasExpired = poll.expiresAt ? now > new Date(poll.expiresAt) : false;
+                                const hasExpired = hasRealExpiry ? now > new Date(poll.expiresAt!) : false;
 
                                 return (
                                     <div key={poll.id} className={`rounded-2xl overflow-hidden border transition-all ${liquidGlass ? 'liquid-shimmer-card border-white/40' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} ${(!hasStarted || hasExpired) ? 'opacity-60 grayscale-[0.5]' : ''}`}>
@@ -801,22 +802,33 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                     <h3 className={`font-bold text-lg leading-tight ${liquidGlass ? 'text-slate-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>{poll.question}</h3>
                                                     {poll.description && <p className="text-xs text-gray-500 mt-1">{poll.description}</p>}
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    {poll.allowMultipleSelection && <span className="bg-blue-50 dark:bg-blue-900/30 text-[10px] font-bold text-blue-600 px-2 py-0.5 rounded-full">Multi</span>}
-                                                    {onDeletePoll && <button onClick={() => onDeletePoll(poll.id)} className="text-gray-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>}
+                                                <div className="flex gap-2 items-center">
+                                                    {poll.allowMultipleSelection && <span className="bg-blue-50 dark:bg-blue-900/30 text-[10px] font-bold text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">Mehrfachauswahl</span>}
+                                                    {poll.anonymous && <span className="bg-indigo-50 dark:bg-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">Anonym</span>}
+                                                    {(currentUser.role === 'admin' || poll.authorId === currentUser.id) && (
+                                                        <button onClick={() => handleEditPoll(poll)} className="text-gray-300 hover:text-blue-500 p-1" title="Bearbeiten"><Edit2 size={16} /></button>
+                                                    )}
+                                                    {onDeletePoll && <button onClick={() => onDeletePoll(poll.id)} className="text-gray-300 hover:text-red-500 p-1" title="Löschen"><Trash2 size={16} /></button>}
                                                 </div>
                                             </div>
 
-                                            {isTimed && (
+                                            {isTimed ? (
                                                 <div className="flex items-center gap-2 mb-4 text-[10px] font-bold">
                                                     <Clock size={12} className="text-indigo-500" />
                                                     {!hasStarted ? (
                                                         <span className="text-orange-500">Startet am {new Date(poll.startsAt!).toLocaleString()}</span>
                                                     ) : hasExpired ? (
                                                         <span className="text-red-500">Beendet</span>
+                                                    ) : hasRealExpiry ? (
+                                                        <span className="text-emerald-500">Aktiv bis {new Date(poll.expiresAt!).toLocaleString()}</span>
                                                     ) : (
-                                                        <span className="text-emerald-500">Aktiv bis {poll.expiresAt ? new Date(poll.expiresAt).toLocaleString() : 'Open End'}</span>
+                                                        <span className="text-emerald-500">Aktiv</span>
                                                     )}
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-emerald-500">
+                                                    <Clock size={12} className="text-indigo-500" />
+                                                    <span>Aktiv</span>
                                                 </div>
                                             )}
 
@@ -852,7 +864,7 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
 
                                             <div className="flex items-center justify-between pt-4 mt-2 border-t border-gray-100/50 dark:border-gray-700">
                                                 <div className="flex -space-x-1.5 overflow-hidden">
-                                                    {!poll.anonymous ? (
+                                                    {!poll.anonymous && (
                                                         <>
                                                             {poll.options.flatMap(o => o.votes).slice(0, 5).map((id, i) => {
                                                                 const voter = family.find(f => f.id === id);
@@ -860,8 +872,6 @@ const CalendarPage: React.FC<CalendarPageProps> = ({
                                                             })}
                                                             {totalVotes > 5 && <span className="text-[8px] font-bold text-gray-400 pl-2 self-center">+{totalVotes - 5}</span>}
                                                         </>
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 flex items-center gap-1">🔒 Anonyme Abstimmung</span>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-2">

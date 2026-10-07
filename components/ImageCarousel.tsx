@@ -2,14 +2,19 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface ImageCarouselProps {
-    images?: string[];
+    images?: string[] | string | null;
     fallbackImage?: string; // Legacy support
     className?: string;
     aspectRatioClass?: string; // e.g. "h-48"
 }
 
 const ImageCarousel: React.FC<ImageCarouselProps> = ({ images = [], fallbackImage, className = "", aspectRatioClass = "h-48" }) => {
-    const allImages = [...images];
+    const imageList = Array.isArray(images)
+        ? images.filter((image): image is string => typeof image === 'string' && image.length > 0)
+        : typeof images === 'string' && images.length > 0
+            ? [images]
+            : [];
+    const allImages = [...imageList];
     if (fallbackImage && !allImages.includes(fallbackImage)) {
         allImages.unshift(fallbackImage);
     }

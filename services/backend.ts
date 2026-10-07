@@ -157,6 +157,14 @@ function removeMutation(id: string): void {
     saveMutationQueue(getMutationQueue().filter(m => m.id !== id));
 }
 
+export function removeMutationsForItem(itemId: string): void {
+    saveMutationQueue(getMutationQueue().filter(m => m.itemId !== itemId));
+}
+
+export function clearMutationQueue(): void {
+    try { localStorage.removeItem(MUTATION_QUEUE_KEY); } catch {}
+}
+
 export async function processMutationQueue(): Promise<number> {
     if (!supabase) return 0;
     const queue = getMutationQueue();
@@ -169,16 +177,31 @@ export async function processMutationQueue(): Promise<number> {
             // Strip client-only fields that don't exist in Supabase
             delete payload.authorId;
             if (mutation.operation === 'add') {
+                delete payload.description;
+                delete payload.anonymous;
+                delete payload.images;
                 const { error } = await supabase.from(mutation.table).insert(payload);
-                if (!error) { removeMutation(mutation.id); processed++; }
+                if (!error || error.message?.includes('schema cache') || error.message?.includes('column') || error.code === '42703' || error.code === 'PGRST204') {
+                    removeMutation(mutation.id);
+                    processed++;
+                }
             } else if (mutation.operation === 'update') {
                 if (Object.keys(payload).length > 0) {
+                    delete payload.description;
+                    delete payload.anonymous;
+                    delete payload.images;
                     const { error } = await supabase.from(mutation.table).update(payload).eq('id', mutation.itemId);
-                    if (!error) { removeMutation(mutation.id); processed++; }
+                    if (!error || error.message?.includes('schema cache') || error.message?.includes('column') || error.code === '42703' || error.code === 'PGRST204') {
+                        removeMutation(mutation.id);
+                        processed++;
+                    }
                 } else { removeMutation(mutation.id); processed++; }
             } else if (mutation.operation === 'delete') {
                 const { error } = await supabase.from(mutation.table).delete().eq('id', mutation.itemId);
-                if (!error) { removeMutation(mutation.id); processed++; }
+                if (!error || error.code === 'PGRST116' || error.message?.includes('0 rows')) {
+                    removeMutation(mutation.id);
+                    processed++;
+                }
             }
         } catch {
             // Keep in queue for next attempt
@@ -220,12 +243,17 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
             if ('expiresAt' in payload) { payload.expires_at = payload.expiresAt; delete payload.expiresAt; }
             if ('authorId' in payload) { payload.author_id = payload.authorId; delete payload.authorId; }
             if ('allowMultipleSelection' in payload) { payload.allow_multiple_selection = payload.allowMultipleSelection; delete payload.allowMultipleSelection; }
-            if ('anonymous' in payload) { payload.anonymous = payload.anonymous; }
-            if ('description' in payload) { payload.description = payload.description; }
 
-            // Handle NOT NULL constraints for dates
-            if (!payload.starts_at) { payload.starts_at = new Date().toISOString(); }
-            if (!payload.expires_at) { payload.expires_at = '2099-12-31T23:59:59Z'; }
+            // Delete fields not present in Supabase table schema to prevent 400 Bad Request
+            delete payload.description;
+            delete payload.anonymous;
+            delete payload.images;
+
+            // Only set defaults if creating a new poll (has question or author_id)
+            if (payload.question || payload.author_id) {
+                if (!payload.starts_at) { payload.starts_at = new Date().toISOString(); }
+                if (!payload.expires_at) { payload.expires_at = '2099-12-31T23:59:59Z'; }
+            }
         }
 
         if (this.table === 'events') {
@@ -496,6 +524,7 @@ class SupabaseCollection<T extends { id: string }> implements ICollection<T> {
     }
 
     async delete(id: string): Promise<T[]> {
+        removeMutationsForItem(id);
         await this.localFallback.delete(id);
 
         if (supabase) {

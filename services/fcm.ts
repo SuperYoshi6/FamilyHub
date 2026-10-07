@@ -61,6 +61,19 @@ const saveTokenToSupabase = async (userId: string, token: string) => {
   }
 };
 
+const getWebVapidKey = (): string | null => {
+  const env = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
+  const vapidKey = env?.VITE_FIREBASE_VAPID_KEY ?? '';
+
+  const trimmed = vapidKey.trim();
+  if (!trimmed) {
+    console.warn('[FCM] Web push disabled: missing VITE_FIREBASE_VAPID_KEY. Configure it in the environment to enable browser notifications.');
+    return null;
+  }
+
+  return trimmed;
+};
+
 /**
  * Registriert das Gerät für Push-Benachrichtigungen und speichert den Token in Supabase
  */
@@ -69,10 +82,15 @@ export const requestFirebaseToken = async (userId: string): Promise<string | nul
     console.log(`[FCM] requestFirebaseToken called for user: ${userId} (native=${Capacitor.isNativePlatform()})`);
     if (Capacitor.isNativePlatform()) {
       return requestNativeToken(userId);
-    } else {
-      console.log('[FC] Skipping native token request — running on web');
-      return requestWebToken(userId);
     }
+
+    const vapidKey = getWebVapidKey();
+    if (!vapidKey) {
+      return null;
+    }
+
+    console.log('[FCM] Running on web with configured VAPID key');
+    return requestWebToken(userId, vapidKey);
   } catch (e) {
     console.warn('[FCM] requestFirebaseToken failed:', e);
     return null;
@@ -161,7 +179,7 @@ const requestNativeToken = async (userId: string): Promise<string | null> => {
   }
 };
 
-const requestWebToken = async (userId: string): Promise<string | null> => {
+const requestWebToken = async (userId: string, vapidKey: string): Promise<string | null> => {
   try {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
@@ -185,9 +203,6 @@ const requestWebToken = async (userId: string): Promise<string | null> => {
     if (ok && fcmSupported) {
       try {
         const { getToken } = await import('firebase/messaging');
-        const vapidKey =
-          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_VAPID_KEY) ||
-          'BFamja8NGJwmtzCNEA7i9JPX6CBC5DS-s1rA6USxv3QGorqRvkw6uPe5dBwXfyJmqa1iZYGU2POzvtWvBho_8H8';
         const token = await getToken(fcmMessaging, {
           vapidKey: String(vapidKey).trim(),
           serviceWorkerRegistration: swRegistration || undefined
@@ -201,7 +216,7 @@ const requestWebToken = async (userId: string): Promise<string | null> => {
       }
     }
 
-    console.warn('[FCM] Web push not available on this deployment (GitHub Pages subpath). Use native Android for push.');
+    console.warn('[FCM] Web push not available on this deployment (GitHub Pages subpath or missing service worker). Use native Android for push.');
     return null;
   } catch (error) {
     console.error('Web FCM Fehler:', error);

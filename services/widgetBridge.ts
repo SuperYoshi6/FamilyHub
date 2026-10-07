@@ -1,5 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
+const WIDGETS_ENABLED = false; // Vorerst deaktiviert
+
 interface WidgetBridgePlugin {
     setShoppingData(options: { items: string; count: string }): Promise<void>;
     setCalendarData(options: { events: string; count: string }): Promise<void>;
@@ -9,13 +11,12 @@ interface WidgetBridgePlugin {
     notifyUpdate(): Promise<void>;
 }
 
-// registerPlugin creates a proxy that connects to the native plugin registered in MainActivity.java
-const WidgetBridge = Capacitor.isNativePlatform()
+const WidgetBridge = (WIDGETS_ENABLED && Capacitor.isNativePlatform())
     ? registerPlugin<WidgetBridgePlugin>('WidgetBridge')
     : null;
 
 export async function updateShoppingWidget(items: string[], uncheckedCount: number) {
-    if (!WidgetBridge) return;
+    if (!WIDGETS_ENABLED || !WidgetBridge) return;
     const text = items.length > 0
         ? items.slice(0, 8).map(i => `• ${i}`).join('\n')
         : 'Keine Einträge';
@@ -29,7 +30,7 @@ export async function updateShoppingWidget(items: string[], uncheckedCount: numb
 }
 
 export async function updateCalendarWidget(events: string[]) {
-    if (!WidgetBridge) return;
+    if (!WIDGETS_ENABLED || !WidgetBridge) return;
     const text = events.length > 0
         ? events.slice(0, 5).map(e => `• ${e}`).join('\n')
         : 'Keine Termine';
@@ -43,7 +44,7 @@ export async function updateCalendarWidget(events: string[]) {
 }
 
 export async function updateTasksWidget(tasks: string[]) {
-    if (!WidgetBridge) return;
+    if (!WIDGETS_ENABLED || !WidgetBridge) return;
     const text = tasks.length > 0
         ? tasks.slice(0, 5).map(t => `• ${t}`).join('\n')
         : 'Keine Aufgaben';
@@ -57,7 +58,7 @@ export async function updateTasksWidget(tasks: string[]) {
 }
 
 export async function updateMealPlanWidget(meals: string[]) {
-    if (!WidgetBridge) return;
+    if (!WIDGETS_ENABLED || !WidgetBridge) return;
     const text = meals.length > 0
         ? meals.map(m => `• ${m}`).join('\n')
         : 'Keine Mahlzeiten';
@@ -71,7 +72,7 @@ export async function updateMealPlanWidget(meals: string[]) {
 }
 
 export async function updateMealRequestsWidget(requests: string[]) {
-    if (!WidgetBridge) return;
+    if (!WIDGETS_ENABLED || !WidgetBridge) return;
     const text = requests.length > 0
         ? requests.slice(0, 5).map(r => `• ${r}`).join('\n')
         : 'Keine Wünsche';

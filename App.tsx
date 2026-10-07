@@ -506,8 +506,8 @@ const App: React.FC = () => {
       const settingsRow = appSettings && appSettings.length > 0 ? appSettings[0] : null;
       if (settingsRow) {
         setMaintenanceMode(!!settingsRow.maintenance_mode);
-        setMaintenanceStart(settingsRow.maintenance_start || '');
-        setMaintenanceEnd(settingsRow.maintenance_end || '');
+        setMaintenanceStart(formatForDateTimeLocal(settingsRow.maintenance_start));
+        setMaintenanceEnd(formatForDateTimeLocal(settingsRow.maintenance_end));
         setDisabledTabs(settingsRow.disabled_tabs || {});
         if (typeof settingsRow.global_liquid_glass_enabled === 'boolean') setGlobalLiquidGlassEnabled(settingsRow.global_liquid_glass_enabled);
         if (typeof settingsRow.global_autumn_enabled === 'boolean') setGlobalAutumnEnabled(settingsRow.global_autumn_enabled);
@@ -1608,9 +1608,13 @@ const App: React.FC = () => {
       case AppRoute.SETTINGS:
         PageComponent = <SettingsPage currentUser={currentUser} onUpdateUser={(updates) => setCurrentUser(prev => prev ? { ...prev, ...updates } : prev)} onUpdateFamilyMember={updateFamilyMember} onLogout={handleLogout} onClose={() => setCurrentRoute(AppRoute.DASHBOARD)} darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} enableSwipe={enableSwipe} onToggleSwipe={() => setEnableSwipe(!enableSwipe)} autumnMode={autumnMode} onToggleAutumnMode={() => setAutumnMode(!autumnMode)} liquidGlass={liquidGlass} onToggleLiquidGlass={() => setLiquidGlass(!liquidGlass)} globalLiquidGlassEnabled={globalLiquidGlassEnabled} onToggleGlobalLiquidGlass={() => setGlobalLiquidGlassEnabled(!globalLiquidGlassEnabled)} globalAutumnEnabled={globalAutumnEnabled} onToggleGlobalAutumn={() => setGlobalAutumnEnabled(!globalAutumnEnabled)} onTriggerSecurityScreen={triggerSecurityScreen} disabledTabs={disabledTabs} onToggleTabDisabled={(route) => setDisabledTabs(prev => ({ ...prev, [route]: !prev[route] }))} maintenanceMode={maintenanceMode} onToggleMaintenance={() => {
           const newVal = !maintenanceMode;
+          const hasExpiredEnd = newVal && maintenanceEnd && new Date(maintenanceEnd).getTime() <= Date.now();
+          if (hasExpiredEnd) {
+            setMaintenanceEnd('');
+          }
           setMaintenanceMode(newVal);
           if (newVal) {
-            const timeframe = maintenanceStart && maintenanceEnd ? ` (${new Date(maintenanceStart).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} – ${new Date(maintenanceEnd).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })})` : '';
+            const timeframe = maintenanceStart && maintenanceEnd && !hasExpiredEnd ? ` (${new Date(maintenanceStart).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} – ${new Date(maintenanceEnd).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })})` : '';
             addNotification('🔧 Wartung geplant', `Der Wartungsmodus wurde aktiviert.${timeframe}`, AppRoute.SETTINGS);
             maintenanceEndNotifiedRef.current = false;
           }
@@ -1789,5 +1793,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
-

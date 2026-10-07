@@ -3,7 +3,7 @@ import { FamilyMember, FeedbackItem, NewsItem, AppRoute, CalendarEvent } from '.
 import { ArrowLeft, ArrowRight, Save, LogOut, Moon, Sun, Wand2, Loader2, Info, MessageSquare, Star, ChevronRight, Check, Globe, Users, KeyRound, Image as ImageIcon, Link as LinkIcon, Camera, LayoutList, Mail, UserPlus, Send, Inbox, Trash2, CreditCard as Edit, Bell, Lock, Database, Download, Activity, CreditCard as Edit2, PenTool, X, Droplets, Zap, Gift, Smartphone, Calendar, ShoppingCart, Eye, EyeOff, LayoutGrid as Layout, Shield, FileText, ExternalLink, Wrench, Snowflake, RotateCcw, Utensils, Palmtree, Leaf, Trophy, Target, MapPin } from 'lucide-react';
 import { generateAvatar } from '../services/gemini';
 import { compressImage } from '../services/imageUtils';
-import { getNotificationPrefs, saveNotificationPrefs } from '../services/backend';
+import { getNotificationPrefs, saveNotificationPrefs, clearMutationQueue } from '../services/backend';
 import Logo from '../components/Logo';
 import { t, Language } from '../services/translations';
 
@@ -167,36 +167,72 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
 
     const requestNotifPerm = async () => {
         try {
-            const { LocalNotifications } = await import('@capacitor/local-notifications');
-            const res = await LocalNotifications.requestPermissions();
-            setNotifPermStatus(res.display === 'granted' ? 'Erlaubt' : 'Nicht erlaubt');
+            const { Capacitor } = await import('@capacitor/core');
+            if (Capacitor.isNativePlatform()) {
+                const { LocalNotifications } = await import('@capacitor/local-notifications');
+                const res = await LocalNotifications.requestPermissions();
+                setNotifPermStatus(res.display === 'granted' ? 'Erlaubt' : 'Nicht erlaubt');
+                if (res.display !== 'granted') {
+                    const { App } = await import('@capacitor/app');
+                    await App.openSettings();
+                }
+            } else {
+                setNotifPermStatus(prev => prev === 'Erlaubt' ? 'Nicht erlaubt' : 'Erlaubt');
+            }
         } catch (e) {
-            alert('Benachrichtigungsberechtigung fehlgeschlagen');
+            try {
+                const { App } = await import('@capacitor/app');
+                await App.openSettings();
+            } catch {}
         }
     };
 
     const requestGeoPerm = async () => {
         try {
-            const { Geolocation } = await import('@capacitor/geolocation');
-            const res = await Geolocation.requestPermissions();
-            setGeoPermStatus(res.location === 'granted' ? 'Erlaubt' : 'Nicht erlaubt');
+            const { Capacitor } = await import('@capacitor/core');
+            if (Capacitor.isNativePlatform()) {
+                const { Geolocation } = await import('@capacitor/geolocation');
+                const res = await Geolocation.requestPermissions();
+                setGeoPermStatus(res.location === 'granted' ? 'Erlaubt' : 'Nicht erlaubt');
+                if (res.location !== 'granted') {
+                    const { App } = await import('@capacitor/app');
+                    await App.openSettings();
+                }
+            } else {
+                setGeoPermStatus(prev => prev === 'Erlaubt' ? 'Nicht erlaubt' : 'Erlaubt');
+            }
         } catch (e) {
-            alert('Standortberechtigung fehlgeschlagen');
+            try {
+                const { App } = await import('@capacitor/app');
+                await App.openSettings();
+            } catch {}
         }
     };
 
     const requestFilePerm = async () => {
-        alert('Zugriff auf Dateien/Fotos erfolgt direkt beim Hochladen deines Profilbildes.');
-        setFilePermStatus(true);
+        setFilePermStatus(prev => !prev);
     };
 
     const requestCalPerm = async () => {
         try {
-            const CalendarPlugin = await import('@ebarooni/capacitor-calendar');
-            const res = await CalendarPlugin.Calendar.requestPermissions();
-            setCalPermStatus(res.readCalendar === 'granted' && res.writeCalendar === 'granted');
+            const { Capacitor } = await import('@capacitor/core');
+            if (Capacitor.isNativePlatform()) {
+                const CalendarPlugin = await import('@ebarooni/capacitor-calendar');
+                const res = await CalendarPlugin.Calendar.requestPermissions();
+                const granted = res.readCalendar === 'granted' && res.writeCalendar === 'granted';
+                setCalPermStatus(granted);
+                if (!granted) {
+                    const { App } = await import('@capacitor/app');
+                    await App.openSettings();
+                }
+            } else {
+                setCalPermStatus(prev => !prev);
+            }
         } catch (e) {
-            alert('Kalender-Berechtigung konnte nicht angefordert werden');
+            try {
+                const { App } = await import('@capacitor/app');
+                await App.openSettings();
+            } catch {}
         }
     };
 
@@ -595,7 +631,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     <span className="font-bold text-gray-800 dark:text-white">{t('settings.dark_mode', lang)}</span>
                                 </div>
                                 <button onClick={onToggleDarkMode} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none ${darkMode ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${darkMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 pointer-events-none ${darkMode ? 'translate-x-6' : 'translate-x-0'}`} />
                                 </button>
                             </div>
 
@@ -609,7 +645,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     <span className="font-bold text-gray-800 dark:text-white">Wischen zum Wechseln</span>
                                 </div>
                                 <button onClick={onToggleSwipe} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${enableSwipe ? 'bg-cyan-500' : 'bg-gray-300'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${enableSwipe ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 pointer-events-none ${enableSwipe ? 'translate-x-6' : 'translate-x-0'}`} />
                                 </button>
                             </div>
 
@@ -625,7 +661,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             <span className="font-bold text-gray-800 dark:text-white">Weihnachts-Modus</span>
                                         </div>
                                         <button onClick={onToggleChristmasMode} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${christmasMode ? 'bg-red-500' : 'bg-gray-300'}`}>
-                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${christmasMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 pointer-events-none ${christmasMode ? 'translate-x-6' : 'translate-x-0'}`} />
                                         </button>
                                     </div>
                                 </>
@@ -645,7 +681,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             </div>
                                         </div>
                                         <button onClick={() => { if (!isLiquidLocked) onToggleLiquidGlass(); }} disabled={isLiquidLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${liquidGlass ? 'bg-blue-500' : 'bg-gray-300'} ${isLiquidLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${liquidGlass ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 pointer-events-none ${liquidGlass ? 'translate-x-6' : 'translate-x-0'}`} />
                                         </button>
                                     </div>
                                     {isLiquidLocked && (
@@ -666,7 +702,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                             <span className="font-bold text-gray-800 dark:text-white">Herbst-Modus</span>
                                         </div>
                                         <button onClick={() => { if (!isAutumnLocked) onToggleAutumnMode(); }} disabled={isAutumnLocked} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none ring-0 ${autumnMode ? 'bg-orange-500' : 'bg-gray-300'} ${isAutumnLocked ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${autumnMode ? 'translate-x-6' : 'translate-x-0'}`} />
+                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 pointer-events-none ${autumnMode ? 'translate-x-6' : 'translate-x-0'}`} />
                                         </button>
                                     </div>
                                     {isAutumnLocked && (
@@ -674,36 +710,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                     )}
                                 </>
                             )}
-                        </div>
-                    </section>
-
-                    {/* System Permissions Section */}
-                    <section className="space-y-4">
-                        <h2 className="text-sm font-bold text-gray-500 dark:text-gray-400 tracking-wider ml-1">Geräte-Berechtigungen</h2>
-                        <div className={`p-4 rounded-2xl shadow-sm space-y-2 ${sectionBgClass}`}>
-                            {[
-                                { key: 'notif', label: 'Benachrichtigung', icon: Bell, color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400', status: notifPermStatus === 'Erlaubt', toggle: requestNotifPerm },
-                                { key: 'files', label: 'Zugriff auf Dateien (Fotos)', icon: ImageIcon, color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400', status: filePermStatus, toggle: requestFilePerm },
-                                { key: 'calendar', label: 'Kalender (Samsung Sync)', icon: Calendar, color: 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400', status: calPermStatus, toggle: requestCalPerm },
-                                { key: 'location', label: 'Standort (Wetter)', icon: MapPin, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400', status: geoPermStatus === 'Erlaubt', toggle: requestGeoPerm },
-                            ].map((item, i) => (
-                                <div key={item.key}>
-                                    {i > 0 && <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>}
-                                    <div className="flex items-center justify-between py-2">
-                                        <div className="flex items-center space-x-3">
-                                            <div className={`${item.color} p-2 rounded-full`}>
-                                                <item.icon size={20} />
-                                            </div>
-                                            <span className="font-bold text-gray-800 dark:text-white text-sm">
-                                                {item.label}
-                                            </span>
-                                        </div>
-                                        <button onClick={item.toggle} className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none ${item.status ? 'bg-blue-500' : 'bg-gray-300'}`}>
-                                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${item.status ? 'translate-x-6' : 'translate-x-0'}`} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
                         </div>
                     </section>
 
@@ -932,7 +938,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                 value={broadcastTitle}
                                                 onChange={(e) => setBroadcastTitle(e.target.value)}
                                                 placeholder="z.B. Update verfügbar!"
-                                                className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                                className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             />
                                         </div>
                                         <div>
@@ -942,7 +948,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                 onChange={(e) => setBroadcastMessage(e.target.value)}
                                                 placeholder="Ihre Broadcast-Nachricht..."
                                                 rows={3}
-                                                className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                                                className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
                                             />
                                         </div>
                                         <button
@@ -1036,6 +1042,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                                                     <Trash2 size={10} /> {t.label}
                                                 </button>
                                             ))}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    clearMutationQueue();
+                                                    alert('Sync-Warteschlange wurde geleert.');
+                                                    window.location.reload();
+                                                }}
+                                                className="col-span-2 text-[10px] bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30 font-bold px-2 py-2 rounded-lg transition flex items-center justify-center gap-1 mt-1"
+                                            >
+                                                <RotateCcw size={10} /> Sync-Warteschlange leeren
+                                            </button>
                                         </div>
                                         <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-2">Löscht alle Einträge der Tabelle aus der Supabase-Datenbank.</div>
                                     </div>

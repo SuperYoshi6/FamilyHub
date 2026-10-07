@@ -157,7 +157,8 @@ CREATE TABLE IF NOT EXISTS feedback (
     text TEXT NOT NULL,
     rating INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    read BOOLEAN DEFAULT FALSE
+    read BOOLEAN DEFAULT FALSE,
+    category TEXT CHECK (category IS NULL OR category IN ('bug', 'feedback'))
 );
 
 -- Table: notifications
