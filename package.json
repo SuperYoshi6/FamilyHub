@@ -12,7 +12,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:icons": "tauri icon",
-    "cap:sync": "vite build && npx cap sync",
+    "cap:sync": "vite build --mode capacitor && npx cap sync",
     "cap:open": "npx cap open android",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",

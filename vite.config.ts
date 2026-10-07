@@ -13,7 +13,8 @@ export default defineConfig(({ mode }) => {
                   mode === 'tauri' ||
                   process.env.npm_lifecycle_event?.includes('tauri');
 
-  const isCapacitor = process.env.CAPACITOR ||
+  const isCapacitor = mode === 'capacitor' ||
+                      process.env.CAPACITOR ||
                       process.env.npm_lifecycle_event?.includes('cap');
 
   return {
